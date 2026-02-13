@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+  <title>Product Details</title>
+  <style>
+    .container { display: flex; padding: 40px; }
+    .image { width: 50%; }
+    .details { width: 50%; padding-left: 40px; }
+    .price { color: red; font-size: 30px; }
+    .old-price { text-decoration: line-through; color: gray; }
+    button { padding: 10px 20px; margin-right: 10px; }
+  </style>
+</head>
+<body>
+
+<div class="container">
+
+  <div class="image">
+    <img th:src="@{${product.imageUrl}}" width="400"/>
+  </div>
+
+  <div class="details">
+    <h2 th:text="${product.name}"></h2>
+    <p th:text="${product.description}"></p>
+
+    <h3 class="price">
+      Rs <span th:text="${product.price}"></span>
+    </h3>
+
+    <p class="old-price">
+      Rs <span th:text="${product.oldPrice}"></span>
+    </p>
+
+    <form th:action="@{/cart/add/{id}(id=${product.id})}" method="post">
+      <button type="submit">Add to Cart</button>
+    </form>
+
+    <button>Buy Now</button>
+  </div>
+
+</div>
+
+</body>
+</html>

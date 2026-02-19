@@ -29,10 +29,10 @@ public class UserService {
 	    	 
 	    	 
 	     }
-	     public void updateAdmin(User User) {
+	     public void updateUser(User user) {
 	    	 
-	    	 userRepo.findById(User.getId()).orElseThrow(()->new RuntimeException("User with id"+User.getId()+"Not found"));
-	    	 userRepo.save(User);
+	    	 userRepo.findById(user.getId()).orElseThrow(()->new RuntimeException("User with id"+user.getId()+"Not found"));
+	    	 userRepo.save(user);
 	    	 
 	     }
 	     public void deleteUser (long id) {

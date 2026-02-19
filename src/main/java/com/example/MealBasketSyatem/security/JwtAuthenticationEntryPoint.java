@@ -25,7 +25,7 @@ public class JwtAuthenticationEntryPoint implements AuthenticationEntryPoint {
         ApiResponse<String> errorResponse = new ApiResponse<>(false, "Unauthorized - " + authException.getMessage(), null);
         
         PrintWriter out = response.getWriter();
-        out.print("{\"success\":false,\"message\":\"Unauthorized - " + authException.getMessage() + "\",\"data\":null}");
+        out.print("{\"success\":false,\"message\":\"" + errorResponse.getMessage() + "\",\"data\":null}");
         out.flush();
     }
 }

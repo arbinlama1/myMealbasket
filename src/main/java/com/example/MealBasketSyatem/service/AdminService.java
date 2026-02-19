@@ -4,6 +4,7 @@ import java.util.List;
 import java.util.Objects;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
 import com.example.MealBasketSyatem.entity.Admin;
@@ -13,9 +14,12 @@ import com.example.MealBasketSyatem.repo.AdminRepo;
 public class AdminService {
 	     @Autowired
 	private AdminRepo adminRepo;
+	
+	     @Autowired
+	private PasswordEncoder passwordEncoder;
 
 	     public List<Admin>getAllAdmins(){
-	    	return  adminRepo.findAll();
+	    	return adminRepo.findAll();
 	    	
 	     }
 	     public Admin getAdminById(long id) {
@@ -29,7 +33,7 @@ public class AdminService {
 	    	 
 	     }
 	     
-	     
+
 	     public void updateAdmin(Admin admin) {
 	    	 
 	    	adminRepo.findById(admin.getId()).orElseThrow(()->new RuntimeException("admin with id"+admin.getId()+"Not found"));
@@ -42,16 +46,27 @@ public class AdminService {
 	    	 
 	     }
 	     public boolean verifyCredentials(String email, String password) {
-
-	    		Admin admin = adminRepo.findByEmail(email);
-             return Objects.equals(admin.getPassword(), password);
+	    		Admin admin = findByEmail(email);
+	    		if (admin == null) {
+	    			return false;
+	    		}
+	    		return Objects.equals(admin.getPassword(), password);
 
          }
 
 		 public boolean VerifyCredentials(String email, String password) {
-			// TODO Auto-generated method stub
+			Admin admin = findByEmail(email);
+			if (admin != null && passwordEncoder.matches(password, admin.getPassword())) {
+				return true;
+			}
 			return false;
 		 }
 
-
+		 public Admin findByEmail(String email) {
+			List<Admin> admins = adminRepo.findAllByEmail(email);
+			if (admins == null || admins.isEmpty()) {
+				return null;
+			}
+			return admins.get(0);
+		 }
 }

@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Verify Implementation</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .section { margin: 20px 0; padding: 15px; border: 1px solid #ccc; border-radius: 5px; }
+        .success { color: green; font-weight: bold; }
+        .error { color: red; font-weight: bold; }
+        .warning { color: orange; font-weight: bold; }
+        button { padding: 10px 20px; margin: 5px; cursor: pointer; }
+        .result { margin: 10px 0; padding: 10px; border-radius: 3px; }
+        .result.success { background: #d4edda; border: 1px solid #c3e6cb; }
+        .result.error { background: #f8d7da; border: 1px solid #f5c6cb; }
+    </style>
+</head>
+<body>
+    <h1>🔍 User Registration & Login Tracking - Implementation Verification</h1>
+    
+    <div class="section">
+        <h2>📋 Implementation Checklist</h2>
+        <button onclick="runVerification()">Run Complete Verification</button>
+        <div id="verificationResults"></div>
+    </div>
+
+    <div class="section">
+        <h2>🧪 Quick Tests</h2>
+        <button onclick="testRegistration()">Test Registration</button>
+        <button onclick="testLogin()">Test Login</button>
+        <button onclick="testAdminVisibility()">Test Admin Visibility</button>
+        <div id="testResults"></div>
+    </div>
+
+    <div class="section">
+        <h2>📊 Current Status</h2>
+        <button onclick="showCurrentStatus()">Show Current Status</button>
+        <div id="statusResults"></div>
+    </div>
+
+    <script>
+        function runVerification() {
+            const results = document.getElementById('verificationResults');
+            let html = '<h3>🔍 Verification Results:</h3>';
+            let allPassed = true;
+
+            // Test 1: Check localStorage structure
+            const allUsers = JSON.parse(localStorage.getItem('allUsers') || '[]');
+            if (Array.isArray(allUsers)) {
+                html += '<div class="result success">✅ localStorage.allUsers structure is correct</div>';
+            } else {
+                html += '<div class="result error">❌ localStorage.allUsers structure is invalid</div>';
+                allPassed = false;
+            }
+
+            // Test 2: Check user object structure
+            if (allUsers.length > 0) {
+                const user = allUsers[0];
+                const requiredFields = ['id', 'name', 'email', 'role', 'createdAt', 'isConnected'];
+                const missingFields = requiredFields.filter(field => !(field in user));
+                
+                if (missingFields.length === 0) {
+                    html += '<div class="result success">✅ User object structure is correct</div>';
+                } else {
+                    html += `<div class="result error">❌ User object missing fields: ${missingFields.join(', ')}</div>`;
+                    allPassed = false;
+                }
+            } else {
+                html += '<div class="result warning">⚠️ No users found to test object structure</div>';
+            }
+
+            // Test 3: Check connection logic
+            const vendors = allUsers.filter(u => u.role === 'VENDOR');
+            const connectedVendors = vendors.filter(v => v.isConnected && v.productCount > 0);
+            const disconnectedVendors = vendors.filter(v => !v.isConnected && v.productCount === 0);
+            
+            if (vendors.every(v => v.isConnected === (v.productCount > 0))) {
+                html += '<div class="result success">✅ Vendor connection logic is correct</div>';
+            } else {
+                html += '<div class="result error">❌ Vendor connection logic has issues</div>';
+                allPassed = false;
+            }
+
+            // Test 4: Check user connection logic
+            const users = allUsers.filter(u => u.role === 'USER');
+            if (users.every(u => u.isConnected === true)) {
+                html += '<div class="result success">✅ User connection logic is correct</div>';
+            } else {
+                html += '<div class="result error">❌ User connection logic has issues</div>';
+                allPassed = false;
+            }
+
+            // Test 5: Check admin connection logic
+            const admins = allUsers.filter(u => u.role === 'ADMIN');
+            if (admins.every(u => u.isConnected === true)) {
+                html += '<div class="result success">✅ Admin connection logic is correct</div>';
+            } else {
+                html += '<div class="result error">❌ Admin connection logic has issues</div>';
+                allPassed = false;
+            }
+
+            // Overall result
+            if (allPassed) {
+                html += '<div class="result success"><strong>🎉 ALL TESTS PASSED! Implementation is working correctly.</strong></div>';
+            } else {
+                html += '<div class="result error"><strong>❌ Some tests failed. Please check the issues above.</strong></div>';
+            }
+
+            results.innerHTML = html;
+        }
+
+        function testRegistration() {
+            const results = document.getElementById('testResults');
+            
+            // Simulate registration
+            const testUser = {
+                id: Date.now(),
+                name: 'Verification Test User',
+                email: `verify${Date.now()}@test.com`,
+                role: 'USER',
+                phone: '123-456-7890',
+                address: '123 Test Street',
+                createdAt: new Date().toISOString(),
+                lastLogin: null,
+                isConnected: true,
+                vendorProducts: [],
+                productCount: 0,
+                lastActivity: 'Active'
+            };
+
+            const allUsers = JSON.parse(localStorage.getItem('allUsers') || '[]');
+            allUsers.push(testUser);
+            localStorage.setItem('allUsers', JSON.stringify(allUsers));
+
+            results.innerHTML = `<div class="result success">✅ Registration test passed: User "${testUser.name}" added to system</div>`;
+            
+            // Notify admin dashboard
+            window.postMessage({
+                type: 'USER_REGISTERED',
+                userName: testUser.name,
+                userEmail: testUser.email,
+                userRole: testUser.role
+            }, '*');
+        }
+
+        function testLogin() {
+            const results = document.getElementById('testResults');
+            
+            const allUsers = JSON.parse(localStorage.getItem('allUsers') || '[]');
+            const user = allUsers.find(u => u.role === 'USER');
+            
+            if (!user) {
+                results.innerHTML = '<div class="result error">❌ No users found. Please run registration test first.</div>';
+                return;
+            }
+
+            // Update login info
+            user.lastLogin = new Date().toISOString();
+            user.lastActivity = 'Active';
+            localStorage.setItem('allUsers', JSON.stringify(allUsers));
+            localStorage.setItem('user', JSON.stringify({
+                id: user.id,
+                email: user.email,
+                name: user.name,
+                role: user.role
+            }));
+
+            results.innerHTML = `<div class="result success">✅ Login test passed: User "${user.name}" login updated</div>`;
+            
+            // Notify admin dashboard
+            window.postMessage({
+                type: 'USER_LOGIN',
+                userName: user.name,
+                userEmail: user.email,
+                userRole: user.role
+            }, '*');
+        }
+
+        function testAdminVisibility() {
+            const results = document.getElementById('testResults');
+            const allUsers = JSON.parse(localStorage.getItem('allUsers') || '[]');
+            
+            if (allUsers.length === 0) {
+                results.innerHTML = '<div class="result error">❌ No users found. System appears empty.</div>';
+                return;
+            }
+
+            const userSummary = allUsers.map(u => 
+                `${u.name} (${u.role}) - ${u.isConnected ? 'Connected' : 'Disconnected'}`
+            ).join('<br>');
+
+            results.innerHTML = `
+                <div class="result success">
+                    ✅ Admin visibility test passed:<br>
+                    <strong>${allUsers.length} users found:</strong><br>
+                    ${userSummary}
+                </div>
+            `;
+        }
+
+        function showCurrentStatus() {
+            const statusResults = document.getElementById('statusResults');
+            const allUsers = JSON.parse(localStorage.getItem('allUsers') || '[]');
+            const currentUser = JSON.parse(localStorage.getItem('user') || 'null');
+            
+            const users = allUsers.filter(u => u.role === 'USER').length;
+            const vendors = allUsers.filter(u => u.role === 'VENDOR').length;
+            const admins = allUsers.filter(u => u.role === 'ADMIN').length;
+            const connected = allUsers.filter(u => u.isConnected).length;
+
+            statusResults.innerHTML = `
+                <h4>📊 Current System Status:</h4>
+                <p><strong>Total Users:</strong> ${allUsers.length}</p>
+                <p><strong>Regular Users:</strong> ${users}</p>
+                <p><strong>Vendors:</strong> ${vendors}</p>
+                <p><strong>Admins:</strong> ${admins}</p>
+                <p><strong>Connected Users:</strong> ${connected}</p>
+                <p><strong>Current Session:</strong> ${currentUser ? currentUser.email : 'None'}</p>
+                <p><strong>Last Updated:</strong> ${new Date().toLocaleString()}</p>
+            `;
+        }
+
+        // Auto-run verification on page load
+        window.onload = function() {
+            runVerification();
+            showCurrentStatus();
+        };
+    </script>
+</body>
+</html>

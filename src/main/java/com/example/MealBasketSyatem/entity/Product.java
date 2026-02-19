@@ -2,6 +2,8 @@ package com.example.MealBasketSyatem.entity;
 
 import java.util.List;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
+import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
@@ -19,15 +21,27 @@ public class Product {
 	@GeneratedValue(strategy = GenerationType.IDENTITY)
 	private long id;
 
+	@Column(name="name", nullable=false)
 	private String name;
+
+	@Column(name="price", nullable=false)
 	private double price;
+
+	@Column(name="description", columnDefinition="TEXT")
 	private String description;
 
+	@Column(name="image", columnDefinition = "TEXT")
+	private String image;
+
+	@Column(name="category", length=100)
+	private String category;
+
 	@ManyToOne
-	@JoinColumn(name = "vendor_id")  // Foreign key to Vendor
+	@JoinColumn(name = "vendor_id", nullable=false)
 	private Vendor vendor;
 	
 	@OneToMany(mappedBy = "product")
+	@JsonIgnore
 	private List<Order> orders;
 
 	// Getters and Setters
@@ -42,6 +56,12 @@ public class Product {
 
 	public String getDescription() { return description; }
 	public void setDescription(String description) { this.description = description; }
+
+	public String getImage() { return image; }
+	public void setImage(String image) { this.image = image; }
+
+	public String getCategory() { return category; }
+	public void setCategory(String category) { this.category = category; }
 
 	public Vendor getVendor() { return vendor; }
 	public void setVendor(Vendor vendor) { this.vendor = vendor; }

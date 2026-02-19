@@ -10,4 +10,5 @@ import com.example.MealBasketSyatem.entity.Vendor;
 @Repository
 public interface VendorRepo extends JpaRepository<Vendor, Long> {
     Vendor findByName(String name);
+    Vendor findByEmail(String email);
 }

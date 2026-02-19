@@ -45,6 +45,11 @@ public class ProductService {
 		return productRepo.findByVendor_Name(vendorName);
 	}
 
+	// ✅ Get products by vendor ID
+	public List<Product> getProductsByVendorId(Long vendorId) {
+		return productRepo.findByVendorId(vendorId);
+	}
+
 	// ✅ Get products by product name (optional)
 	public List<Product> getProductsByName(String name) {
 		return productRepo.findByName(name);

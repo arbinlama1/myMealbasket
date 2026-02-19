@@ -1,0 +1,390 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Vendor Registration & Login Tracking</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .section { margin: 20px 0; padding: 15px; border: 1px solid #ccc; border-radius: 5px; }
+        button { padding: 10px 20px; margin: 5px; cursor: pointer; }
+        .success { color: green; font-weight: bold; }
+        .error { color: red; font-weight: bold; }
+        .warning { color: orange; font-weight: bold; }
+        .vendor-card { border: 1px solid #ddd; padding: 10px; margin: 10px 0; border-radius: 5px; border-left: 5px solid #ff9800; }
+        .connected { border-left-color: green; }
+        .disconnected { border-left-color: red; }
+    </style>
+</head>
+<body>
+    <h1>🏪 Test Vendor Registration & Login Tracking</h1>
+    <p>This page tests vendor registration and login tracking to ensure vendors appear in the admin dashboard.</p>
+
+    <div class="section">
+        <h2>📊 Current System Status</h2>
+        <button onclick="checkSystemStatus()">Check System Status</button>
+        <div id="systemStatus"></div>
+    </div>
+
+    <div class="section">
+        <h2>🏪 Vendor Registration Test</h2>
+        <button onclick="simulateVendorRegistration()">Simulate Vendor Registration</button>
+        <button onclick="simulateMultipleVendorRegistrations()">Simulate Multiple Vendors</button>
+        <div id="registrationResults"></div>
+    </div>
+
+    <div class="section">
+        <h2>🔑 Vendor Login Test</h2>
+        <button onclick="simulateVendorLogin()">Simulate Vendor Login</button>
+        <button onclick="simulateAllVendorLogin()">Login All Vendors</button>
+        <div id="loginResults"></div>
+    </div>
+
+    <div class="section">
+        <h2>👥 Admin Dashboard Simulation</h2>
+        <button onclick="simulateAdminDashboard()">Simulate Admin Dashboard View</button>
+        <div id="adminSimulation"></div>
+    </div>
+
+    <div class="section">
+        <h2>🧪 Test Real Vendors (Heera & Nabaraj)</h2>
+        <button onclick="addHeeraNabaraj()">Add Heera & Nabaraj</button>
+        <button onclick="loginHeeraNabaraj()">Login Heera & Nabaraj</button>
+        <div id="realVendorResults"></div>
+    </div>
+
+    <div class="section">
+        <h2>🛠️ Debug Tools</h2>
+        <button onclick="clearAllData()">Clear All Data</button>
+        <button onclick="showLocalStorage()">Show localStorage Contents</button>
+        <div id="debugResults"></div>
+    </div>
+
+    <script>
+        function checkSystemStatus() {
+            const status = document.getElementById('systemStatus');
+            const allUsers = JSON.parse(localStorage.getItem('allUsers') || '[]');
+            const allVendorProducts = JSON.parse(localStorage.getItem('allVendorProducts') || '{}');
+            const currentUser = JSON.parse(localStorage.getItem('user') || 'null');
+            
+            const vendors = allUsers.filter(u => u.role === 'VENDOR');
+            const connectedVendors = vendors.filter(v => v.isConnected);
+            
+            let html = '<h3>📊 System Status:</h3>';
+            html += `<p><strong>Total Users:</strong> ${allUsers.length}</p>`;
+            html += `<p><strong>Total Vendors:</strong> ${vendors.length}</p>`;
+            html += `<p><strong>Connected Vendors:</strong> ${connectedVendors.length}</p>`;
+            html += `<p><strong>Current User:</strong> ${currentUser ? currentUser.email : 'None'}</p>`;
+            html += `<p><strong>Vendor Product Keys:</strong> ${Object.keys(allVendorProducts).length}</p>`;
+            
+            status.innerHTML = html;
+        }
+
+        function simulateVendorRegistration() {
+            const results = document.getElementById('registrationResults');
+            const allUsers = JSON.parse(localStorage.getItem('allUsers') || '[]');
+            
+            const testVendor = {
+                id: Date.now(),
+                name: 'Test Vendor ' + Math.floor(Math.random() * 1000),
+                email: `vendor${Date.now()}@test.com`,
+                role: 'VENDOR',
+                phone: '987-654-3210',
+                address: '123 Vendor Street',
+                businessName: 'Test Restaurant ' + Math.floor(Math.random() * 1000),
+                businessType: 'Restaurant',
+                createdAt: new Date().toISOString(),
+                lastLogin: null,
+                isConnected: false, // Vendors only connected when have products
+                vendorProducts: [],
+                productCount: 0,
+                lastActivity: 'No products yet'
+            };
+            
+            allUsers.push(testVendor);
+            localStorage.setItem('allUsers', JSON.stringify(allUsers));
+            
+            results.innerHTML = `<div class="success">✅ Vendor Registered: ${testVendor.name} (${testVendor.email})</div>`;
+            
+            // Notify admin dashboard
+            window.postMessage({
+                type: 'VENDOR_REGISTERED',
+                userName: testVendor.name,
+                userEmail: testVendor.email,
+                userRole: testVendor.role,
+                vendorName: testVendor.businessName
+            }, '*');
+            
+            checkSystemStatus();
+        }
+
+        function simulateMultipleVendorRegistrations() {
+            const results = document.getElementById('registrationResults');
+            const allUsers = JSON.parse(localStorage.getItem('allUsers') || '[]');
+            
+            const vendors = [
+                {
+                    name: 'Restaurant One',
+                    email: 'restaurant1@test.com',
+                    businessName: 'Restaurant One'
+                },
+                {
+                    name: 'Cafe Two',
+                    email: 'cafe2@test.com',
+                    businessName: 'Cafe Two'
+                },
+                {
+                    name: 'Bakery Three',
+                    email: 'bakery3@test.com',
+                    businessName: 'Bakery Three'
+                }
+            ];
+            
+            let addedCount = 0;
+            vendors.forEach(vendor => {
+                const existingUser = allUsers.find(u => u.email === vendor.email);
+                if (!existingUser) {
+                    const newVendor = {
+                        id: Date.now() + addedCount,
+                        ...vendor,
+                        role: 'VENDOR',
+                        phone: '123-456-789' + addedCount,
+                        address: `${addedCount + 100} Test Street`,
+                        businessType: 'Restaurant',
+                        createdAt: new Date().toISOString(),
+                        lastLogin: null,
+                        isConnected: false,
+                        vendorProducts: [],
+                        productCount: 0,
+                        lastActivity: 'No products yet'
+                    };
+                    allUsers.push(newVendor);
+                    addedCount++;
+                }
+            });
+            
+            localStorage.setItem('allUsers', JSON.stringify(allUsers));
+            results.innerHTML = `<div class="success">✅ Added ${addedCount} vendors to system</div>`;
+            
+            checkSystemStatus();
+        }
+
+        function simulateVendorLogin() {
+            const results = document.getElementById('loginResults');
+            const allUsers = JSON.parse(localStorage.getItem('allUsers') || '[]');
+            
+            const vendors = allUsers.filter(u => u.role === 'VENDOR');
+            if (vendors.length === 0) {
+                results.innerHTML = '<div class="error">❌ No vendors found. Please register vendors first.</div>';
+                return;
+            }
+            
+            const vendor = vendors[0]; // Login first vendor
+            
+            // Update login info
+            vendor.lastLogin = new Date().toISOString();
+            vendor.isConnected = vendor.productCount > 0; // Only connected if has products
+            vendor.lastActivity = vendor.productCount > 0 ? 'Active' : 'No products yet';
+            
+            localStorage.setItem('allUsers', JSON.stringify(allUsers));
+            localStorage.setItem('user', JSON.stringify({
+                id: vendor.id,
+                email: vendor.email,
+                name: vendor.name,
+                role: vendor.role
+            }));
+            localStorage.setItem('token', 'vendor-token-' + Date.now());
+            
+            results.innerHTML = `<div class="success">✅ Vendor Login: ${vendor.name} (${vendor.email})</div>`;
+            
+            // Notify admin dashboard
+            window.postMessage({
+                type: 'USER_LOGIN',
+                userName: vendor.name,
+                userEmail: vendor.email,
+                userRole: vendor.role
+            }, '*');
+            
+            checkSystemStatus();
+        }
+
+        function simulateAllVendorLogin() {
+            const results = document.getElementById('loginResults');
+            const allUsers = JSON.parse(localStorage.getItem('allUsers') || '[]');
+            
+            const vendors = allUsers.filter(u => u.role === 'VENDOR');
+            if (vendors.length === 0) {
+                results.innerHTML = '<div class="error">❌ No vendors found. Please register vendors first.</div>';
+                return;
+            }
+            
+            let loginCount = 0;
+            vendors.forEach(vendor => {
+                vendor.lastLogin = new Date().toISOString();
+                vendor.isConnected = vendor.productCount > 0;
+                vendor.lastActivity = vendor.productCount > 0 ? 'Active' : 'No products yet';
+                loginCount++;
+            });
+            
+            localStorage.setItem('allUsers', JSON.stringify(allUsers));
+            
+            results.innerHTML = `<div class="success">✅ Logged in ${loginCount} vendors</div>`;
+            checkSystemStatus();
+        }
+
+        function simulateAdminDashboard() {
+            const simulation = document.getElementById('adminSimulation');
+            const allUsers = JSON.parse(localStorage.getItem('allUsers') || '[]');
+            
+            const vendors = allUsers.filter(u => u.role === 'VENDOR');
+            const users = allUsers.filter(u => u.role === 'USER');
+            const admins = allUsers.filter(u => u.role === 'ADMIN');
+            
+            let html = '<h3>👥 Admin Dashboard View:</h3>';
+            html += `<p><strong>Total Users:</strong> ${allUsers.length}</p>`;
+            html += `<p><strong>Vendors:</strong> ${vendors.length}</p>`;
+            html += `<p><strong>Regular Users:</strong> ${users.length}</p>`;
+            html += `<p><strong>Admins:</strong> ${admins.length}</p>`;
+            
+            html += '<h4>🏪 Vendors in Admin Dashboard:</h4>';
+            if (vendors.length === 0) {
+                html += '<p class="warning">No vendors found in system.</p>';
+            } else {
+                vendors.forEach(vendor => {
+                    const connectionClass = vendor.isConnected ? 'connected' : 'disconnected';
+                    html += `
+                        <div class="vendor-card ${connectionClass}">
+                            <strong>${vendor.name}</strong> (${vendor.email})<br>
+                            Business: ${vendor.businessName || 'N/A'}<br>
+                            Connected: ${vendor.isConnected ? '✅ Yes' : '❌ No'}<br>
+                            Products: ${vendor.productCount || 0}<br>
+                            Last Login: ${vendor.lastLogin ? new Date(vendor.lastLogin).toLocaleString() : 'Never'}<br>
+                            Activity: ${vendor.lastActivity || 'Unknown'}
+                        </div>
+                    `;
+                });
+            }
+            
+            simulation.innerHTML = html;
+        }
+
+        function addHeeraNabaraj() {
+            const results = document.getElementById('realVendorResults');
+            const allUsers = JSON.parse(localStorage.getItem('allUsers') || '[]');
+            
+            const realVendors = [
+                {
+                    id: Date.now() + 1,
+                    name: 'Heera',
+                    email: 'heera@test.com',
+                    role: 'VENDOR',
+                    phone: '987-654-3210',
+                    address: 'Kathmandu, Nepal',
+                    businessName: 'Heera Restaurant',
+                    businessType: 'Restaurant',
+                    createdAt: new Date().toISOString(),
+                    lastLogin: null,
+                    isConnected: false,
+                    vendorProducts: [],
+                    productCount: 0,
+                    lastActivity: 'No products yet'
+                },
+                {
+                    id: Date.now() + 2,
+                    name: 'Nabaraj',
+                    email: 'nabaraj@test.com',
+                    role: 'VENDOR',
+                    phone: '987-654-3211',
+                    address: 'Pokhara, Nepal',
+                    businessName: 'Nabaraj Restaurant',
+                    businessType: 'Restaurant',
+                    createdAt: new Date().toISOString(),
+                    lastLogin: null,
+                    isConnected: false,
+                    vendorProducts: [],
+                    productCount: 0,
+                    lastActivity: 'No products yet'
+                }
+            ];
+            
+            let addedCount = 0;
+            realVendors.forEach(vendor => {
+                const existingUser = allUsers.find(u => u.email === vendor.email);
+                if (!existingUser) {
+                    allUsers.push(vendor);
+                    addedCount++;
+                }
+            });
+            
+            localStorage.setItem('allUsers', JSON.stringify(allUsers));
+            results.innerHTML = `<div class="success">✅ Added ${addedCount} real vendors (Heera & Nabaraj)</div>`;
+            
+            checkSystemStatus();
+        }
+
+        function loginHeeraNabaraj() {
+            const results = document.getElementById('realVendorResults');
+            const allUsers = JSON.parse(localStorage.getItem('allUsers') || '[]');
+            
+            const heera = allUsers.find(u => u.email === 'heera@test.com');
+            const nabaraj = allUsers.find(u => u.email === 'nabaraj@test.com');
+            
+            let loginCount = 0;
+            if (heera) {
+                heera.lastLogin = new Date().toISOString();
+                heera.isConnected = heera.productCount > 0;
+                heera.lastActivity = heera.productCount > 0 ? 'Active' : 'No products yet';
+                loginCount++;
+            }
+            
+            if (nabaraj) {
+                nabaraj.lastLogin = new Date().toISOString();
+                nabaraj.isConnected = nabaraj.productCount > 0;
+                nabaraj.lastActivity = nabaraj.productCount > 0 ? 'Active' : 'No products yet';
+                loginCount++;
+            }
+            
+            if (loginCount > 0) {
+                localStorage.setItem('allUsers', JSON.stringify(allUsers));
+                results.innerHTML = `<div class="success">✅ Logged in ${loginCount} real vendors (Heera & Nabaraj)</div>`;
+            } else {
+                results.innerHTML = '<div class="error">❌ Heera and Nabaraj not found. Please add them first.</div>';
+            }
+            
+            checkSystemStatus();
+        }
+
+        function clearAllData() {
+            const debug = document.getElementById('debugResults');
+            localStorage.removeItem('allUsers');
+            localStorage.removeItem('allVendorProducts');
+            localStorage.removeItem('user');
+            localStorage.removeItem('token');
+            debug.innerHTML = '<div class="success">✅ All localStorage data cleared</div>';
+            checkSystemStatus();
+        }
+
+        function showLocalStorage() {
+            const debug = document.getElementById('debugResults');
+            const allUsers = JSON.parse(localStorage.getItem('allUsers') || '[]');
+            const allVendorProducts = JSON.parse(localStorage.getItem('allVendorProducts') || '{}');
+            const currentUser = JSON.parse(localStorage.getItem('user') || 'null');
+            
+            let html = '<h3>📦 localStorage Contents:</h3>';
+            html += '<h4>allUsers:</h4>';
+            html += `<pre>${JSON.stringify(allUsers, null, 2)}</pre>`;
+            html += '<h4>allVendorProducts:</h4>';
+            html += `<pre>${JSON.stringify(allVendorProducts, null, 2)}</pre>`;
+            html += '<h4>currentUser:</h4>';
+            html += `<pre>${JSON.stringify(currentUser, null, 2)}</pre>`;
+            
+            debug.innerHTML = html;
+        }
+
+        // Auto-check status on page load
+        window.onload = function() {
+            checkSystemStatus();
+        };
+    </script>
+</body>
+</html>

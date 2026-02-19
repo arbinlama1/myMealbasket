@@ -1,0 +1,47 @@
+=== ADMIN LOGIN HELP ===
+
+If you're having trouble with admin login, here are the solutions:
+
+SOLUTION 1: Use these standard admin credentials:
+Email: admin@test.com
+Password: admin123
+
+SOLUTION 2: If the above doesn't work, try these:
+Email: admin@gmail.com
+Password: admin123
+
+SOLUTION 3: Create a new admin account:
+1. Make sure backend is running (mvn spring-boot:run)
+2. Run this in browser console:
+fetch('http://localhost:8081/api/auth/register/admin', {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({
+    name: 'Administrator',
+    email: 'admin@test.com',
+    password: 'admin123'
+  })
+}).then(r => r.json()).then(console.log)
+
+SOLUTION 4: Check existing admin accounts:
+1. Login with any working admin account
+2. Go to http://localhost:3000/admin/dashboard
+3. Check the debug info for admin accounts
+
+SOLUTION 5: Reset admin password:
+If you have access to the database, you can update the admin password:
+UPDATE admins SET password = '$2a$10$N.zmdr9k7uOCQb376NoUnuTJ8iKVjzieMwkOmANgNOgKQNNBDvAGK' WHERE email = 'admin@test.com';
+
+This will set the password to 'admin123'
+
+COMMON ISSUES:
+- Backend not running: Start with `mvn spring-boot:run`
+- Wrong port: Backend runs on 8081, frontend on 3000/3001
+- Database not connected: Check PostgreSQL on port 5433
+- Admin not registered: Run the registration first
+
+STEPS TO FIX:
+1. Start backend
+2. Create admin account (if needed)
+3. Login with correct credentials
+4. Access admin dashboard

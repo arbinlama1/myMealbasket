@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test User Connection System</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .section { margin: 20px 0; padding: 15px; border: 1px solid #ccc; }
+        button { margin: 5px; padding: 10px; }
+        .code { background: #f5f5f5; padding: 10px; margin: 10px 0; }
+        .success { color: green; }
+        .error { color: red; }
+        .warning { color: orange; }
+        .user-card { border: 1px solid #ddd; padding: 10px; margin: 10px 0; border-radius: 5px; }
+        .connected { border-left: 5px solid green; }
+        .disconnected { border-left: 5px solid red; }
+    </style>
+</head>
+<body>
+    <h1>🔗 Test User Connection System</h1>
+    <p>This page tests the user account connection to vendor products system.</p>
+
+    <div class="section">
+        <h2>📊 Current System Status</h2>
+        <button onclick="checkSystemStatus()">Check System Status</button>
+        <div id="systemStatus"></div>
+    </div>
+
+    <div class="section">
+        <h2>👥 User Connections</h2>
+        <button onclick="showUserConnections()">Show User Connections</button>
+        <div id="userConnections"></div>
+    </div>
+
+    <div class="section">
+        <h2>🏪 Vendor Products</h2>
+        <button onclick="showVendorProducts()">Show Vendor Products</button>
+        <div id="vendorProducts"></div>
+    </div>
+
+    <div class="section">
+        <h2>🧪 Test Scenarios</h2>
+        <button onclick="createTestVendor()">Create Test Vendor</button>
+        <button onclick="addTestProducts()">Add Test Products</button>
+        <button onclick="simulateUserLogin()">Simulate User Login</button>
+        <div id="testResults"></div>
+    </div>
+
+    <div class="section">
+        <h2>📋 Instructions</h2>
+        <ol>
+            <li><strong>Check System Status</strong> - See current user and product data</li>
+            <li><strong>Show User Connections</strong> - View which users are connected to products</li>
+            <li><strong>Show Vendor Products</strong> - See all vendor products</li>
+            <li><strong>Test Scenarios</strong> - Create test data and verify connections</li>
+            <li><strong>Go to Admin Dashboard</strong> - Check "Users" section to see connected users</li>
+        </ol>
+    </div>
+
+    <script>
+        function checkSystemStatus() {
+            const status = document.getElementById('systemStatus');
+            const allUsers = JSON.parse(localStorage.getItem('allUsers') || '[]');
+            const allVendorProducts = JSON.parse(localStorage.getItem('allVendorProducts') || '{}');
+            const currentUser = JSON.parse(localStorage.getItem('user') || 'null');
+            
+            let html = '<h3>📦 System Contents:</h3>';
+            html += `<p><strong>Users in allUsers:</strong> ${allUsers.length}</p>`;
+            html += `<p><strong>Vendor Product Keys:</strong> ${Object.keys(allVendorProducts).length}</p>`;
+            html += `<p><strong>Current User:</strong> ${currentUser ? currentUser.email : 'None'}</p>`;
+            
+            // Count connected users
+            const connectedUsers = allUsers.filter(u => u.isConnected).length;
+            const activeVendors = allUsers.filter(u => u.role === 'VENDOR' && u.isConnected).length;
+            
+            html += `<p><strong>Connected Users:</strong> ${connectedUsers}</p>`;
+            html += `<p><strong>Active Vendors:</strong> ${activeVendors}</p>`;
+            
+            status.innerHTML = html;
+        }
+
+        function showUserConnections() {
+            const connections = document.getElementById('userConnections');
+            const allUsers = JSON.parse(localStorage.getItem('allUsers') || '[]');
+            
+            let html = '<h3>👥 User Connection Status:</h3>';
+            
+            if (allUsers.length === 0) {
+                html += '<p class="warning">No users found. Register some users first.</p>';
+            } else {
+                allUsers.forEach(user => {
+                    const connectionClass = user.isConnected ? 'connected' : 'disconnected';
+                    html += `
+                        <div class="user-card ${connectionClass}">
+                            <h4>${user.name} (${user.email})</h4>
+                            <p><strong>Role:</strong> ${user.role}</p>
+                            <p><strong>Connected:</strong> ${user.isConnected ? '✅ Yes' : '❌ No'}</p>
+                            <p><strong>Last Activity:</strong> ${user.lastActivity || 'Unknown'}</p>
+                            ${user.role === 'VENDOR' ? `
+                                <p><strong>Products:</strong> ${user.productCount || 0}</p>
+                                <p><strong>Business:</strong> ${user.businessName || 'Not specified'}</p>
+                            ` : ''}
+                            <p><strong>Last Login:</strong> ${user.lastLogin ? new Date(user.lastLogin).toLocaleString() : 'Never'}</p>
+                        </div>
+                    `;
+                });
+            }
+            
+            connections.innerHTML = html;
+        }
+
+        function showVendorProducts() {
+            const products = document.getElementById('vendorProducts');
+            const allVendorProducts = JSON.parse(localStorage.getItem('allVendorProducts') || '{}');
+            
+            let html = '<h3>🏪 Vendor Products:</h3>';
+            
+            const vendorKeys = Object.keys(allVendorProducts);
+            if (vendorKeys.length === 0) {
+                html += '<p class="warning">No vendor products found. Add some products first.</p>';
+            } else {
+                vendorKeys.forEach(vendorKey => {
+                    const vendorProducts = allVendorProducts[vendorKey];
+                    html += `
+                        <div class="user-card">
+                            <h4>${vendorKey}</h4>
+                            <p><strong>Products:</strong> ${vendorProducts.length}</p>
+                    `;
+                    
+                    if (vendorProducts.length > 0) {
+                        html += '<ul>';
+                        vendorProducts.slice(0, 3).forEach(product => {
+                            html += `<li>${product.name} - NPR ${product.price}</li>`;
+                        });
+                        if (vendorProducts.length > 3) {
+                            html += `<li>... and ${vendorProducts.length - 3} more</li>`;
+                        }
+                        html += '</ul>';
+                    }
+                    
+                    html += '</div>';
+                });
+            }
+            
+            products.innerHTML = html;
+        }
+
+        function createTestVendor() {
+            const results = document.getElementById('testResults');
+            const allUsers = JSON.parse(localStorage.getItem('allUsers') || '[]');
+            
+            const testVendor = {
+                id: Date.now(),
+                name: 'Test Connection Vendor',
+                email: `vendor${Date.now()}@test.com`,
+                role: 'VENDOR',
+                phone: '123-456-7890',
+                address: '123 Test Street',
+                businessName: 'Test Connection Restaurant',
+                businessType: 'Restaurant',
+                createdAt: new Date().toISOString(),
+                lastLogin: new Date().toISOString(),
+                isConnected: false,
+                vendorProducts: [],
+                productCount: 0,
+                lastActivity: 'No products yet'
+            };
+            
+            allUsers.push(testVendor);
+            localStorage.setItem('allUsers', JSON.stringify(allUsers));
+            
+            results.innerHTML = `<p class="success">✅ Created test vendor: ${testVendor.name}</p>`;
+            showUserConnections();
+        }
+
+        function addTestProducts() {
+            const results = document.getElementById('testResults');
+            const allUsers = JSON.parse(localStorage.getItem('allUsers') || '[]');
+            const allVendorProducts = JSON.parse(localStorage.getItem('allVendorProducts') || '{}');
+            
+            // Find a vendor to add products for
+            const vendor = allUsers.find(u => u.role === 'VENDOR');
+            if (!vendor) {
+                results.innerHTML = '<p class="error">❌ No vendor found. Create a vendor first.</p>';
+                return;
+            }
+            
+            const vendorKey = `vendor_${vendor.id}`;
+            const testProducts = [
+                {
+                    id: Date.now(),
+                    name: 'Test Product 1',
+                    price: 100,
+                    category: 'Test',
+                    vendor: vendor.businessName || vendor.name,
+                    vendorId: vendor.id,
+                    description: 'Test product for connection',
+                    image: 'test.jpg',
+                    rating: 4.5,
+                    createdAt: new Date().toISOString()
+                },
+                {
+                    id: Date.now() + 1,
+                    name: 'Test Product 2',
+                    price: 200,
+                    category: 'Test',
+                    vendor: vendor.businessName || vendor.name,
+                    vendorId: vendor.id,
+                    description: 'Another test product',
+                    image: 'test2.jpg',
+                    rating: 4.0,
+                    createdAt: new Date().toISOString()
+                }
+            ];
+            
+            allVendorProducts[vendorKey] = testProducts;
+            localStorage.setItem('allVendorProducts', JSON.stringify(allVendorProducts));
+            
+            // Update vendor connection status
+            const vendorIndex = allUsers.findIndex(u => u.id === vendor.id);
+            if (vendorIndex !== -1) {
+                allUsers[vendorIndex].isConnected = true;
+                allUsers[vendorIndex].vendorProducts = testProducts;
+                allUsers[vendorIndex].productCount = testProducts.length;
+                allUsers[vendorIndex].lastActivity = 'Active';
+                localStorage.setItem('allUsers', JSON.stringify(allUsers));
+            }
+            
+            results.innerHTML = `<p class="success">✅ Added ${testProducts.length} test products for ${vendor.name}</p>`;
+            showUserConnections();
+            showVendorProducts();
+        }
+
+        function simulateUserLogin() {
+            const results = document.getElementById('testResults');
+            const allUsers = JSON.parse(localStorage.getItem('allUsers') || '[]');
+            
+            if (allUsers.length === 0) {
+                results.innerHTML = '<p class="error">❌ No users found. Create users first.</p>';
+                return;
+            }
+            
+            // Simulate login for first user
+            const user = allUsers[0];
+            user.lastLogin = new Date().toISOString();
+            user.isConnected = true;
+            
+            localStorage.setItem('allUsers', JSON.stringify(allUsers));
+            localStorage.setItem('user', JSON.stringify({
+                id: user.id,
+                email: user.email,
+                name: user.name,
+                role: user.role
+            }));
+            
+            results.innerHTML = `<p class="success">✅ Simulated login for ${user.name}</p>`;
+            showUserConnections();
+        }
+
+        // Check status on page load
+        window.onload = function() {
+            checkSystemStatus();
+        };
+    </script>
+</body>
+</html>

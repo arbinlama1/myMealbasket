@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test User Registration & Login Tracking</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .section { margin: 20px 0; padding: 15px; border: 1px solid #ccc; }
+        button { margin: 5px; padding: 10px; }
+        .code { background: #f5f5f5; padding: 10px; margin: 10px 0; }
+        .success { color: green; }
+        .error { color: red; }
+        .warning { color: orange; }
+        .user-card { border: 1px solid #ddd; padding: 10px; margin: 10px 0; border-radius: 5px; }
+        .registered { border-left: 5px solid green; }
+        .not-registered { border-left: 5px solid red; }
+    </style>
+</head>
+<body>
+    <h1>👤 Test User Registration & Login Tracking</h1>
+    <p>This page tests the user registration and login tracking system for the admin dashboard.</p>
+
+    <div class="section">
+        <h2>📊 Current System Status</h2>
+        <button onclick="checkSystemStatus()">Check System Status</button>
+        <div id="systemStatus"></div>
+    </div>
+
+    <div class="section">
+        <h2>👥 Registered Users</h2>
+        <button onclick="showRegisteredUsers()">Show Registered Users</button>
+        <div id="registeredUsers"></div>
+    </div>
+
+    <div class="section">
+        <h2>🧪 Test Registration</h2>
+        <button onclick="simulateUserRegistration()">Simulate User Registration</button>
+        <button onclick="simulateVendorRegistration()">Simulate Vendor Registration</button>
+        <div id="registrationResults"></div>
+    </div>
+
+    <div class="section">
+        <h2>🔑 Test Login</h2>
+        <button onclick="simulateUserLogin()">Simulate User Login</button>
+        <button onclick="simulateVendorLogin()">Simulate Vendor Login</button>
+        <div id="loginResults"></div>
+    </div>
+
+    <div class="section">
+        <h2>🧹 Clear Data</h2>
+        <button onclick="clearAllUsers()">Clear All Users</button>
+        <button onclick="clearCurrentSession()">Clear Current Session</button>
+        <div id="clearResults"></div>
+    </div>
+
+    <div class="section">
+        <h2>📋 Test Instructions</h2>
+        <ol>
+            <li><strong>Check System Status</strong> - See current user tracking data</li>
+            <li><strong>Show Registered Users</strong> - View all users in localStorage</li>
+            <li><strong>Test Registration</strong> - Simulate user/vendor registration</li>
+            <li><strong>Test Login</strong> - Simulate user/vendor login</li>
+            <li><strong>Go to Admin Dashboard</strong> - Check "Users" section to see results</li>
+        </ol>
+    </div>
+
+    <script>
+        function checkSystemStatus() {
+            const status = document.getElementById('systemStatus');
+            const allUsers = JSON.parse(localStorage.getItem('allUsers') || '[]');
+            const currentUser = JSON.parse(localStorage.getItem('user') || 'null');
+            const token = localStorage.getItem('token');
+            
+            let html = '<h3>📦 System Contents:</h3>';
+            html += `<p><strong>Users in allUsers:</strong> ${allUsers.length}</p>`;
+            html += `<p><strong>Current User:</strong> ${currentUser ? currentUser.email : 'None'}</p>`;
+            html += `<p><strong>Token:</strong> ${token ? 'Present' : 'None'}</p>`;
+            
+            // Count by role
+            const users = allUsers.filter(u => u.role === 'USER').length;
+            const vendors = allUsers.filter(u => u.role === 'VENDOR').length;
+            const admins = allUsers.filter(u => u.role === 'ADMIN').length;
+            
+            html += `<p><strong>Users:</strong> ${users}</p>`;
+            html += `<p><strong>Vendors:</strong> ${vendors}</p>`;
+            html += `<p><strong>Admins:</strong> ${admins}</p>`;
+            
+            status.innerHTML = html;
+        }
+
+        function showRegisteredUsers() {
+            const usersDiv = document.getElementById('registeredUsers');
+            const allUsers = JSON.parse(localStorage.getItem('allUsers') || '[]');
+            
+            let html = '<h3>👥 All Registered Users:</h3>';
+            
+            if (allUsers.length === 0) {
+                html += '<p class="warning">No users found. Register some users first.</p>';
+            } else {
+                allUsers.forEach(user => {
+                    const registeredClass = user.createdAt ? 'registered' : 'not-registered';
+                    html += `
+                        <div class="user-card ${registeredClass}">
+                            <h4>${user.name} (${user.email})</h4>
+                            <p><strong>Role:</strong> ${user.role}</p>
+                            <p><strong>Connected:</strong> ${user.isConnected ? '✅ Yes' : '❌ No'}</p>
+                            <p><strong>Created:</strong> ${user.createdAt ? new Date(user.createdAt).toLocaleString() : 'Unknown'}</p>
+                            <p><strong>Last Login:</strong> ${user.lastLogin ? new Date(user.lastLogin).toLocaleString() : 'Never'}</p>
+                            <p><strong>Last Activity:</strong> ${user.lastActivity || 'Unknown'}</p>
+                            ${user.role === 'VENDOR' ? `
+                                <p><strong>Products:</strong> ${user.productCount || 0}</p>
+                                <p><strong>Business:</strong> ${user.businessName || 'Not specified'}</p>
+                            ` : ''}
+                        </div>
+                    `;
+                });
+            }
+            
+            usersDiv.innerHTML = html;
+        }
+
+        function simulateUserRegistration() {
+            const results = document.getElementById('registrationResults');
+            const allUsers = JSON.parse(localStorage.getItem('allUsers') || '[]');
+            
+            const testUser = {
+                id: Date.now(),
+                name: 'Test Registered User',
+                email: `testuser${Date.now()}@test.com`,
+                role: 'USER',
+                phone: '123-456-7890',
+                address: '123 Test Street',
+                createdAt: new Date().toISOString(),
+                lastLogin: null,
+                isConnected: true,
+                vendorProducts: [],
+                productCount: 0,
+                lastActivity: 'Active'
+            };
+            
+            allUsers.push(testUser);
+            localStorage.setItem('allUsers', JSON.stringify(allUsers));
+            
+            results.innerHTML = `<p class="success">✅ Registered new user: ${testUser.name}</p>`;
+            showRegisteredUsers();
+            
+            // Notify admin dashboard
+            window.postMessage({
+                type: 'USER_REGISTERED',
+                userName: testUser.name,
+                userEmail: testUser.email,
+                userRole: testUser.role
+            }, '*');
+        }
+
+        function simulateVendorRegistration() {
+            const results = document.getElementById('registrationResults');
+            const allUsers = JSON.parse(localStorage.getItem('allUsers') || '[]');
+            
+            const testVendor = {
+                id: Date.now() + 1,
+                name: 'Test Registered Vendor',
+                email: `testvendor${Date.now()}@test.com`,
+                role: 'VENDOR',
+                phone: '123-456-7891',
+                address: '456 Vendor Street',
+                businessName: 'Test Vendor Restaurant',
+                businessType: 'Restaurant',
+                createdAt: new Date().toISOString(),
+                lastLogin: null,
+                isConnected: false, // Vendors only connected when have products
+                vendorProducts: [],
+                productCount: 0,
+                lastActivity: 'No products yet'
+            };
+            
+            allUsers.push(testVendor);
+            localStorage.setItem('allUsers', JSON.stringify(allUsers));
+            
+            results.innerHTML = `<p class="success">✅ Registered new vendor: ${testVendor.name}</p>`;
+            showRegisteredUsers();
+            
+            // Notify admin dashboard
+            window.postMessage({
+                type: 'VENDOR_REGISTERED',
+                userName: testVendor.name,
+                userEmail: testVendor.email,
+                userRole: testVendor.role,
+                vendorName: testVendor.businessName
+            }, '*');
+        }
+
+        function simulateUserLogin() {
+            const results = document.getElementById('loginResults');
+            const allUsers = JSON.parse(localStorage.getItem('allUsers') || '[]');
+            
+            const user = allUsers.find(u => u.role === 'USER');
+            if (!user) {
+                results.innerHTML = '<p class="error">❌ No user found. Register a user first.</p>';
+                return;
+            }
+            
+            // Update login info
+            user.lastLogin = new Date().toISOString();
+            user.isConnected = true;
+            user.lastActivity = 'Active';
+            
+            localStorage.setItem('allUsers', JSON.stringify(allUsers));
+            localStorage.setItem('user', JSON.stringify({
+                id: user.id,
+                email: user.email,
+                name: user.name,
+                role: user.role
+            }));
+            localStorage.setItem('token', 'test-token-' + Date.now());
+            
+            results.innerHTML = `<p class="success">✅ User login simulated: ${user.name}</p>`;
+            showRegisteredUsers();
+            
+            // Notify admin dashboard
+            window.postMessage({
+                type: 'USER_LOGIN',
+                userName: user.name,
+                userEmail: user.email,
+                userRole: user.role
+            }, '*');
+        }
+
+        function simulateVendorLogin() {
+            const results = document.getElementById('loginResults');
+            const allUsers = JSON.parse(localStorage.getItem('allUsers') || '[]');
+            
+            const vendor = allUsers.find(u => u.role === 'VENDOR');
+            if (!vendor) {
+                results.innerHTML = '<p class="error">❌ No vendor found. Register a vendor first.</p>';
+                return;
+            }
+            
+            // Update login info
+            vendor.lastLogin = new Date().toISOString();
+            vendor.isConnected = vendor.productCount > 0; // Only connected if has products
+            vendor.lastActivity = vendor.productCount > 0 ? 'Active' : 'No products yet';
+            
+            localStorage.setItem('allUsers', JSON.stringify(allUsers));
+            localStorage.setItem('user', JSON.stringify({
+                id: vendor.id,
+                email: vendor.email,
+                name: vendor.name,
+                role: vendor.role
+            }));
+            localStorage.setItem('token', 'test-token-' + Date.now());
+            
+            results.innerHTML = `<p class="success">✅ Vendor login simulated: ${vendor.name}</p>`;
+            showRegisteredUsers();
+            
+            // Notify admin dashboard
+            window.postMessage({
+                type: 'USER_LOGIN',
+                userName: vendor.name,
+                userEmail: vendor.email,
+                userRole: vendor.role
+            }, '*');
+        }
+
+        function clearAllUsers() {
+            const results = document.getElementById('clearResults');
+            localStorage.setItem('allUsers', JSON.stringify([]));
+            results.innerHTML = '<p class="success">✅ Cleared all users from allUsers</p>';
+            showRegisteredUsers();
+        }
+
+        function clearCurrentSession() {
+            const results = document.getElementById('clearResults');
+            localStorage.removeItem('user');
+            localStorage.removeItem('token');
+            results.innerHTML = '<p class="success">✅ Cleared current user session</p>';
+            checkSystemStatus();
+        }
+
+        // Check status on page load
+        window.onload = function() {
+            checkSystemStatus();
+            showRegisteredUsers();
+        };
+    </script>
+</body>
+</html>

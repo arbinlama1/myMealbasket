@@ -39,8 +39,8 @@ public String addUser(User user) {
 		
 	}
 	@PostMapping("/update/user")	
-	public String updateAdmin(User user) {
-		userServer.updateAdmin(user);
+	public String updateUser(User user) {
+		userServer.updateUser(user);
 		
 		return "/admin/Home";
 		

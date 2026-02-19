@@ -30,6 +30,10 @@ public class VendorService {
         return vendorRepo.findById(id);
     }
 
+    public Vendor findVendorByEmail(String email) {
+        return vendorRepo.findByEmail(email);
+    }
+
     public List<Product> getProducts(Long vendorId) {
         return productRepo.findByVendorId(vendorId);
     }

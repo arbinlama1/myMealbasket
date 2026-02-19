@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Debug Admin Dashboard</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .section { margin: 20px 0; padding: 15px; border: 1px solid #ccc; border-radius: 5px; }
+        button { padding: 10px 20px; margin: 5px; cursor: pointer; }
+        .success { color: green; font-weight: bold; }
+        .error { color: red; font-weight: bold; }
+        .warning { color: orange; font-weight: bold; }
+        pre { background: #f5f5f5; padding: 10px; border-radius: 3px; overflow-x: auto; }
+    </style>
+</head>
+<body>
+    <h1>🔍 Debug Admin Dashboard - Blank Screen Issue</h1>
+    <p>This page helps diagnose why the admin dashboard is showing a blank screen.</p>
+
+    <div class="section">
+        <h2>📊 Check localStorage Data</h2>
+        <button onclick="checkLocalStorage()">Check localStorage</button>
+        <button onclick="clearLocalStorage()">Clear localStorage</button>
+        <button onclick="addTestData()">Add Test Data</button>
+        <div id="localStorageResults"></div>
+    </div>
+
+    <div class="section">
+        <h2>👤 Check Current User Session</h2>
+        <button onclick="checkUserSession()">Check User Session</button>
+        <button onclick="simulateAdminLogin()">Simulate Admin Login</button>
+        <div id="sessionResults"></div>
+    </div>
+
+    <div class="section">
+        <h2>🔧 Test API Connectivity</h2>
+        <button onclick="testBackendAPI()">Test Backend API</button>
+        <button onclick="testFallbackMode()">Test Fallback Mode</button>
+        <div id="apiResults"></div>
+    </div>
+
+    <div class="section">
+        <h2>🐛 Common Issues & Solutions</h2>
+        <div id="issuesResults">
+            <h3>Possible Causes:</h3>
+            <ul>
+                <li><strong>Loading State Stuck:</strong> Component stuck in loading state</li>
+                <li><strong>Error State:</strong> Component has an error but not showing</li>
+                <li><strong>Missing Data:</strong> No user data available</li>
+                <li><strong>Authentication:</strong> User not logged in as admin</li>
+                <li><strong>Missing Icons:</strong> Required icons not imported</li>
+                <li><strong>Component Structure:</strong> JSX structure issues</li>
+            </ul>
+        </div>
+    </div>
+
+    <script>
+        function checkLocalStorage() {
+            const results = document.getElementById('localStorageResults');
+            
+            const allUsers = JSON.parse(localStorage.getItem('allUsers') || '[]');
+            const allVendorProducts = JSON.parse(localStorage.getItem('allVendorProducts') || '{}');
+            const currentUser = JSON.parse(localStorage.getItem('user') || 'null');
+            const token = localStorage.getItem('token');
+            
+            let html = '<h3>📦 localStorage Contents:</h3>';
+            html += `<p><strong>allUsers:</strong> ${allUsers.length} users found</p>`;
+            html += `<p><strong>allVendorProducts:</strong> ${Object.keys(allVendorProducts).length} vendor keys</p>`;
+            html += `<p><strong>currentUser:</strong> ${currentUser ? currentUser.email : 'None'}</p>`;
+            html += `<p><strong>token:</strong> ${token ? 'Present' : 'Missing'}</p>`;
+            
+            if (allUsers.length > 0) {
+                html += '<h4>👥 Users Found:</h4>';
+                allUsers.forEach((user, index) => {
+                    html += `<p>${index + 1}. ${user.name} (${user.email}) - ${user.role}</p>`;
+                });
+            }
+            
+            results.innerHTML = html;
+        }
+
+        function clearLocalStorage() {
+            const results = document.getElementById('localStorageResults');
+            localStorage.removeItem('allUsers');
+            localStorage.removeItem('allVendorProducts');
+            localStorage.removeItem('user');
+            localStorage.removeItem('token');
+            results.innerHTML = '<p class="success">✅ localStorage cleared</p>';
+        }
+
+        function addTestData() {
+            const results = document.getElementById('localStorageResults');
+            
+            const testUsers = [
+                {
+                    id: 1,
+                    name: 'Admin User',
+                    email: 'admin@test.com',
+                    role: 'ADMIN',
+                    phone: '123-456-7890',
+                    address: '123 Admin St',
+                    createdAt: new Date().toISOString(),
+                    lastLogin: new Date().toISOString(),
+                    isConnected: true,
+                    vendorProducts: [],
+                    productCount: 0,
+                    lastActivity: 'Managing System'
+                },
+                {
+                    id: 2,
+                    name: 'Heera',
+                    email: 'heera@test.com',
+                    role: 'VENDOR',
+                    phone: '987-654-3210',
+                    address: 'Kathmandu, Nepal',
+                    businessName: 'Heera Restaurant',
+                    businessType: 'Restaurant',
+                    createdAt: new Date().toISOString(),
+                    lastLogin: new Date().toISOString(),
+                    isConnected: false,
+                    vendorProducts: [],
+                    productCount: 0,
+                    lastActivity: 'No products yet'
+                },
+                {
+                    id: 3,
+                    name: 'Nabaraj',
+                    email: 'nabaraj@test.com',
+                    role: 'VENDOR',
+                    phone: '987-654-3211',
+                    address: 'Pokhara, Nepal',
+                    businessName: 'Nabaraj Restaurant',
+                    businessType: 'Restaurant',
+                    createdAt: new Date().toISOString(),
+                    lastLogin: new Date().toISOString(),
+                    isConnected: false,
+                    vendorProducts: [],
+                    productCount: 0,
+                    lastActivity: 'No products yet'
+                },
+                {
+                    id: 4,
+                    name: 'Test User',
+                    email: 'user@test.com',
+                    role: 'USER',
+                    phone: '123-456-7891',
+                    address: '123 User St',
+                    createdAt: new Date().toISOString(),
+                    lastLogin: new Date().toISOString(),
+                    isConnected: true,
+                    vendorProducts: [],
+                    productCount: 0,
+                    lastActivity: 'Active'
+                }
+            ];
+            
+            localStorage.setItem('allUsers', JSON.stringify(testUsers));
+            localStorage.setItem('allVendorProducts', JSON.stringify({}));
+            
+            results.innerHTML = '<p class="success">✅ Test data added to localStorage</p>';
+        }
+
+        function checkUserSession() {
+            const results = document.getElementById('sessionResults');
+            const currentUser = JSON.parse(localStorage.getItem('user') || 'null');
+            const token = localStorage.getItem('token');
+            
+            let html = '<h3>👤 User Session Status:</h3>';
+            
+            if (!currentUser) {
+                html += '<p class="error">❌ No user logged in</p>';
+                html += '<p><strong>Solution:</strong> Login as admin first</p>';
+            } else if (currentUser.role !== 'ADMIN') {
+                html += `<p class="warning">⚠️ User logged in but not admin: ${currentUser.role}</p>`;
+                html += '<p><strong>Solution:</strong> Login with admin credentials</p>';
+            } else {
+                html += `<p class="success">✅ Admin user logged in: ${currentUser.email}</p>`;
+            }
+            
+            if (!token) {
+                html += '<p class="error">❌ No authentication token</p>';
+                html += '<p><strong>Solution:</strong> Login to get token</p>';
+            } else {
+                html += '<p class="success">✅ Authentication token present</p>';
+            }
+            
+            results.innerHTML = html;
+        }
+
+        function simulateAdminLogin() {
+            const results = document.getElementById('sessionResults');
+            
+            const adminUser = {
+                id: 1,
+                name: 'Admin User',
+                email: 'admin@test.com',
+                role: 'ADMIN'
+            };
+            
+            localStorage.setItem('user', JSON.stringify(adminUser));
+            localStorage.setItem('token', 'admin-token-' + Date.now());
+            
+            results.innerHTML = '<p class="success">✅ Admin login simulated</p>';
+        }
+
+        async function testBackendAPI() {
+            const results = document.getElementById('apiResults');
+            results.innerHTML = '<p>🔄 Testing backend API...</p>';
+            
+            try {
+                const token = localStorage.getItem('token') || 'test-token';
+                const response = await fetch('http://localhost:8081/api/admin/users', {
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    results.innerHTML = `<p class="success">✅ Backend API working: ${data.data?.length || 0} users found</p>`;
+                } else {
+                    results.innerHTML = `<p class="warning">⚠️ Backend API responded with status: ${response.status}</p>`;
+                }
+            } catch (error) {
+                results.innerHTML = `<p class="error">❌ Backend API not available: ${error.message}</p>`;
+                results.innerHTML += '<p><strong>Note:</strong> This is normal if backend is not running</p>';
+            }
+        }
+
+        function testFallbackMode() {
+            const results = document.getElementById('apiResults');
+            const allUsers = JSON.parse(localStorage.getItem('allUsers') || '[]');
+            
+            if (allUsers.length === 0) {
+                results.innerHTML = '<p class="error">❌ Fallback mode not available - no data in localStorage</p>';
+                results.innerHTML += '<p><strong>Solution:</strong> Add test data first</p>';
+            } else {
+                results.innerHTML = `<p class="success">✅ Fallback mode available: ${allUsers.length} users in localStorage</p>`;
+            }
+        }
+
+        // Auto-check on page load
+        window.onload = function() {
+            checkLocalStorage();
+            checkUserSession();
+        };
+    </script>
+</body>
+</html>

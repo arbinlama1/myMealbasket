@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test User Tracking System</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .section { margin: 20px 0; padding: 15px; border: 1px solid #ccc; }
+        button { margin: 5px; padding: 10px; }
+        .code { background: #f5f5f5; padding: 10px; margin: 10px 0; }
+        .success { color: green; }
+        .error { color: red; }
+    </style>
+</head>
+<body>
+    <h1>🧪 Test User Tracking System</h1>
+    <p>This page tests the user tracking functionality for the admin dashboard.</p>
+
+    <div class="section">
+        <h2>📊 Current localStorage Status</h2>
+        <button onclick="checkLocalStorage()">Check localStorage</button>
+        <div id="localStorageStatus"></div>
+    </div>
+
+    <div class="section">
+        <h2>👤 Add Test Users</h2>
+        <button onclick="addTestUsers()">Add Test Users</button>
+        <button onclick="addCurrentUser()">Add Current User</button>
+        <div id="addUserStatus"></div>
+    </div>
+
+    <div class="section">
+        <h2>🗑️ Clear Data</h2>
+        <button onclick="clearAllUsers()">Clear All Users</button>
+        <button onclick="clearLocalStorage()">Clear All localStorage</button>
+        <div id="clearStatus"></div>
+    </div>
+
+    <div class="section">
+        <h2>📋 Instructions</h2>
+        <ol>
+            <li><strong>Check localStorage</strong> - See what users are currently stored</li>
+            <li><strong>Add Test Users</strong> - Adds sample users for testing</li>
+            <li><strong>Add Current User</strong> - Adds user from current session</li>
+            <li><strong>Go to Admin Dashboard</strong> - Click "Users" to see the results</li>
+            <li><strong>Check Console</strong> - Look for debug messages in browser console</li>
+        </ol>
+    </div>
+
+    <script>
+        function checkLocalStorage() {
+            const status = document.getElementById('localStorageStatus');
+            const allUsers = JSON.parse(localStorage.getItem('allUsers') || '[]');
+            const currentUser = JSON.parse(localStorage.getItem('user') || 'null');
+            
+            let html = '<h3>📦 localStorage Contents:</h3>';
+            html += `<div class="code">allUsers: ${JSON.stringify(allUsers, null, 2)}</div>`;
+            html += `<div class="code">user: ${JSON.stringify(currentUser, null, 2)}</div>`;
+            html += `<p class="success">✅ Found ${allUsers.length} users in allUsers</p>`;
+            html += `<p>Current user: ${currentUser ? currentUser.email : 'None'}</p>`;
+            
+            status.innerHTML = html;
+        }
+
+        function addTestUsers() {
+            const status = document.getElementById('addUserStatus');
+            const allUsers = JSON.parse(localStorage.getItem('allUsers') || '[]');
+            
+            const testUsers = [
+                {
+                    id: Date.now() + 1,
+                    name: 'John Doe',
+                    email: 'john@example.com',
+                    role: 'USER',
+                    phone: '123-456-7890',
+                    address: '123 Main St',
+                    createdAt: new Date().toISOString(),
+                    lastLogin: new Date().toISOString()
+                },
+                {
+                    id: Date.now() + 2,
+                    name: 'Jane Smith',
+                    email: 'jane@example.com',
+                    role: 'VENDOR',
+                    phone: '123-456-7891',
+                    address: '456 Oak Ave',
+                    businessName: 'Jane Restaurant',
+                    businessType: 'Restaurant',
+                    createdAt: new Date().toISOString(),
+                    lastLogin: null
+                },
+                {
+                    id: Date.now() + 3,
+                    name: 'Admin User',
+                    email: 'admin@test.com',
+                    role: 'ADMIN',
+                    phone: '123-456-7892',
+                    address: '789 Admin Blvd',
+                    createdAt: new Date().toISOString(),
+                    lastLogin: new Date().toISOString()
+                }
+            ];
+            
+            // Add users that don't already exist
+            let addedCount = 0;
+            testUsers.forEach(testUser => {
+                const exists = allUsers.find(u => u.email === testUser.email);
+                if (!exists) {
+                    allUsers.push(testUser);
+                    addedCount++;
+                }
+            });
+            
+            localStorage.setItem('allUsers', JSON.stringify(allUsers));
+            status.innerHTML = `<p class="success">✅ Added ${addedCount} test users to localStorage</p>`;
+            checkLocalStorage();
+        }
+
+        function addCurrentUser() {
+            const status = document.getElementById('addUserStatus');
+            const currentUser = JSON.parse(localStorage.getItem('user') || 'null');
+            
+            if (!currentUser) {
+                status.innerHTML = `<p class="error">❌ No current user found. Please login first.</p>`;
+                return;
+            }
+            
+            const allUsers = JSON.parse(localStorage.getItem('allUsers') || '[]');
+            const exists = allUsers.find(u => u.email === currentUser.email);
+            
+            if (exists) {
+                status.innerHTML = `<p class="error">❌ User ${currentUser.email} already exists in allUsers</p>`;
+            } else {
+                const userForAdmin = {
+                    ...currentUser,
+                    phone: currentUser.phone || 'Not provided',
+                    address: currentUser.address || 'Not provided',
+                    createdAt: new Date().toISOString(),
+                    lastLogin: new Date().toISOString()
+                };
+                
+                allUsers.push(userForAdmin);
+                localStorage.setItem('allUsers', JSON.stringify(allUsers));
+                status.innerHTML = `<p class="success">✅ Added current user ${currentUser.email} to allUsers</p>`;
+            }
+            
+            checkLocalStorage();
+        }
+
+        function clearAllUsers() {
+            const status = document.getElementById('clearStatus');
+            localStorage.setItem('allUsers', JSON.stringify([]));
+            status.innerHTML = `<p class="success">✅ Cleared all users from allUsers</p>`;
+            checkLocalStorage();
+        }
+
+        function clearLocalStorage() {
+            const status = document.getElementById('clearStatus');
+            localStorage.clear();
+            status.innerHTML = `<p class="success">✅ Cleared all localStorage data</p>`;
+            checkLocalStorage();
+        }
+
+        // Check localStorage on page load
+        window.onload = function() {
+            checkLocalStorage();
+        };
+    </script>
+</body>
+</html>

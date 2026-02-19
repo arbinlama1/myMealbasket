@@ -54,6 +54,17 @@ public class ProductApiController {
         }
     }
 
+    @GetMapping("/vendor/{vendorId}")
+    public ResponseEntity<ApiResponse<List<Product>>> getProductsByVendorId(@PathVariable Long vendorId) {
+        try {
+            List<Product> products = productService.getProductsByVendorId(vendorId);
+            return ResponseEntity.ok(ApiResponse.success("Products by vendor retrieved", products));
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(ApiResponse.error("Failed to get products by vendor: " + e.getMessage()));
+        }
+    }
+
     @GetMapping("/vendor/{vendorName}")
     public ResponseEntity<ApiResponse<List<Product>>> getProductsByVendor(@PathVariable String vendorName) {
         try {

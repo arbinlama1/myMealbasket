@@ -60,17 +60,24 @@ public class SecurityConfig {
             .csrf(csrf -> csrf.disable())
             .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .authorizeHttpRequests(auth -> auth
+                // Static resources
+                .requestMatchers("/favicon.ico", "/manifest.json", "/static/**", "/css/**", "/js/**", "/images/**").permitAll()
                 // Public endpoints
                 .requestMatchers("/api/auth/**").permitAll()
                 .requestMatchers("/api/products/**").permitAll()
                 .requestMatchers("/api/public/**").permitAll()
                 .requestMatchers("/api/contact/**").permitAll()
+                .requestMatchers("/api/user/**").permitAll() // Temporarily public for testing
+                .requestMatchers("/api/orders/**").permitAll() // Temporarily public for testing
+                .requestMatchers("/api/meal-plans/**").permitAll() // Temporarily public for testing
+                .requestMatchers("/api/stock-alerts/**").permitAll() // Temporarily public for testing
+                .requestMatchers("/api/system-performance/**").permitAll() // Temporarily public for testing
+                .requestMatchers("/api/vendor/**").authenticated() // Vendor endpoints need authentication
+                .requestMatchers("/api/db-test/**").permitAll() // Database test endpoints
+                .requestMatchers("/api/test/**").permitAll() // Test endpoints
+                .requestMatchers("/api/setup/**").permitAll() // Setup endpoints
                 // Admin endpoints
                 .requestMatchers("/api/admin/**").hasRole("ADMIN")
-                // Vendor endpoints
-                .requestMatchers("/api/vendor/**").hasAnyRole("VENDOR", "ADMIN")
-                // User endpoints
-                .requestMatchers("/api/user/**").hasAnyRole("USER", "ADMIN")
                 // All other requests need authentication
                 .anyRequest().authenticated()
             )

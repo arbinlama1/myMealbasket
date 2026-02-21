@@ -149,11 +149,11 @@ const SimpleMealPlanner = () => {
     const user = localStorage.getItem('user');
     const token = localStorage.getItem('token');
     
-    if (!user || !token) {
-      setError('Please login first');
-      setLoading(false);
-      return;
-    }
+    // if (!user || !token) {
+    //   setError('Please login first');
+    //   setLoading(false);
+    //   return;
+    // }
 
     try {
       const parsedUser = JSON.parse(user);

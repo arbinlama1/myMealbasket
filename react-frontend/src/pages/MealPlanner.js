@@ -37,7 +37,7 @@ import { format } from 'date-fns';
 const MealPlanner = () => {
   const { user } = useAuth();
   const theme = useTheme();
-  
+
   const [mealPlans, setMealPlans] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -59,43 +59,105 @@ const MealPlanner = () => {
     fetchMealPlans();
   }, [selectedDate]);
 
-  const fetchMealPlans = async () => {
-    try {
-      setLoading(true);
-      const response = await mealPlanAPI.getPlansByDate(selectedDate);
-      if (response.data.success) {
-        setMealPlans(response.data.data || []);
-      }
-    } catch (error) {
-      setError('Failed to load meal plans');
-      console.error('Error fetching meal plans:', error);
-    } finally {
-      setLoading(false);
+ const fetchMealPlans = async () => {
+  if (!user) {
+    setError("Please log in to view meal plans");
+    setLoading(false);
+    return;
+  }
+
+  try {
+    setLoading(true);
+    setError(null);
+
+    console.log("Fetching meal plans for date:", selectedDate);
+    console.log("User token:", localStorage.getItem('token')?.substring(0, 20) + "..."); // partial for security
+
+    const response = await mealPlanAPI.getPlansByDate(selectedDate);
+
+    console.log("API full response:", response);
+
+    if (response.data?.success) {
+      console.log("Plans received:", response.data.data);
+      setMealPlans(response.data.data || []);
+    } else {
+      const serverMsg = response.data?.message || "No success flag in response";
+      console.error("API returned unsuccessful:", serverMsg);
+      setError(`Server responded with error: ${serverMsg}`);
     }
-  };
+  } catch (err) {
+    console.error("Fetch meal plans failed:", err);
+    if (err.response) {
+      // Server responded with error status (4xx/5xx)
+      console.error("Response data:", err.response.data);
+      console.error("Status:", err.response.status);
+      setError(
+        err.response.data?.message ||
+        `Server error (${err.response.status})`
+      );
+    } else if (err.request) {
+      // No response received (network/CORS/timeout)
+      console.error("No response received - possible CORS or network issue");
+      setError("Cannot reach the server. Check your internet or if backend is running.");
+    } else {
+      setError("Unexpected error: " + err.message);
+    }
+  } finally {
+    setLoading(false);
+  }
+};
 
   const handleGenerateAIRecommendation = async () => {
+    if (
+      formData.planName.trim() ||
+      formData.ingredients.trim() ||
+      formData.instructions.trim()
+    ) {
+      if (!window.confirm('Generate new AI suggestion? Current fields will be overwritten.')) {
+        return;
+      }
+    }
+
     try {
       const response = await mealPlanAPI.getAIRecommendation(
         formData.mealType,
         selectedDate
       );
-      if (response.data.success) {
-        setAiRecommendation(response.data.data);
+      if (response.data?.success) {
+        const rec = response.data.data;
+        setAiRecommendation(rec);
+        // Optional: auto-fill form fields from AI response
+        setFormData((prev) => ({
+          ...prev,
+          planName: rec.suggestedName || `AI ${formData.mealType} Suggestion`,
+          ingredients: rec.ingredients || prev.ingredients,
+          instructions: rec.instructions || prev.instructions,
+        }));
       }
-    } catch (error) {
+    } catch (err) {
       setError('Failed to generate AI recommendation');
-      console.error('Error generating AI recommendation:', error);
+      console.error('Error generating AI recommendation:', err);
     }
   };
 
+  const isFormValid = () =>
+    formData.planName.trim() !== '' &&
+    formData.mealType &&
+    formData.ingredients.trim() !== '' &&
+    formData.instructions.trim() !== '';
+
   const handleSaveMealPlan = async () => {
+    if (!isFormValid()) {
+      setError('Please fill in all required fields');
+      return;
+    }
+
     try {
       const planData = {
         ...formData,
         planDate: selectedDate,
         calories: aiRecommendation?.calories || 400,
-        estimatedCost: aiRecommendation?.estimatedCost || 10.0,
+        estimatedCost: aiRecommendation?.estimatedCost || 150, // NPR default
         aiRecommendation: aiRecommendation?.aiRecommendation || '',
         isRecommended: !!aiRecommendation,
       };
@@ -116,17 +178,17 @@ const MealPlanner = () => {
         instructions: '',
       });
       fetchMealPlans();
-    } catch (error) {
+    } catch (err) {
       setError('Failed to save meal plan');
-      console.error('Error saving meal plan:', error);
+      console.error('Error saving meal plan:', err);
     }
   };
 
   const handleEdit = (plan) => {
     setEditingPlan(plan);
     setFormData({
-      planName: plan.planName,
-      mealType: plan.mealType,
+      planName: plan.planName || '',
+      mealType: plan.mealType || 'BREAKFAST',
       ingredients: plan.ingredients || '',
       instructions: plan.instructions || '',
     });
@@ -134,14 +196,14 @@ const MealPlanner = () => {
   };
 
   const handleDelete = async (planId) => {
-    if (window.confirm('Are you sure you want to delete this meal plan?')) {
-      try {
-        await mealPlanAPI.delete(planId);
-        fetchMealPlans();
-      } catch (error) {
-        setError('Failed to delete meal plan');
-        console.error('Error deleting meal plan:', error);
-      }
+    if (!window.confirm('Are you sure you want to delete this meal plan?')) return;
+
+    try {
+      await mealPlanAPI.delete(planId);
+      fetchMealPlans();
+    } catch (err) {
+      setError('Failed to delete meal plan');
+      console.error('Error deleting meal plan:', err);
     }
   };
 
@@ -159,37 +221,27 @@ const MealPlanner = () => {
 
   const getMealTypeIcon = (mealType) => {
     switch (mealType) {
-      case 'BREAKFAST':
-        return '🌅';
-      case 'LUNCH':
-        return '☀️';
-      case 'DINNER':
-        return '🌙';
-      case 'SNACK':
-        return '🍿';
-      default:
-        return '🍽️';
+      case 'BREAKFAST': return '🌅';
+      case 'LUNCH':     return '☀️';
+      case 'DINNER':    return '🌙';
+      case 'SNACK':     return '🍿';
+      default:          return '🍽️';
     }
   };
 
   const getMealTypeColor = (mealType) => {
     switch (mealType) {
-      case 'BREAKFAST':
-        return 'warning';
-      case 'LUNCH':
-        return 'info';
-      case 'DINNER':
-        return 'secondary';
-      case 'SNACK':
-        return 'success';
-      default:
-        return 'primary';
+      case 'BREAKFAST': return 'warning';
+      case 'LUNCH':     return 'info';
+      case 'DINNER':    return 'secondary';
+      case 'SNACK':     return 'success';
+      default:          return 'primary';
     }
   };
 
-  if (loading) {
+  if (loading && mealPlans.length === 0) {
     return (
-      <Container sx={{ display: 'flex', justifyContent: 'center', mt: 4 }}>
+      <Container sx={{ display: 'flex', justifyContent: 'center', mt: 8 }}>
         <CircularProgress size={60} />
       </Container>
     );
@@ -207,7 +259,7 @@ const MealPlanner = () => {
         </Typography>
       </Box>
 
-      {/* Controls */}
+      {/* Date & Add Button */}
       <Box sx={{ display: 'flex', gap: 2, mb: 4, flexWrap: 'wrap', alignItems: 'center' }}>
         <TextField
           type="date"
@@ -227,7 +279,7 @@ const MealPlanner = () => {
         </Button>
       </Box>
 
-      {/* Error Alert */}
+      {/* Error */}
       {error && (
         <Alert severity="error" sx={{ mb: 3 }} onClose={() => setError(null)}>
           {error}
@@ -256,7 +308,7 @@ const MealPlanner = () => {
                   sx={{ position: 'absolute', top: 10, right: 10, zIndex: 1 }}
                 />
               )}
-              
+
               <CardContent sx={{ flexGrow: 1 }}>
                 <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
                   <Typography variant="h2" sx={{ mr: 1 }}>
@@ -301,7 +353,7 @@ const MealPlanner = () => {
                   />
                   <Chip
                     icon={<AttachMoney />}
-                    label={`$${plan.estimatedCost?.toFixed(2) || '0.00'}`}
+                    label={`NPR ${(plan.estimatedCost || 0).toFixed(0)}`}
                     size="small"
                     color="success"
                     variant="outlined"
@@ -331,7 +383,7 @@ const MealPlanner = () => {
         ))}
       </Grid>
 
-      {mealPlans.length === 0 && (
+      {mealPlans.length === 0 && !loading && (
         <Box sx={{ textAlign: 'center', py: 8 }}>
           <Restaurant sx={{ fontSize: 64, color: 'text.secondary', mb: 2 }} />
           <Typography variant="h6" color="text.secondary" gutterBottom>
@@ -351,7 +403,7 @@ const MealPlanner = () => {
         </Box>
       )}
 
-      {/* Add/Edit Meal Plan Dialog */}
+      {/* Add/Edit Dialog */}
       <Dialog open={openDialog} onClose={() => setOpenDialog(false)} maxWidth="md" fullWidth>
         <DialogTitle>
           {editingPlan ? 'Edit Meal Plan' : 'Create Meal Plan'}
@@ -362,21 +414,24 @@ const MealPlanner = () => {
             <Close />
           </IconButton>
         </DialogTitle>
+
         <DialogContent>
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 1 }}>
             <TextField
               label="Plan Name"
               fullWidth
               value={formData.planName}
-              onChange={(e) => setFormData(prev => ({ ...prev, planName: e.target.value }))}
+              onChange={(e) => setFormData((prev) => ({ ...prev, planName: e.target.value }))}
+              required
             />
-            
+
             <TextField
               select
               label="Meal Type"
               fullWidth
               value={formData.mealType}
-              onChange={(e) => setFormData(prev => ({ ...prev, mealType: e.target.value }))}
+              onChange={(e) => setFormData((prev) => ({ ...prev, mealType: e.target.value }))}
+              required
             >
               {mealTypes.map((type) => (
                 <MenuItem key={type} value={type}>
@@ -391,7 +446,8 @@ const MealPlanner = () => {
               multiline
               rows={3}
               value={formData.ingredients}
-              onChange={(e) => setFormData(prev => ({ ...prev, ingredients: e.target.value }))}
+              onChange={(e) => setFormData((prev) => ({ ...prev, ingredients: e.target.value }))}
+              required
             />
 
             <TextField
@@ -400,7 +456,8 @@ const MealPlanner = () => {
               multiline
               rows={3}
               value={formData.instructions}
-              onChange={(e) => setFormData(prev => ({ ...prev, instructions: e.target.value }))}
+              onChange={(e) => setFormData((prev) => ({ ...prev, instructions: e.target.value }))}
+              required
             />
 
             <Button
@@ -413,26 +470,27 @@ const MealPlanner = () => {
             </Button>
 
             {aiRecommendation && (
-              <Alert severity="success">
+              <Alert severity="success" sx={{ mt: 2 }}>
                 <Typography variant="body2">
-                  <strong>AI Recommendation:</strong> {aiRecommendation.aiRecommendation}
+                  <strong>AI Suggestion:</strong> {aiRecommendation.aiRecommendation}
                 </Typography>
                 <Typography variant="body2">
-                  <strong>Estimated Calories:</strong> {aiRecommendation.calories} cal
+                  <strong>Calories:</strong> {aiRecommendation.calories} kcal
                 </Typography>
                 <Typography variant="body2">
-                  <strong>Estimated Cost:</strong> ${aiRecommendation.estimatedCost?.toFixed(2)}
+                  <strong>Est. Cost:</strong> NPR {(aiRecommendation.estimatedCost || 0).toFixed(0)}
                 </Typography>
               </Alert>
             )}
           </Box>
         </DialogContent>
+
         <DialogActions>
           <Button onClick={() => setOpenDialog(false)}>Cancel</Button>
           <Button
             variant="contained"
             onClick={handleSaveMealPlan}
-            disabled={!formData.planName}
+            disabled={!isFormValid()}
           >
             {editingPlan ? 'Update' : 'Save'}
           </Button>

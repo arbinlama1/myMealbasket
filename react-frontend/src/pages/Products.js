@@ -267,7 +267,11 @@ const Products = () => {
                   fontSize: '3rem',
                 }}
               >
-                🍱
+                 <img
+                          src={product.image}
+                          alt={product.name}
+                          style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                          />
               </CardMedia>
               <CardContent sx={{ flexGrow: 1 }}>
                 <Typography gutterBottom variant="h6" component="h3">

@@ -32,6 +32,7 @@ const Home = () => {
   const [error, setError] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [filteredProducts, setFilteredProducts] = useState([]);
+  const isLoggedIn = !!localStorage.getItem('token'); // true if user logged in
 
   useEffect(() => {
     fetchProducts();
@@ -49,60 +50,7 @@ const Home = () => {
     }
   }, [searchTerm, products]);
 
-  const setFallbackProducts = () => {
-    const demoProducts = [
-      {
-        id: 1,
-        name: 'Delicious Nepali Thali',
-        description: 'Traditional Nepali meal with rice, dal, curry, and vegetables',
-        price: 12.99,
-        rating: 4.5,
-        vendorName: 'Kathmandu Kitchen'
-      },
-      {
-        id: 2,
-        name: 'Chicken Momo',
-        description: 'Steamed dumplings filled with seasoned chicken and vegetables',
-        price: 8.99,
-        rating: 4.7,
-        vendorName: 'Momo Palace'
-      },
-      {
-        id: 3,
-        name: 'Veggie Burger',
-        description: 'Fresh vegetable patty with lettuce, tomato, and special sauce',
-        price: 9.99,
-        rating: 4.3,
-        vendorName: 'Burger House'
-      },
-      {
-        id: 4,
-        name: 'Chicken Chowmein',
-        description: 'Stir-fried noodles with chicken and mixed vegetables',
-        price: 10.99,
-        rating: 4.6,
-        vendorName: 'Chinese Corner'
-      },
-      {
-        id: 5,
-        name: 'Fresh Salad Bowl',
-        description: 'Mixed greens with fresh vegetables and healthy dressing',
-        price: 7.99,
-        rating: 4.4,
-        vendorName: 'Green Garden'
-      },
-      {
-        id: 6,
-        name: 'Pizza Margherita',
-        description: 'Classic Italian pizza with mozzarella and fresh basil',
-        price: 14.99,
-        rating: 4.8,
-        vendorName: 'Pizza Hub'
-      }
-    ];
-    setProducts(demoProducts);
-  };
-
+ 
   const fetchProducts = async () => {
     try {
       setLoading(true);
@@ -257,14 +205,17 @@ const Home = () => {
                 component="div"
                 sx={{
                   height: 200,
+                  width: '100%',
                   bgcolor: 'grey.200',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
                   fontSize: '3rem',
+                  padding: '10px',
                 }}
               >
-                🍱
+              <img
+                  src={product.image}
+                  alt={product.name}
+                  style={{ width: "100%", height: "100%", borderRadius:'15px', objectFit:"cover"}}
+                />
               </CardMedia>
               <CardContent sx={{ flexGrow: 1 }}>
                 <Typography gutterBottom variant="h6" component="h3">
@@ -279,7 +230,7 @@ const Home = () => {
                 </Typography>
                 <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   <Typography variant="h6" color="primary.main">
-                    ${product.price?.toFixed(2) || '0.00'}
+                    Rs.{product.price?.toFixed(2) || '0.00'}
                   </Typography>
                   <Box sx={{ display: 'flex', gap: 1 }}>
                     <Chip
@@ -305,7 +256,11 @@ const Home = () => {
                   onClick={(e) => {
                     e.stopPropagation();
                     // Handle add to cart
-                    console.log('Add to cart:', product);
+                    if(!isLoggedIn) {
+                      navigate('/login');
+                    }else {
+                      console.log(product.name)
+                    }
                   }}
                 >
                   Add to Cart

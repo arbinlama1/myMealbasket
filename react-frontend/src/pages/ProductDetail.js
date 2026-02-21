@@ -30,12 +30,13 @@ const ProductDetail = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const theme = useTheme();
-  
+
   const [product, setProduct] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [quantity, setQuantity] = useState(1);
   const [isFavorite, setIsFavorite] = useState(false);
+  const isLoggedIn = !!localStorage.getItem('token'); // true if user logged in
 
   useEffect(() => {
     if (id) {
@@ -125,19 +126,20 @@ const ProductDetail = () => {
       <Grid container spacing={4}>
         {/* Product Image */}
         <Grid item xs={12} md={6}>
-          <Card sx={{ height: '100%' }}>
+          <Card sx={{ height: '100%',display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
             <CardMedia
               component="div"
               sx={{
                 height: 400,
                 bgcolor: 'grey.200',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
                 fontSize: '8rem',
               }}
             >
-              🍱
+              <img
+                src={product.image}
+                alt={product.name}
+                style={{ width: "100%", height: "100%"}}
+              />
             </CardMedia>
           </Card>
         </Grid>
@@ -184,11 +186,12 @@ const ProductDetail = () => {
             {/* Price */}
             <Box sx={{ mb: 3 }}>
               <Typography variant="h4" color="primary.main">
-                ${product.price?.toFixed(2) || '0.00'}
+                Rs:{product.price?.toFixed(2) || '0.00'}
               </Typography>
+              
               {product.originalPrice && product.originalPrice > product.price && (
                 <Typography variant="body2" color="text.secondary" sx={{ textDecoration: 'line-through' }}>
-                  ${product.originalPrice.toFixed(2)}
+                  Rs:{product.originalPrice.toFixed(2)}
                 </Typography>
               )}
             </Box>
@@ -280,10 +283,19 @@ const ProductDetail = () => {
                 variant="contained"
                 size="large"
                 startIcon={<ShoppingCart />}
-                onClick={handleAddToCart}
+                onClick={(e) => {
+                    e.stopPropagation();
+                    // Handle add to cart
+                    if(!isLoggedIn) {
+                      navigate('/login');
+                    }else {
+                      console.log(product.name)
+                    }
+                  }}
                 sx={{ flexGrow: 1, py: 1.5 }}
               >
-                Add to Cart - ${(product.price * quantity).toFixed(2)}
+                
+                Add to Cart - Rs:{(product.price * quantity).toFixed(2)}
               </Button>
             </Box>
 
@@ -293,11 +305,11 @@ const ProductDetail = () => {
                 severity={product.stock > 10 ? 'success' : product.stock > 0 ? 'warning' : 'error'}
                 sx={{ mt: 2 }}
               >
-                {product.stock > 10 
+                {product.stock > 10
                   ? 'In Stock - Plenty available'
-                  : product.stock > 0 
-                  ? `Only ${product.stock} left in stock!`
-                  : 'Out of Stock'
+                  : product.stock > 0
+                    ? `Only ${product.stock} left in stock!`
+                    : 'Out of Stock'
                 }
               </Alert>
             )}

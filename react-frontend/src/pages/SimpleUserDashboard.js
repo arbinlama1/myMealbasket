@@ -1,1258 +1,782 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
-  Container,
-  Paper,
-  Typography,
-  Box,
-  Grid,
-  Card,
-  CardContent,
-  Button,
-  Avatar,
-  List,
-  ListItem,
-  ListItemText,
-  ListItemIcon,
-  Alert,
-  CircularProgress,
-  LinearProgress,
-  Chip,
-  Rating,
-  AppBar,
-  Toolbar,
-  IconButton,
-  Menu,
-  MenuItem,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
+  Container, Paper, Typography, Box, Grid, Card, CardContent, Button,
+  Avatar, CircularProgress, Chip, Rating, IconButton, TextField,
+  InputAdornment, Select, MenuItem, FormControl, InputLabel,
+  Table, TableBody, TableCell, TableContainer, TableHead, TableRow,
+  Dialog, DialogTitle, DialogContent, DialogActions, Drawer, List,
+  ListItem, ListItemButton, ListItemIcon, ListItemText, Divider, Badge,
+  useTheme, useMediaQuery
 } from '@mui/material';
 import {
-  Person,
-  ShoppingCart,
-  Restaurant,
-  Assessment,
-  Favorite,
-  History,
-  LocalOffer,
-  TrendingUp,
-  AttachMoney,
-  Logout,
-  Add,
-  Edit,
-  Delete,
-  Visibility,
-  CheckCircle,
-  Pending,
-  Cancel,
-  ArrowBack,
-  Home,
-  AccountCircle,
-  Star,
-  Menu as MenuIcon,
+  Person, ShoppingCart, Restaurant, Search as SearchIcon,
+  Add, Remove, Delete as DeleteIcon, Favorite, Dashboard,
+  Menu as MenuIcon, Close as CloseIcon, Logout as LogoutIcon,
+  Star, TrendingUp, LocalOffer
 } from '@mui/icons-material';
 
+// ── Styled Nav Card ────────────────────────────────────────────────────────────
+const NavCard = ({ icon, label, count, active, onClick, color = '#1976d2' }) => (
+  <Card
+    onClick={onClick}
+    sx={{
+      cursor: 'pointer',
+      border: active ? `2px solid ${color}` : '2px solid transparent',
+      bgcolor: active ? `${color}15` : 'background.paper',
+      transition: 'all 0.2s ease',
+      '&:hover': {
+        transform: 'translateY(-2px)',
+        boxShadow: 4,
+        border: `2px solid ${color}`,
+      },
+    }}
+  >
+    <CardContent sx={{ textAlign: 'center', py: 2, px: 1.5 }}>
+      <Box sx={{ color: active ? color : 'text.secondary', mb: 0.5 }}>
+        {count !== undefined ? (
+          <Badge badgeContent={count} color="error" max={99}>
+            {icon}
+          </Badge>
+        ) : icon}
+      </Box>
+      <Typography variant="caption" fontWeight={active ? 700 : 400} color={active ? color : 'text.secondary'}>
+        {label}
+      </Typography>
+    </CardContent>
+  </Card>
+);
+
+// ── Stat Card ──────────────────────────────────────────────────────────────────
+const StatCard = ({ label, value, icon, bgcolor, color = 'text.primary' }) => (
+  <Card sx={{ height: '100%' }}>
+    <CardContent>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+        <Box>
+          <Typography variant="h4" fontWeight={700} color={color}>{value}</Typography>
+          <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>{label}</Typography>
+        </Box>
+        <Box sx={{ bgcolor, borderRadius: 2, p: 1, color: 'white' }}>{icon}</Box>
+      </Box>
+    </CardContent>
+  </Card>
+);
+
+// ── Product Card ───────────────────────────────────────────────────────────────
+const ProductCard = ({ product, onAddToCart, onFavorite, onDetails, imageFallback }) => (
+  <Card
+    sx={{
+      height: '100%',
+      display: 'flex',
+      flexDirection: 'column',
+      transition: 'transform 0.2s, box-shadow 0.2s',
+      '&:hover': { transform: 'translateY(-4px)', boxShadow: 6 },
+    }}
+  >
+    <Box sx={{ position: 'relative', pt: '60%', overflow: 'hidden' }}>
+      <img
+        src={product.image}
+        alt={product.name}
+        style={{
+          position: 'absolute', top: 0, left: 0,
+          width: '100%', height: '100%', objectFit: 'cover',
+          transition: 'transform 0.3s',
+        }}
+        onError={e => { e.target.src = imageFallback; }}
+      />
+      <Chip
+        label={`NPR ${product.price}`}
+        color="success"
+        size="small"
+        sx={{ position: 'absolute', top: 8, right: 8, fontWeight: 700 }}
+      />
+      {product.category && (
+        <Chip
+          label={product.category}
+          size="small"
+          sx={{ position: 'absolute', top: 8, left: 8, bgcolor: 'rgba(0,0,0,0.6)', color: 'white' }}
+        />
+      )}
+    </Box>
+    <CardContent sx={{ flexGrow: 1, display: 'flex', flexDirection: 'column' }}>
+      <Typography variant="h6" gutterBottom noWrap fontWeight={600}>
+        {product.name}
+      </Typography>
+      <Typography variant="body2" color="text.secondary" gutterBottom>
+        {product.vendor}
+      </Typography>
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 2 }}>
+        <Rating value={product.rating || 0} precision={0.5} readOnly size="small" />
+        <Typography variant="caption" color="text.secondary">
+          ({product.totalRatings || 0})
+        </Typography>
+      </Box>
+      <Box sx={{ mt: 'auto', display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+        <Button
+          variant="contained"
+          size="small"
+          startIcon={<ShoppingCart fontSize="small" />}
+          onClick={() => onAddToCart(product)}
+          sx={{ flex: 1 }}
+        >
+          Add
+        </Button>
+        <IconButton
+          size="small"
+          color="error"
+          onClick={() => onFavorite(product)}
+          sx={{ border: '1px solid', borderColor: 'error.light' }}
+        >
+          <Favorite fontSize="small" />
+        </IconButton>
+        <Button variant="outlined" size="small" onClick={() => onDetails(product.id)}>
+          Info
+        </Button>
+      </Box>
+    </CardContent>
+  </Card>
+);
+
+// ── Main Component ─────────────────────────────────────────────────────────────
 const SimpleUserDashboard = () => {
+  const navigate = useNavigate();
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('md'));
+
   const [userData, setUserData] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [currentView, setCurrentView] = useState('dashboard'); // dashboard, meals, orders, favorites, profile
-  const [anchorEl, setAnchorEl] = useState(null);
-  
-  // Use shared ProductService - start empty
-  const [vendorProducts, setVendorProducts] = useState([]); // Start with empty array
+  const [currentView, setCurrentView] = useState('dashboard');
+  const [mobileDrawerOpen, setMobileDrawerOpen] = useState(false);
+
+  const [vendorProducts, setVendorProducts] = useState([]);
   const [selectedProductId, setSelectedProductId] = useState(null);
   const [showProductDetail, setShowProductDetail] = useState(false);
 
-  // Rating function for users to rate products
-  const handleRateProduct = (productId, rating) => {
-    const product = vendorProducts.find(p => p.id === productId);
-    if (!product) return;
-    
-    // Update product rating
-    const updatedProduct = {
-      ...product,
-      rating: rating,
-      totalRatings: (product.totalRatings || 0) + 1
-    };
-    
-    // Update local state
-    setVendorProducts(vendorProducts.map(p => 
-      p.id === productId ? updatedProduct : p
-    ));
-    
-    alert(`You rated "${product.name}" ${rating} stars!`);
-  };
-
-  // Function to simulate placing an order (NPR currency)
-  const handlePlaceOrder = (product) => {
-    const quantity = prompt('Enter quantity:', '1');
-    if (!quantity || isNaN(quantity) || parseInt(quantity) <= 0) {
-      alert('Please enter a valid quantity');
-      return;
-    }
-    
-    const orderQuantity = parseInt(quantity);
-    const totalCost = product.price * orderQuantity;
-    
-    // Update user stats
-    const updatedUserStats = {
-      totalOrders: (userStats.totalOrders || 0) + 1,
-      totalSpent: (userStats.totalSpent || 0) + totalCost,
-      favoriteItems: userStats.favoriteItems || 0,
-      points: (userStats.points || 0) + Math.floor(totalCost), // 1 point per NPR 1 spent
-      memberSince: userStats.memberSince,
-      lastOrder: new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' }),
-      avgOrderValue: ((userStats.totalSpent || 0) + totalCost) / ((userStats.totalOrders || 0) + 1)
-    };
-    
-    // Update user stats in state (for display)
-    userStats.totalOrders = updatedUserStats.totalOrders;
-    userStats.totalSpent = updatedUserStats.totalSpent;
-    userStats.points = updatedUserStats.points;
-    userStats.lastOrder = updatedUserStats.lastOrder;
-    userStats.avgOrderValue = updatedUserStats.avgOrderValue;
-    
-    alert(`Order placed: ${orderQuantity} x "${product.name}" = NPR ${totalCost.toFixed(2)}\n` +
-          `Total Orders: ${updatedUserStats.totalOrders}\n` +
-          `Total Spent: NPR ${updatedUserStats.totalSpent.toFixed(2)}\n` +
-          `Points Earned: ${updatedUserStats.points}`);
-  };
-
-  // Function to add item to favorites
-  const handleAddToFavorites = (product) => {
-    // Check if already in favorites
-    if (favoriteItems.some(item => item.id === product.id)) {
-      alert('This item is already in your favorites!');
-      return;
-    }
-    
-    // Add to favorites
-    favoriteItems.push({
-      id: product.id,
-      name: product.name,
-      vendor: product.vendor,
-      price: product.price,
-      rating: product.rating,
-      description: product.description,
-      image: product.image
-    });
-    
-    // Update user stats
-    userStats.favoriteItems = favoriteItems.length;
-    
-    alert(`"${product.name}" added to favorites!`);
-  };
-
-  // Initialize products from backend and subscribe to updates
-  useEffect(() => {
-    console.log('SimpleUserDashboard - Initializing products from backend');
-
-    const loadProducts = async () => {
-      try {
-        const response = await fetch('http://localhost:8081/api/products', {
-          method: 'GET',
-          headers: {
-            'Content-Type': 'application/json'
-          }
-        });
-
-        if (!response.ok) {
-          throw new Error(`HTTP error! status: ${response.status}`);
-        }
-
-        const data = await response.json();
-        const products = data?.data || data || [];
-        const safeProducts = Array.isArray(products) ? products : [];
-
-        // Normalize vendor fields for UI (backend provides vendor object)
-        const normalized = safeProducts.map(p => {
-          const vendorName = p?.vendor?.shopName || p?.vendor?.name || p?.vendor || p?.vendorName;
-          const vendorId = p?.vendor?.id || p?.vendorId;
-          return {
-            ...p,
-            vendor: vendorName,
-            vendorId: vendorId
-          };
-        });
-
-        console.log('Final products to display:', normalized);
-        setVendorProducts(normalized);
-        
-      } catch (error) {
-        console.error('Error loading products from backend:', error);
-        setVendorProducts([]);
-      }
-    };
-    
-    // Load products immediately
-    loadProducts();
-    
-    // Listen for real-time updates; refresh from backend
-    const handleMessage = (event) => {
-      if (event.data && event.data.type) {
-        console.log('User Dashboard received message:', event.data);
-        
-        switch (event.data.type) {
-          case 'PRODUCT_ADDED':
-            loadProducts();
-            break;
-          case 'PRODUCT_UPDATED':
-            loadProducts();
-            break;
-          case 'PRODUCT_DELETED':
-            loadProducts();
-            break;
-          case 'VENDOR_PRODUCTS_DELETED':
-            loadProducts();
-            break;
-          case 'VENDOR_DELETED':
-            loadProducts();
-            break;
-        }
-      }
-    };
-    
-    window.addEventListener('message', handleMessage);
-    
-    return () => {
-      window.removeEventListener('message', handleMessage);
-    };
-  }, []);
-
-  // Sample user data - starts with zero for new users (NPR currency)
-  const userStats = {
+  const [cartItems, setCartItems] = useState([]);
+  const [favoriteItems, setFavoriteItems] = useState([]);
+  const [userStats, setUserStats] = useState({
     totalOrders: 0,
-    totalSpent: 0.00,
-    favoriteItems: 0,
+    totalSpent: 0,
     points: 0,
     memberSince: new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long' }),
     lastOrder: 'No orders yet',
-    avgOrderValue: 0.00
-  };
+    avgOrderValue: 0,
+  });
 
-  // Recent orders - starts empty for new users
-  const recentOrders = [];
+  const [searchQuery, setSearchQuery] = useState('');
+  const [filterCategory, setFilterCategory] = useState('all');
+  const imageFallback = 'https://via.placeholder.com/300x200?text=No+Image';
 
-  // Favorite items - starts empty for new users
-  const favoriteItems = [];
-
-  // Recommendations - starts empty for new users
-  const recommendations = [];
-
+  // ── Auth ───────────────────────────────────────
   useEffect(() => {
-    // Try to get user data from localStorage, but don't fail if it's not there
-    try {
-      const user = localStorage.getItem('user');
-      if (user) {
-        const parsedUser = JSON.parse(user);
-        setUserData(parsedUser);
-      } else {
-        // Set default user data if localStorage is empty
-        setUserData({
-          id: 1,
-          name: 'Test User',
-          email: 'user@test.com',
-          role: 'USER'
-        });
-      }
-    } catch (err) {
-      console.error('Error loading user data:', err);
-      // Set default user data on error
-      setUserData({
-        id: 1,
-        name: 'Test User',
-        email: 'user@test.com',
-        role: 'USER'
-      });
-    }
-    
-    // Set loading to false after user data is loaded
+    const token = localStorage.getItem('token');
+    if (!token) navigate('/login');
+  }, [navigate]);
+
+  // ── Load User ──────────────────────────────────
+  useEffect(() => {
+    const stored = localStorage.getItem('user');
+    setUserData(stored ? JSON.parse(stored) : { name: 'Guest', email: 'guest@example.com', role: 'USER' });
     setLoading(false);
   }, []);
 
+  // ── Load Cart & Favorites ──────────────────────
+  useEffect(() => {
+    const storedCart = localStorage.getItem('cart');
+    if (storedCart) setCartItems(JSON.parse(storedCart));
+    const storedFavorites = localStorage.getItem('favorites');
+    if (storedFavorites) setFavoriteItems(JSON.parse(storedFavorites));
+  }, []);
+
+  // ── Persist ────────────────────────────────────
+  useEffect(() => { localStorage.setItem('cart', JSON.stringify(cartItems)); }, [cartItems]);
+  useEffect(() => {
+    localStorage.setItem('favorites', JSON.stringify(favoriteItems));
+    setUserStats(prev => ({ ...prev, favoriteItemsCount: favoriteItems.length }));
+  }, [favoriteItems]);
+
+  // ── Load Products ──────────────────────────────
+  useEffect(() => {
+    const loadProducts = async () => {
+      try {
+        const res = await fetch('http://localhost:8081/api/products');
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const data = await res.json();
+        const products = Array.isArray(data?.data) ? data.data : data || [];
+        const normalized = products.map(p => ({
+          ...p,
+          vendor: p?.vendor?.shopName || p?.vendor?.name || p?.vendor || 'Unknown Vendor',
+          image: p.image || imageFallback,
+          ingredients: p.ingredients || 'No ingredients listed',
+          nutrition: p.nutrition || 'No nutrition info',
+          reviews: p.reviews || [],
+        }));
+        setVendorProducts(normalized);
+      } catch (err) {
+        console.error('Failed to load products:', err);
+        setVendorProducts([]);
+      }
+    };
+    loadProducts();
+  }, []);
+
+  // ── Cart Functions ─────────────────────────────
+  const handleAddToCart = (product) => {
+    setCartItems(prev => {
+      const existing = prev.find(item => item.id === product.id);
+      if (existing) return prev.map(item => item.id === product.id ? { ...item, quantity: item.quantity + 1 } : item);
+      return [...prev, { ...product, quantity: 1 }];
+    });
+    alert(`Added "${product.name}" to cart`);
+  };
+
+  const handleUpdateCartQuantity = (id, delta) => {
+    setCartItems(prev =>
+      prev.map(item => item.id === id ? { ...item, quantity: Math.max(1, item.quantity + delta) } : item)
+    );
+  };
+
+  const handleRemoveFromCart = (id) => setCartItems(prev => prev.filter(item => item.id !== id));
+
+  const handleCheckout = () => {
+    if (cartItems.length === 0) { alert('Cart is empty'); return; }
+    const total = cartItems.reduce((sum, item) => sum + item.price * item.quantity, 0);
+    alert(`Order placed successfully!\nTotal: NPR ${total.toFixed(2)}`);
+    setCartItems([]);
+    setUserStats(prev => {
+      const newOrders = prev.totalOrders + 1;
+      const newSpent = prev.totalSpent + total;
+      return {
+        ...prev,
+        totalOrders: newOrders,
+        totalSpent: newSpent,
+        points: prev.points + Math.floor(total),
+        lastOrder: new Date().toLocaleDateString(),
+        avgOrderValue: newOrders > 0 ? newSpent / newOrders : 0,
+      };
+    });
+  };
+
+  // ── Favorites Functions ────────────────────────
+  const handleAddToFavorites = (product) => {
+    if (favoriteItems.some(f => f.id === product.id)) { alert('Already in favorites'); return; }
+    setFavoriteItems(prev => [...prev, {
+      id: product.id, name: product.name, vendor: product.vendor,
+      price: product.price, rating: product.rating, image: product.image
+    }]);
+    alert(`Added "${product.name}" to favorites`);
+  };
+
+  const handleRemoveFromFavorites = (id) => setFavoriteItems(prev => prev.filter(f => f.id !== id));
+
   const handleLogout = () => {
-    localStorage.removeItem('token');
-    localStorage.removeItem('user');
-    window.location.href = '/login';
+    ['token', 'user', 'favorites', 'cart'].forEach(k => localStorage.removeItem(k));
+    navigate('/home');
   };
 
-  const handleBackToDashboard = () => {
-    setCurrentView('dashboard');
+  const handleRateProduct = (productId, newRating) => {
+    setVendorProducts(prev =>
+      prev.map(p => p.id === productId ? { ...p, rating: newRating, totalRatings: (p.totalRatings || 0) + 1 } : p)
+    );
   };
 
-  const handleMenuOpen = (event) => {
-    setAnchorEl(event.currentTarget);
-  };
+  // ── Computed ───────────────────────────────────
+  const filteredProducts = vendorProducts.filter(product => {
+    const matchesSearch =
+      product.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      product.vendor.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesCategory = filterCategory === 'all' || product.category === filterCategory;
+    return matchesSearch && matchesCategory;
+  });
+  const categories = ['all', ...new Set(vendorProducts.map(p => p.category).filter(Boolean))];
+  const cartTotal = cartItems.reduce((sum, item) => sum + item.price * item.quantity, 0);
 
-  const handleMenuClose = () => {
-    setAnchorEl(null);
-  };
+  // ── Navigation Items ───────────────────────────
+  const navItems = [
+    { view: 'dashboard', label: 'Dashboard', icon: <Dashboard /> },
+    { view: 'meals', label: 'Browse', icon: <Restaurant /> },
+    { view: 'favorites', label: 'Favorites', icon: <Favorite />, count: favoriteItems.length },
+    { view: 'cart', label: 'Cart', icon: <ShoppingCart />, count: cartItems.length },
+    { view: 'profile', label: 'Profile', icon: <Person /> },
+  ];
 
-  const handleNavigateToMealPlanner = () => {
-    setCurrentView('meals');
-  };
-
-  const handleViewOrderHistory = () => {
-    setCurrentView('orders');
-  };
-
-  const handleViewFavorites = () => {
-    setCurrentView('favorites');
-  };
-
-  const handleRemoveFromFavorites = (itemId) => {
-    const item = favoriteItems.find(item => item.id === itemId);
-    if (item && confirm(`Remove "${item.name}" from your favorites?`)) {
-      // In a real app, this would update the backend
-      alert(`"${item.name}" removed from favorites!`);
-    }
-  };
-
-  const handleOrderFromFavorites = (item) => {
-    alert(`Ordering "${item.name}" from ${item.vendor} for NPR ${item.price}`);
-  };
-
-  const handleViewProductDetail = (productId) => {
-    setSelectedProductId(productId);
-    setShowProductDetail(true);
-  };
-
-  const handleCloseProductDetail = () => {
-    setShowProductDetail(false);
-    setSelectedProductId(null);
-  };
-
-  const handleAddToCartFromDetail = () => {
-    const product = vendorProducts.find(p => p.id === selectedProductId);
-    if (product) {
-      alert(`Added "${product.name}" to cart! Total: NPR ${product.price}`);
-    }
-  };
-
-  const handleViewProfile = () => {
-    setCurrentView('profile');
-  };
-
-  const handleQuickOrder = () => {
-    // Navigate to meal planner for quick ordering
-    setCurrentView('meals');
-  };
-
-  const handleGetRecommendations = () => {
-    // Navigate to meals view with AI recommendations
-    setCurrentView('meals');
-  };
-
-  const handleViewCart = () => {
-    // Navigate to cart view (could be implemented later)
-    alert('Cart feature coming soon!');
-  };
-
-  const handleViewInventory = () => {
-    const inventoryList = vendorProducts.map(product => 
-      `${product.name} - ${product.vendor} - NPR ${product.price} - ${product.inStock ? 'In Stock' : 'Out of Stock'}`
-    ).join('\n');
-    
-    alert(`Available Products:\n\n${inventoryList}\n\nTotal Products: ${vendorProducts.length}`);
-  };
-
-  const handleViewAnalytics = () => {
-    const totalValue = vendorProducts.reduce((sum, product) => sum + product.price, 0);
-    const avgPrice = vendorProducts.length > 0 ? (totalValue / vendorProducts.length).toFixed(2) : 0;
-    const avgRating = vendorProducts.length > 0 ? 
-      (vendorProducts.reduce((sum, product) => sum + product.rating, 0) / vendorProducts.length).toFixed(1) : 0;
-    
-    alert(`Product Statistics:\n\n` +
-      `Total Products: ${vendorProducts.length}\n` +
-      `Average Price: NPR ${avgPrice}\n` +
-      `Average Rating: ${avgRating}\n`);
-  };
-
-  const getViewTitle = () => {
-    switch(currentView) {
-      case 'dashboard': return 'User Dashboard';
-      case 'meals': return 'Browse Meals';
-      case 'orders': return 'Order History';
-      case 'favorites': return 'My Favorites';
-      case 'profile': return 'Profile Settings';
-      default: return 'User Dashboard';
-    }
+  const switchView = (view) => {
+    setCurrentView(view);
+    setMobileDrawerOpen(false);
   };
 
   if (loading) {
     return (
-      <Container maxWidth="lg" sx={{ py: 4 }}>
-        <Box display="flex" justifyContent="center" alignItems="center" minHeight="400px">
-          <CircularProgress size={60} />
-        </Box>
-      </Container>
+      <Box display="flex" justifyContent="center" alignItems="center" minHeight="80vh">
+        <CircularProgress size={64} />
+      </Box>
     );
   }
 
-  return (
-    <Box sx={{ flexGrow: 1 }}>
-      {/* Navbar */}
-      <AppBar position="static" sx={{ mb: 3 }}>
-        <Toolbar>
-          {currentView !== 'dashboard' && (
-            <IconButton
-              edge="start"
-              color="inherit"
-              onClick={handleBackToDashboard}
-              sx={{ mr: 2 }}
+  // ── Sidebar Content ────────────────────────────
+  const SidebarContent = () => (
+    <Box sx={{ width: 220, pt: 2 }}>
+      <Box sx={{ px: 2, pb: 2, display: 'flex', alignItems: 'center', gap: 1.5 }}>
+        <Avatar sx={{ bgcolor: 'primary.main', width: 40, height: 40 }}>
+          {userData?.name?.[0] || 'U'}
+        </Avatar>
+        <Box>
+          <Typography variant="subtitle2" fontWeight={700} noWrap>{userData?.name || 'User'}</Typography>
+          <Typography variant="caption" color="text.secondary">{userStats.points} pts</Typography>
+        </Box>
+      </Box>
+      <Divider />
+      <List dense>
+        {navItems.map(({ view, label, icon, count }) => (
+          <ListItem key={view} disablePadding>
+            <ListItemButton
+              selected={currentView === view}
+              onClick={() => switchView(view)}
+              sx={{
+                borderRadius: 1, mx: 1, my: 0.25,
+                '&.Mui-selected': { bgcolor: 'primary.50', color: 'primary.main' },
+              }}
             >
-              <ArrowBack />
-            </IconButton>
-          )}
-          
-          <Typography variant="h6" sx={{ flexGrow: 1 }}>
-            {getViewTitle()}
-          </Typography>
-          
-          <IconButton
-            edge="end"
-            color="inherit"
-            onClick={handleMenuOpen}
-          >
-            <AccountCircle />
-          </IconButton>
-          
-          <Menu
-            anchorEl={anchorEl}
-            open={Boolean(anchorEl)}
-            onClose={handleMenuClose}
-          >
-            <MenuItem onClick={handleMenuClose}>
-              <ListItemIcon><Person /></ListItemIcon>
-              <ListItemText>{userData?.name || 'User'}</ListItemText>
-            </MenuItem>
-            <MenuItem onClick={() => { handleMenuClose(); handleLogout(); }}>
-              <ListItemIcon><Logout /></ListItemIcon>
-              <ListItemText>Logout</ListItemText>
-            </MenuItem>
-          </Menu>
-        </Toolbar>
-      </AppBar>
+              <ListItemIcon sx={{ minWidth: 36, color: currentView === view ? 'primary.main' : 'inherit' }}>
+                {count !== undefined ? (
+                  <Badge badgeContent={count} color="error" max={99}>{icon}</Badge>
+                ) : icon}
+              </ListItemIcon>
+              <ListItemText primary={label} primaryTypographyProps={{ fontSize: 14, fontWeight: currentView === view ? 600 : 400 }} />
+            </ListItemButton>
+          </ListItem>
+        ))}
+      </List>
+      <Divider sx={{ mt: 1 }} />
+      <List dense>
+        <ListItem disablePadding>
+          <ListItemButton onClick={handleLogout} sx={{ borderRadius: 1, mx: 1, my: 0.25 }}>
+            <ListItemIcon sx={{ minWidth: 36 }}><LogoutIcon color="error" /></ListItemIcon>
+            <ListItemText primary="Logout" primaryTypographyProps={{ fontSize: 14, color: 'error.main' }} />
+          </ListItemButton>
+        </ListItem>
+      </List>
+    </Box>
+  );
 
-      <Container maxWidth="lg" sx={{ py: 2 }}>
-        {/* Dashboard View */}
-        {currentView === 'dashboard' && (
-          <>
-            {/* Top Action Bar */}
-            <Paper sx={{ p: 2, mb: 3, bgcolor: 'primary.50' }}>
-              <Grid container spacing={2} alignItems="center">
-                <Grid item xs={12} sm={6} md={4}>
-                  <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                    <Typography variant="h6" color="primary.main" sx={{ mr: 1 }}>
-                       Quick Order
-                    </Typography>
-                    <Button 
-                      variant="contained" 
-                      size="small" 
-                      startIcon={<Restaurant />}
-                      sx={{ mr: 1 }}
-                      onClick={handleQuickOrder}
-                    >
-                      Order Now
-                    </Button>
-                    <Button 
-                      variant="outlined" 
-                      size="small"
-                      startIcon={<ShoppingCart />}
-                      onClick={handleViewCart}
-                    >
-                      Cart (0)
-                    </Button>
-                  </Box>
-                </Grid>
-                
-                <Grid item xs={12} sm={6} md={4}>
-                  <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                    <Typography variant="h6" color="primary.main" sx={{ mr: 1 }}>
-                      AI Assistant
-                    </Typography>
-                    <Button 
-                      variant="contained" 
-                      size="small" 
-                      startIcon={<Assessment />}
-                      color="secondary"
-                      onClick={handleGetRecommendations}
-                    >
-                      Get Recommendations
-                    </Button>
-                  </Box>
-                </Grid>
-                
-                <Grid item xs={12} sm={12} md={4}>
-                  <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: { xs: 'flex-start', md: 'flex-end' } }}>
-                    <Typography variant="h6" color="primary.main" sx={{ mr: 1 }}>
-                      ⭐ Special Offers
-                    </Typography>
-                    <Chip 
-                      label="20% OFF" 
-                      color="warning" 
-                      variant="filled" 
-                      size="small"
-                      sx={{ mr: 1 }}
-                    />
-                    <Chip 
-                      label="Free Delivery" 
-                      color="success" 
-                      variant="filled" 
-                      size="small"
-                    />
-                  </Box>
-                </Grid>
-              </Grid>
-            </Paper>
+  return (
+    <Box sx={{ display: 'flex', minHeight: '100vh', bgcolor: 'grey.50' }}>
 
-            {/* Header */}
-            <Box sx={{ mb: 4, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                <Avatar sx={{ bgcolor: 'primary.main', mr: 2, width: 56, height: 56 }}>
-                  <Person sx={{ fontSize: 32 }} />
-                </Avatar>
-                <Box>
-                  <Typography variant="h6" color="text.secondary">
-                    Welcome back, {userData?.name || 'User'}!
-                  </Typography>
-                  <Typography variant="body2" color="text.secondary">
-                    Member since {userStats.memberSince} • {userStats.points} points
-                  </Typography>
-                </Box>
-              </Box>
-            </Box>
+      {/* ── Desktop Sidebar ── */}
+      {!isMobile && (
+        <Paper
+          elevation={2}
+          sx={{
+            width: 220,
+            flexShrink: 0,
+            position: 'sticky',
+            top: 0,
+            height: '100vh',
+            overflowY: 'auto',
+            borderRadius: 0,
+          }}
+        >
+          <SidebarContent />
+        </Paper>
+      )}
 
-            {/* User Stats Cards */}
-            <Grid container spacing={3} sx={{ mb: 4 }}>
-              <Grid item xs={12} sm={6} md={3}>
-                <Card>
-                  <CardContent>
-                    <Box display="flex" alignItems="center">
-                      <Avatar sx={{ bgcolor: 'success.main', mr: 2 }}>
-                        <ShoppingCart />
-                      </Avatar>
-                      <Box>
-                        <Typography variant="h4" fontWeight="bold">
-                          {userStats.totalOrders}
-                        </Typography>
-                        <Typography color="text.secondary">
-                          Total Orders
-                        </Typography>
-                      </Box>
-                    </Box>
-                  </CardContent>
-                </Card>
-              </Grid>
+      {/* ── Mobile Drawer ── */}
+      {isMobile && (
+        <Drawer open={mobileDrawerOpen} onClose={() => setMobileDrawerOpen(false)}>
+          <Box sx={{ display: 'flex', justifyContent: 'flex-end', p: 1 }}>
+            <IconButton onClick={() => setMobileDrawerOpen(false)}><CloseIcon /></IconButton>
+          </Box>
+          <SidebarContent />
+        </Drawer>
+      )}
 
-              <Grid item xs={12} sm={6} md={3}>
-                <Paper sx={{ p: 3, textAlign: 'center', bgcolor: 'success.main', color: 'white' }}>
-                  <Typography variant="h4" fontWeight="bold">
-                    NPR {userStats.totalSpent.toFixed(2)}
-                  </Typography>
-                  <Typography variant="body2">
-                    Total Spent
-                  </Typography>
-                </Paper>
-              </Grid>
+      {/* ── Main Content ── */}
+      <Box sx={{ flexGrow: 1, overflow: 'auto' }}>
 
-              <Grid item xs={12} sm={6} md={3}>
-                <Paper sx={{ p: 3, textAlign: 'center', bgcolor: 'warning.main', color: 'white' }}>
-                  <Typography variant="h4" fontWeight="bold">
-                    {userStats.favoriteItems}
-                  </Typography>
-                  <Typography variant="body2">
-                    Favorite Items
-                  </Typography>
-                </Paper>
-              </Grid>
-
-              <Grid item xs={12} sm={6} md={3}>
-                <Card>
-                  <CardContent>
-                    <Box display="flex" alignItems="center">
-                      <Avatar sx={{ bgcolor: 'primary.main', mr: 2 }}>
-                        <Star />
-                      </Avatar>
-                      <Box>
-                        <Typography variant="h4" fontWeight="bold">
-                          {userStats.points}
-                        </Typography>
-                        <Typography color="text.secondary">
-                          Points
-                        </Typography>
-                      </Box>
-                    </Box>
-                  </CardContent>
-                </Card>
-              </Grid>
-            </Grid>
-
-            {/* Quick Actions */}
-            <Grid container spacing={3} sx={{ mb: 4 }}>
-              <Grid item xs={12} md={6}>
-                <Paper sx={{ p: 3 }}>
-                  <Typography variant="h6" fontWeight="bold" sx={{ mb: 3 }}>
-                    Quick Actions
-                  </Typography>
-                  <List>
-                    <ListItem 
-                      button 
-                      sx={{ borderRadius: 1, mb: 1 }}
-                      onClick={handleNavigateToMealPlanner}
-                    >
-                      <ListItemIcon>
-                        <Restaurant color="primary" />
-                      </ListItemIcon>
-                      <ListItemText 
-                        primary="Browse Products" 
-                        secondary="Browse products and categories" 
-                      />
-                    </ListItem>
-                    <ListItem 
-                      button 
-                      sx={{ borderRadius: 1, mb: 1 }}
-                      onClick={handleNavigateToMealPlanner}
-                    >
-                      <ListItemIcon>
-                        <TrendingUp color="primary" />
-                      </ListItemIcon>
-                      <ListItemText 
-                        primary="AI Recommendations" 
-                        secondary="Receive AI-powered meal suggestions" 
-                      />
-                    </ListItem>
-                    <ListItem 
-                      button 
-                      sx={{ borderRadius: 1, mb: 1 }}
-                      onClick={handleNavigateToMealPlanner}
-                    >
-                      <ListItemIcon>
-                        <Assessment color="primary" />
-                      </ListItemIcon>
-                      <ListItemText 
-                        primary="Smart Meal Planner" 
-                        secondary="Plan your meals intelligently" 
-                      />
-                    </ListItem>
-                    <ListItem 
-                      button 
-                      sx={{ borderRadius: 1 }}
-                      onClick={handleViewOrderHistory}
-                    >
-                      <ListItemIcon>
-                        <ShoppingCart color="primary" />
-                      </ListItemIcon>
-                      <ListItemText 
-                        primary="Place Orders" 
-                        secondary="View and manage your orders" 
-                      />
-                    </ListItem>
-                  </List>
-                </Paper>
-              </Grid>
-
-              <Grid item xs={12} md={6}>
-                <Paper sx={{ p: 3 }}>
-                  <Typography variant="h6" fontWeight="bold" sx={{ mb: 3 }}>
-                    Recent Orders
-                  </Typography>
-                  <List>
-                    {recentOrders.map((order) => (
-                      <ListItem key={order.id} sx={{ borderRadius: 1, mb: 1, bgcolor: 'grey.50' }}>
-                        <ListItemText 
-                          primary={order.vendor}
-                          secondary={`${order.items} • NPR ${order.total} • ${order.status}`}
-                        />
-                      </ListItem>
-                    ))}
-                  </List>
-                  <Button variant="outlined" fullWidth sx={{ mt: 2 }}>
-                    View All Orders
-                  </Button>
-                </Paper>
-              </Grid>
-            </Grid>
-
-            {/* Favorites and Recommendations */}
-            <Grid container spacing={3} sx={{ mb: 4 }}>
-              <Grid item xs={12} md={6}>
-                <Paper sx={{ p: 3 }}>
-                  <Typography variant="h6" fontWeight="bold" sx={{ mb: 3 }}>
-                    My Favorites
-                  </Typography>
-                  <List>
-                    {favoriteItems.map((item) => (
-                      <ListItem key={item.id} sx={{ borderRadius: 1, mb: 1, bgcolor: 'grey.50' }}>
-                        <ListItemText 
-                          primary={item.name}
-                          secondary={`${item.vendor} • NPR ${item.price}`}
-                        />
-                        <Rating value={item.rating} precision={0.1} readOnly size="small" />
-                      </ListItem>
-                    ))}
-                  </List>
-                  <Button variant="outlined" fullWidth sx={{ mt: 2 }}>
-                    View All Favorites
-                  </Button>
-                </Paper>
-              </Grid>
-
-              <Grid item xs={12} md={6}>
-                <Paper sx={{ p: 3 }}>
-                  <Typography variant="h6" fontWeight="bold" sx={{ mb: 3 }}>
-                    Recommended for You
-                  </Typography>
-                  <List>
-                    {recommendations.map((item) => (
-                      <ListItem key={item.id} sx={{ borderRadius: 1, mb: 1, bgcolor: 'grey.50' }}>
-                        <ListItemText 
-                          primary={item.name}
-                          secondary={`${item.vendor} • NPR ${item.price} • ${item.reason}`}
-                        />
-                        <Rating value={item.rating} precision={0.1} readOnly size="small" />
-                      </ListItem>
-                    ))}
-                  </List>
-                  <Button variant="contained" fullWidth sx={{ mt: 2 }}>
-                    Browse More
-                  </Button>
-                </Paper>
-              </Grid>
-            </Grid>
-
-            {/* Progress Section */}
-            <Paper sx={{ p: 3 }}>
-              <Typography variant="h6" fontWeight="bold" sx={{ mb: 3 }}>
-                Rewards Progress
-              </Typography>
-              <Box sx={{ mb: 2 }}>
-                <Box display="flex" justifyContent="space-between" alignItems="center" sx={{ mb: 1 }}>
-                  <Typography variant="body2">Points to Next Reward</Typography>
-                  <Typography variant="body2" color="primary.main">
-                    {2000 - userStats.points} points
-                  </Typography>
-                </Box>
-                <LinearProgress 
-                  variant="determinate" 
-                  value={(userStats.points / 2000) * 100} 
-                  sx={{ height: 8, borderRadius: 4 }}
-                />
-              </Box>
-              <Typography variant="body2" color="text.secondary">
-                {userStats.points} / 2000 points to next reward
-              </Typography>
-            </Paper>
-          </>
-        )}
-
-        {/* Orders View */}
-        {currentView === 'orders' && (
-          <Paper sx={{ p: 3 }}>
-            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-              <Typography variant="h5" fontWeight="bold">
-                Order History
-              </Typography>
-              <Button
-                variant="outlined"
-                startIcon={<Home />}
-                onClick={handleBackToDashboard}
-              >
-                Return to Dashboard
-              </Button>
-            </Box>
-            <Typography variant="body1" sx={{ mb: 3 }}>
-              View your complete order history and track current orders.
+        {/* Top Bar (mobile) */}
+        {isMobile && (
+          <Paper elevation={1} sx={{ px: 2, py: 1.5, display: 'flex', alignItems: 'center', gap: 2, borderRadius: 0, position: 'sticky', top: 0, zIndex: 100 }}>
+            <IconButton onClick={() => setMobileDrawerOpen(true)}><MenuIcon /></IconButton>
+            <Typography variant="h6" fontWeight={700} sx={{ flexGrow: 1 }}>
+              {navItems.find(n => n.view === currentView)?.label || 'Dashboard'}
             </Typography>
-            <Button variant="contained">
-              View All Orders
-            </Button>
+            <Badge badgeContent={cartItems.length} color="error">
+              <IconButton onClick={() => switchView('cart')}><ShoppingCart /></IconButton>
+            </Badge>
           </Paper>
         )}
 
-        {/* Meals View */}
-        {currentView === 'meals' && (
-          <>
-            <Box sx={{ mb: 4, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <Typography variant="h5" fontWeight="bold">
-                Browse Products
-              </Typography>
-              <Button
-                variant="outlined"
-                startIcon={<Home />}
-                onClick={handleBackToDashboard}
-              >
-                Return to Dashboard
-              </Button>
-            </Box>
+        <Container maxWidth="lg" sx={{ py: 3 }}>
 
-            {/* Vendor Products Grid */}
-            <Grid container spacing={3} sx={{ mb: 4 }}>
-              <Grid item xs={12} md={8}>
-                <Paper sx={{ p: 3 }}>
-                  <Typography variant="h6" fontWeight="bold" sx={{ mb: 3 }}>
-                    Available Products
-                  </Typography>
-                  <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                    Debug: Found {vendorProducts.length} products
-                  </Typography>
-                  {vendorProducts.length === 0 ? (
-                    <Box sx={{ textAlign: 'center', py: 4 }}>
-                      <Typography variant="body1" color="text.secondary">
-                        No products available.
-                      </Typography>
-                      <Button variant="contained" sx={{ mt: 2 }} onClick={() => {
-                        console.log('Manual refresh - checking products...');
-                        console.log('Manual refresh products:', vendorProducts);
-                        // Products are already loaded in state
-                      }}>
-                        Refresh Products
-                      </Button>
-                    </Box>
-                  ) : (
-                    <Grid container spacing={2}>
-                      {vendorProducts.map((product) => (
-                        <Grid item xs={12} sm={6} md={4} key={product.id}>
-                          <Card 
-                            sx={{ 
-                              height: '100%', 
-                              position: 'relative', 
-                              cursor: 'pointer',
-                              transition: 'transform 0.2s ease-in-out',
-                              '&:hover': {
-                                transform: 'translateY(-4px)',
-                                boxShadow: 4
-                              }
-                            }}
-                            onClick={() => handleViewProductDetail(product.id)}
-                          >
-                            <Box sx={{ position: 'relative', height: 200, overflow: 'hidden' }}>
-                              <img 
-                                src={product.image} 
-                                alt={product.name}
-                                style={{ 
-                                  width: '100%', 
-                                  height: '100%', 
-                                  objectFit: 'cover' 
-                                }}
-                              />
-                              <Box sx={{ 
-                                position: 'absolute', 
-                                top: 8, 
-                                right: 8, 
-                                display: 'flex', 
-                                flexDirection: 'column', 
-                                alignItems: 'flex-end',
-                                gap: 1
-                              }}>
-                                <Chip 
-                                  label={`NPR ${product.price}`} 
-                                  color="success" 
-                                  size="small" 
-                                />
-                                <Chip 
-                                  label={product.inStock ? 'In Stock' : 'Out of Stock'} 
-                                  color={product.inStock ? 'success' : 'error'} 
-                                  size="medium" 
-                                />
-                              </Box>
-                              <Box sx={{ 
-                                position: 'absolute', 
-                                bottom: 0, 
-                                left: 0, 
-                                right: 0, 
-                                background: 'linear-gradient(to top, rgba(0,0,0,0.7), transparent)',
-                                color: 'white',
-                                p: 2,
-                                textAlign: 'center'
-                              }}>
-                                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-                                  <Typography variant="body2" color="success.main" fontWeight="bold">
-                                    NPR {product.price}
-                                  </Typography>
-                                  <Typography variant="body2" color="text.secondary">
-                                    {product.inStock ? 'In Stock' : 'Out of Stock'}
-                                  </Typography>
-                                </Box>
-                                <Typography variant="h6" sx={{ fontWeight: 'bold' }}>
-                                  {product.name}
-                                </Typography>
-                                <Typography variant="body2">
-                                  Click to view details
-                                </Typography>
-                              </Box>
-                            </Box>
-                            <CardContent sx={{ pt: 4 }}>
-                              <Typography variant="h6" color="primary.main" sx={{ mb: 1 }}>
-                                {product.name}
-                              </Typography>
-                              <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                                {product.vendor}
-                              </Typography>
-                              <Typography variant="body2" sx={{ mb: 1 }}>
-                                {product?.description}
-                              </Typography>
-                              <Box sx={{ mt: 2, p: 2, bgcolor: 'grey.100', borderRadius: 1 }}>
-                                <Typography variant="body2" color="success.main" fontWeight="bold">
-                                  NPR {product?.price || 0}
-                                </Typography>
-                                <Typography variant="body2" color="text.secondary">
-                                  {product?.inStock ? 'In Stock' : 'Out of Stock'}
-                                </Typography>
-                              </Box>
-                              <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
-                                <Typography variant="body2" color="text.secondary">
-                                  Rating: {product.rating || 0} ({product.totalRatings || 0} ratings)
-                                </Typography>
-                                <Rating 
-                                  value={product.rating || 0} 
-                                  precision={0.1} 
-                                  readOnly={false}
-                                  size="large"
-                                  onChange={(event, newValue) => {
-                                    if (newValue) {
-                                      handleRateProduct(product.id, newValue);
-                                    }
-                                  }}
-                                />
-                                <Chip label={product.category} color="primary" size="medium" />
-                              </Box>
-                              <Typography variant="body1" sx={{ mb: 2 }}>
-                                {product?.description}
-                              </Typography>
-                              <Box sx={{ display: 'flex', gap: 1 }}>
-                                <Button 
-                                  variant="contained" 
-                                  size="small"
-                                  onClick={() => handlePlaceOrder(product)}
-                                  sx={{ minWidth: 'auto', px: 1 }}
-                                >
-                                  🛒 Order
-                                </Button>
-                                <Button 
-                                  variant="outlined" 
-                                  size="small"
-                                  onClick={() => handleAddToFavorites(product)}
-                                  sx={{ minWidth: 'auto', px: 1 }}
-                                >
-                                  ❤️ Favorite
-                                </Button>
-                                <Button 
-                                  variant="outlined" 
-                                  size="small"
-                                  onClick={() => handleViewProductDetail(product.id)}
-                                  sx={{ minWidth: 'auto', px: 1 }}
-                                >
-                                  Quick View
-                                </Button>
-                              </Box>
-                            </CardContent>
-                          </Card>
-                        </Grid>
-                      ))}
-                    </Grid>
-                  )}
-                </Paper>
-              </Grid>
-
-              <Grid item xs={12} md={4}>
-                <Paper sx={{ p: 3 }}>
-                  <Typography variant="h6" fontWeight="bold" sx={{ mb: 3 }}>
-                    Quick Actions
-                  </Typography>
-                  <List>
-                    <ListItem 
-                      button 
-                      sx={{ borderRadius: 1, mb: 1 }}
-                      onClick={handleNavigateToMealPlanner}
-                    >
-                      <ListItemIcon>
-                        <Restaurant color="primary" />
-                      </ListItemIcon>
-                      <ListItemText primary="Browse Products" secondary="View available food items" />
-                    </ListItem>
-                    <ListItem 
-                      button 
-                      sx={{ borderRadius: 1, mb: 1 }}
-                      onClick={handleViewInventory}
-                    >
-                      <ListItemIcon>
-                        <Assessment color="primary" />
-                      </ListItemIcon>
-                      <ListItemText primary="View Products" secondary={`See all ${vendorProducts.length} available products`} />
-                    </ListItem>
-                    <ListItem 
-                      button 
-                      sx={{ borderRadius: 1, mb: 1 }}
-                      onClick={handleViewOrderHistory}
-                    >
-                      <ListItemIcon>
-                        <ShoppingCart color="primary" />
-                      </ListItemIcon>
-                      <ListItemText primary="Order History" secondary="View your past orders" />
-                    </ListItem>
-                    <ListItem 
-                      button 
-                      sx={{ borderRadius: 1 }}
-                      onClick={handleViewFavorites}
-                    >
-                      <ListItemIcon>
-                        <Favorite color="primary" />
-                      </ListItemIcon>
-                      <ListItemText primary="My Favorites" secondary="Manage favorite items" />
-                    </ListItem>
-                  </List>
-                </Paper>
-              </Grid>
-            </Grid>
-          </>
-        )}
-
-        {/* Favorites View */}
-        {currentView === 'favorites' && (
-          <Paper sx={{ p: 3 }}>
-            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-              <Typography variant="h5" fontWeight="bold">
-                My Favorites ({favoriteItems.length} items)
-              </Typography>
-              <Button
-                variant="outlined"
-                startIcon={<Home />}
-                onClick={handleBackToDashboard}
-              >
-                Return to Dashboard
-              </Button>
-            </Box>
-            
-            {favoriteItems.length === 0 ? (
-              <Box sx={{ textAlign: 'center', py: 4 }}>
-                <Typography variant="body1" color="text.secondary" sx={{ mb: 2 }}>
-                  You haven't added any favorites yet.
+          {/* ── Dashboard View ── */}
+          {currentView === 'dashboard' && (
+            <>
+              <Box sx={{ mb: 4 }}>
+                <Typography variant="h4" fontWeight={800} gutterBottom>
+                  Welcome back, {userData?.name?.split(' ')[0] || 'User'} 👋
                 </Typography>
-                <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-                  Browse products and click the heart icon to add them to your favorites.
-                </Typography>
-                <Button variant="contained" onClick={handleNavigateToMealPlanner}>
-                  Browse Products
-                </Button>
+                <Typography color="text.secondary">Member since {userStats.memberSince}</Typography>
               </Box>
-            ) : (
-              <Grid container spacing={2}>
-                {favoriteItems.map((item) => (
-                  <Grid item xs={12} sm={6} md={4} key={item.id}>
-                    <Card sx={{ height: '100%' }}>
-                      <Box sx={{ position: 'relative', height: 200, overflow: 'hidden' }}>
-                        <img 
-                          src={item.image} 
-                          alt={item.name}
-                          style={{ 
-                            width: '100%', 
-                            height: '100%', 
-                            objectFit: 'cover' 
-                          }}
-                        />
-                        <Box sx={{ 
-                          position: 'absolute', 
-                          top: 8, 
-                          right: 8, 
-                          display: 'flex', 
-                          flexDirection: 'column', 
-                          alignItems: 'flex-end',
-                          gap: 1
-                        }}>
-                          <Chip 
-                            label={`$${item.price}`} 
-                            color="success" 
-                            size="small" 
-                          />
-                          <IconButton size="small" color="error">
-                            <Favorite />
-                          </IconButton>
-                        </Box>
-                      </Box>
-                      <CardContent>
-                        <Typography variant="h6" color="primary.main" sx={{ mb: 1 }}>
-                          {item.name}
-                        </Typography>
-                        <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                          {item.vendor}
-                        </Typography>
-                        <Typography variant="body2" sx={{ mb: 2 }}>
-                          {item.description}
-                        </Typography>
-                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                          <Rating value={item.rating} precision={0.1} readOnly size="small" />
-                          <Box sx={{ display: 'flex', gap: 1 }}>
-                            <Button 
-                              variant="contained" 
-                              size="small"
-                              onClick={() => handleOrderFromFavorites(item)}
-                            >
-                              Order Now
-                            </Button>
-                            <Button 
-                              variant="outlined" 
-                              size="small"
-                              color="error"
-                              onClick={() => handleRemoveFromFavorites(item.id)}
-                            >
-                              Remove
-                            </Button>
-                          </Box>
-                        </Box>
-                      </CardContent>
-                    </Card>
+
+              {/* Quick Nav Cards */}
+              <Grid container spacing={2} sx={{ mb: 4 }}>
+                {navItems.filter(n => n.view !== 'dashboard').map(({ view, label, icon, count }) => (
+                  <Grid item xs={6} sm={3} key={view}>
+                    <NavCard
+                      icon={icon}
+                      label={label}
+                      count={count}
+                      active={false}
+                      onClick={() => switchView(view)}
+                      color={view === 'cart' ? '#d32f2f' : view === 'favorites' ? '#e91e63' : '#1976d2'}
+                    />
                   </Grid>
                 ))}
               </Grid>
-            )}
-          </Paper>
-        )}
 
-        {/* Profile View */}
-        {currentView === 'profile' && (
-          <Paper sx={{ p: 3 }}>
-            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-              <Typography variant="h5" fontWeight="bold">
-                Profile Settings
-              </Typography>
-              <Button
-                variant="outlined"
-                startIcon={<Home />}
-                onClick={handleBackToDashboard}
-              >
-                Return to Dashboard
-              </Button>
-            </Box>
-            <Typography variant="body1" sx={{ mb: 2 }}>
-              Name: {userData?.name || 'Test User'}
-            </Typography>
-            <Typography variant="body1" sx={{ mb: 2 }}>
-              Email: {userData?.email || 'user@test.com'}
-            </Typography>
-            <Typography variant="body1" sx={{ mb: 2 }}>
-              Role: {userData?.role || 'USER'}
-            </Typography>
-            <Typography variant="body1" sx={{ mb: 3 }}>
-              Member Since: {userStats.memberSince}
-            </Typography>
-            <Button variant="outlined">
-              Edit Profile
-            </Button>
-          </Paper>
-        )}
+              {/* Stat Cards */}
+              <Grid container spacing={3} sx={{ mb: 4 }}>
+                <Grid item xs={6} md={3}>
+                  <StatCard
+                    label="Total Orders"
+                    value={userStats.totalOrders}
+                    icon={<Restaurant />}
+                    bgcolor="#1976d2"
+                  />
+                </Grid>
+                <Grid item xs={6} md={3}>
+                  <StatCard
+                    label="Total Spent"
+                    value={`NPR ${userStats.totalSpent.toFixed(0)}`}
+                    icon={<TrendingUp />}
+                    bgcolor="#388e3c"
+                    color="success.main"
+                  />
+                </Grid>
+                <Grid item xs={6} md={3}>
+                  <StatCard
+                    label="Favorites"
+                    value={favoriteItems.length}
+                    icon={<Favorite />}
+                    bgcolor="#e91e63"
+                  />
+                </Grid>
+                <Grid item xs={6} md={3}>
+                  <StatCard
+                    label="Points Earned"
+                    value={userStats.points}
+                    icon={<Star />}
+                    bgcolor="#f57c00"
+                    color="warning.main"
+                  />
+                </Grid>
+              </Grid>
 
-        {/* Product Detail Dialog */}
-        <Dialog 
-          open={showProductDetail} 
-          onClose={handleCloseProductDetail}
-          maxWidth="md"
-          fullWidth
-          scroll="paper"
-        >
-          {selectedProductId && (
-            <>
-              <DialogTitle>
-                <Typography variant="h5" fontWeight="bold">
-                  Product Details
-                </Typography>
-              </DialogTitle>
-              <DialogContent>
-                {(() => {
-                  const product = vendorProducts.find(p => p.id === selectedProductId);
-                  if (!product) return null;
-                  
-                  return (
-                    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-                      {/* Product Header with Image */}
-                      <Box sx={{ display: 'flex', gap: 3, alignItems: 'flex-start' }}>
-                        <Box sx={{ flex: 1, maxWidth: 300 }}>
-                          <img 
-                            src={product?.image} 
-                            alt={product?.name}
-                            style={{ 
-                              width: '100%', 
-                              height: 200, 
-                              objectFit: 'cover',
-                              borderRadius: 2
-                            }}
-                          />
-                        </Box>
-                        <Box sx={{ flex: 1 }}>
-                          <Typography variant="h4" color="primary.main" sx={{ mb: 1 }}>
-                            {product?.name}
-                          </Typography>
-                          <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-                            {product?.vendor}
-                          </Typography>
-                          <Typography variant="body2" sx={{ mb: 1 }}>
-                            {product?.description}
-                          </Typography>
-                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
-                            <Chip 
-                              label={product.inStock ? 'In Stock' : 'Out of Stock'} 
-                              color={product.inStock ? 'success' : 'error'} 
-                              size="medium" 
-                            />
-                            <Chip label={product.category} color="primary" size="medium" />
-                          </Box>
-                          <Typography variant="body1" sx={{ mb: 2 }}>
-                            {product?.description}
-                          </Typography>
-                          <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
-                            <Typography variant="body2" color="text.secondary">
-                              <strong>Calories:</strong> {product.calories}
-                            </Typography>
-                            <Typography variant="body2" color="text.secondary">
-                              <strong>Prep Time:</strong> {product.prepTime}
-                            </Typography>
-                          </Box>
-                        </Box>
-                      </Box>
-
-                      {/* Ingredients Section */}
-                      <Paper sx={{ p: 2, bgcolor: 'grey.50' }}>
-                        <Typography variant="h6" fontWeight="bold" sx={{ mb: 2 }}>
-                          Ingredients
-                        </Typography>
-                        <Typography variant="body2">
-                          {product.ingredients}
-                        </Typography>
-                      </Paper>
-
-                      {/* Action Buttons */}
-                      <Box sx={{ display: 'flex', gap: 2, justifyContent: 'center', mt: 2 }}>
-                        <Button 
-                          variant="contained" 
-                          size="large"
-                          onClick={handleAddToCartFromDetail}
-                          startIcon={<ShoppingCart />}
-                        >
-                          Add to Cart
-                        </Button>
-                        <Button 
-                          variant="outlined" 
-                          size="large"
-                          onClick={handleCloseProductDetail}
-                        >
-                          Close
-                        </Button>
-                      </Box>
+              {/* Cart Summary Card (if items in cart) */}
+              {cartItems.length > 0 && (
+                <Paper sx={{ p: 3, mb: 3, border: '1px solid', borderColor: 'warning.light', bgcolor: 'warning.50' }}>
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <Box>
+                      <Typography variant="h6" fontWeight={700}>
+                        🛒 {cartItems.length} item{cartItems.length > 1 ? 's' : ''} in cart
+                      </Typography>
+                      <Typography color="text.secondary">Total: NPR {cartTotal.toFixed(2)}</Typography>
                     </Box>
-                  );
-                })()}
+                    <Button variant="contained" color="warning" onClick={() => switchView('cart')}>
+                      View Cart
+                    </Button>
+                  </Box>
+                </Paper>
+              )}
+
+              <Button
+                variant="contained"
+                size="large"
+                startIcon={<Restaurant />}
+                onClick={() => switchView('meals')}
+                sx={{ py: 1.5, px: 4 }}
+              >
+                Browse Products
+              </Button>
+            </>
+          )}
+
+          {/* ── Products View ── */}
+          {currentView === 'meals' && (
+            <>
+              <Typography variant="h4" fontWeight={700} gutterBottom>Available Products</Typography>
+              <Box sx={{ display: 'flex', gap: 2, mb: 3, flexWrap: 'wrap' }}>
+                <TextField
+                  sx={{ flexGrow: 1, minWidth: 200 }}
+                  variant="outlined"
+                  placeholder="Search products or vendors..."
+                  value={searchQuery}
+                  onChange={e => setSearchQuery(e.target.value)}
+                  InputProps={{ startAdornment: <InputAdornment position="start"><SearchIcon /></InputAdornment> }}
+                />
+                <FormControl sx={{ minWidth: 140 }}>
+                  <InputLabel>Category</InputLabel>
+                  <Select value={filterCategory} label="Category" onChange={e => setFilterCategory(e.target.value)}>
+                    {categories.map(cat => (
+                      <MenuItem key={cat} value={cat}>
+                        {cat.charAt(0).toUpperCase() + cat.slice(1)}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+              </Box>
+
+              {filteredProducts.length === 0 ? (
+                <Paper sx={{ p: 5, textAlign: 'center' }}>
+                  <Typography variant="h6" color="text.secondary" gutterBottom>No products found</Typography>
+                  <Button variant="outlined" onClick={() => { setSearchQuery(''); setFilterCategory('all'); }}>
+                    Reset Filters
+                  </Button>
+                </Paper>
+              ) : (
+                <Grid container spacing={3}>
+                  {filteredProducts.map(product => (
+                    <Grid item xs={12} sm={6} md={4} key={product.id}>
+                      <ProductCard
+                        product={product}
+                        onAddToCart={handleAddToCart}
+                        onFavorite={handleAddToFavorites}
+                        onDetails={(id) => { setSelectedProductId(id); setShowProductDetail(true); }}
+                        imageFallback={imageFallback}
+                      />
+                    </Grid>
+                  ))}
+                </Grid>
+              )}
+            </>
+          )}
+
+          {/* ── Favorites View ── */}
+          {currentView === 'favorites' && (
+            <>
+              <Typography variant="h4" fontWeight={700} gutterBottom>My Favorites</Typography>
+              {favoriteItems.length === 0 ? (
+                <Paper sx={{ p: 5, textAlign: 'center' }}>
+                  <Favorite sx={{ fontSize: 64, color: 'grey.300', mb: 2 }} />
+                  <Typography variant="h6" color="text.secondary" gutterBottom>No favorites yet</Typography>
+                  <Button variant="contained" onClick={() => switchView('meals')}>Browse Products</Button>
+                </Paper>
+              ) : (
+                <Grid container spacing={3}>
+                  {favoriteItems.map(item => (
+                    <Grid item xs={12} sm={6} md={4} key={item.id}>
+                      <Card sx={{ transition: 'transform 0.2s', '&:hover': { transform: 'translateY(-4px)', boxShadow: 6 } }}>
+                        <img
+                          src={item.image}
+                          alt={item.name}
+                          style={{ width: '100%', height: 180, objectFit: 'cover' }}
+                          onError={e => { e.target.src = imageFallback; }}
+                        />
+                        <CardContent>
+                          <Typography variant="h6" fontWeight={600} noWrap>{item.name}</Typography>
+                          <Typography variant="body2" color="text.secondary" gutterBottom>
+                            {item.vendor} • NPR {item.price}
+                          </Typography>
+                          <Rating value={item.rating || 0} readOnly size="small" />
+                          <Box sx={{ mt: 2, display: 'flex', gap: 1 }}>
+                            <Button variant="contained" size="small" fullWidth startIcon={<ShoppingCart />} onClick={() => handleAddToCart(item)}>
+                              Add to Cart
+                            </Button>
+                            <Button variant="outlined" size="small" color="error" onClick={() => handleRemoveFromFavorites(item.id)}>
+                              <DeleteIcon fontSize="small" />
+                            </Button>
+                          </Box>
+                        </CardContent>
+                      </Card>
+                    </Grid>
+                  ))}
+                </Grid>
+              )}
+            </>
+          )}
+
+          {/* ── Cart View ── */}
+          {currentView === 'cart' && (
+            <>
+              <Typography variant="h4" fontWeight={700} gutterBottom>Shopping Cart</Typography>
+              {cartItems.length === 0 ? (
+                <Paper sx={{ p: 5, textAlign: 'center' }}>
+                  <ShoppingCart sx={{ fontSize: 64, color: 'grey.300', mb: 2 }} />
+                  <Typography variant="h6" color="text.secondary" gutterBottom>Your cart is empty</Typography>
+                  <Button variant="contained" onClick={() => switchView('meals')}>Shop Now</Button>
+                </Paper>
+              ) : (
+                <Grid container spacing={3}>
+                  <Grid item xs={12} md={8}>
+                    <TableContainer component={Paper}>
+                      <Table>
+                        <TableHead>
+                          <TableRow sx={{ bgcolor: 'grey.50' }}>
+                            <TableCell fontWeight={600}>Product</TableCell>
+                            <TableCell align="right">Price</TableCell>
+                            <TableCell align="center">Qty</TableCell>
+                            <TableCell align="right">Subtotal</TableCell>
+                            <TableCell align="center">Del</TableCell>
+                          </TableRow>
+                        </TableHead>
+                        <TableBody>
+                          {cartItems.map(item => (
+                            <TableRow key={item.id} hover>
+                              <TableCell>
+                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                                  <img
+                                    src={item.image || imageFallback}
+                                    alt={item.name}
+                                    style={{ width: 48, height: 48, objectFit: 'cover', borderRadius: 6 }}
+                                    onError={e => { e.target.src = imageFallback; }}
+                                  />
+                                  <Box>
+                                    <Typography variant="body2" fontWeight={600}>{item.name}</Typography>
+                                    <Typography variant="caption" color="text.secondary">{item.vendor}</Typography>
+                                  </Box>
+                                </Box>
+                              </TableCell>
+                              <TableCell align="right">NPR {item.price}</TableCell>
+                              <TableCell align="center">
+                                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 0.5 }}>
+                                  <IconButton size="small" onClick={() => handleUpdateCartQuantity(item.id, -1)}><Remove fontSize="small" /></IconButton>
+                                  <Typography sx={{ minWidth: 24, textAlign: 'center' }}>{item.quantity}</Typography>
+                                  <IconButton size="small" onClick={() => handleUpdateCartQuantity(item.id, 1)}><Add fontSize="small" /></IconButton>
+                                </Box>
+                              </TableCell>
+                              <TableCell align="right">NPR {(item.price * item.quantity).toFixed(2)}</TableCell>
+                              <TableCell align="center">
+                                <IconButton color="error" size="small" onClick={() => handleRemoveFromCart(item.id)}><DeleteIcon /></IconButton>
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </TableContainer>
+                  </Grid>
+                  <Grid item xs={12} md={4}>
+                    <Paper sx={{ p: 3, position: 'sticky', top: 16 }}>
+                      <Typography variant="h6" fontWeight={700} gutterBottom>Order Summary</Typography>
+                      <Divider sx={{ mb: 2 }} />
+                      <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
+                        <Typography color="text.secondary">Items ({cartItems.length})</Typography>
+                        <Typography>NPR {cartTotal.toFixed(2)}</Typography>
+                      </Box>
+                      <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
+                        <Typography color="text.secondary">Delivery</Typography>
+                        <Typography color="success.main">Free</Typography>
+                      </Box>
+                      <Divider sx={{ my: 2 }} />
+                      <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 3 }}>
+                        <Typography variant="h6" fontWeight={700}>Total</Typography>
+                        <Typography variant="h6" fontWeight={700} color="primary.main">
+                          NPR {cartTotal.toFixed(2)}
+                        </Typography>
+                      </Box>
+                      <Button variant="contained" color="primary" size="large" fullWidth onClick={handleCheckout}>
+                        Checkout
+                      </Button>
+                      <Button variant="text" fullWidth sx={{ mt: 1 }} onClick={() => switchView('meals')}>
+                        Continue Shopping
+                      </Button>
+                    </Paper>
+                  </Grid>
+                </Grid>
+              )}
+            </>
+          )}
+
+          {/* ── Profile View ── */}
+          {currentView === 'profile' && (
+            <Grid container spacing={3}>
+              <Grid item xs={12} md={4}>
+                <Paper sx={{ p: 4, textAlign: 'center' }}>
+                  <Avatar sx={{ width: 96, height: 96, bgcolor: 'primary.main', fontSize: 40, mx: 'auto', mb: 2 }}>
+                    {userData?.name?.[0] || 'U'}
+                  </Avatar>
+                  <Typography variant="h5" fontWeight={700}>{userData?.name}</Typography>
+                  <Typography color="text.secondary" gutterBottom>{userData?.email}</Typography>
+                  <Chip label={userData?.role || 'USER'} color="primary" size="small" sx={{ mb: 3 }} />
+                  <Button variant="outlined" color="error" fullWidth startIcon={<LogoutIcon />} onClick={handleLogout}>
+                    Logout
+                  </Button>
+                </Paper>
+              </Grid>
+              <Grid item xs={12} md={8}>
+                <Paper sx={{ p: 4 }}>
+                  <Typography variant="h6" fontWeight={700} gutterBottom>Account Info</Typography>
+                  <Divider sx={{ mb: 3 }} />
+                  {[
+                    ['Member Since', userStats.memberSince],
+                    ['Last Order', userStats.lastOrder],
+                    ['Total Orders', userStats.totalOrders],
+                    ['Total Spent', `NPR ${userStats.totalSpent.toFixed(2)}`],
+                    ['Avg. Order Value', `NPR ${userStats.avgOrderValue.toFixed(2)}`],
+                    ['Points Earned', userStats.points],
+                    ['Favorites', favoriteItems.length],
+                  ].map(([label, value]) => (
+                    <Box key={label} sx={{ display: 'flex', justifyContent: 'space-between', py: 1.5, borderBottom: '1px solid', borderColor: 'divider' }}>
+                      <Typography color="text.secondary">{label}</Typography>
+                      <Typography fontWeight={600}>{value}</Typography>
+                    </Box>
+                  ))}
+                </Paper>
+              </Grid>
+            </Grid>
+          )}
+        </Container>
+      </Box>
+
+      {/* ── Product Detail Dialog ── */}
+      <Dialog open={showProductDetail} onClose={() => setShowProductDetail(false)} maxWidth="md" fullWidth>
+        {selectedProductId && (() => {
+          const product = vendorProducts.find(p => p.id === selectedProductId);
+          if (!product) return null;
+          return (
+            <>
+              <DialogTitle sx={{ fontWeight: 700 }}>{product.name}</DialogTitle>
+              <DialogContent>
+                <Grid container spacing={3}>
+                  <Grid item xs={12} sm={5}>
+                    <img
+                      src={product.image}
+                      alt={product.name}
+                      style={{ width: '100%', aspectRatio: '1', objectFit: 'cover', borderRadius: 8 }}
+                      onError={e => { e.target.src = imageFallback; }}
+                    />
+                  </Grid>
+                  <Grid item xs={12} sm={7}>
+                    <Typography variant="body2" color="text.secondary" gutterBottom>by {product.vendor}</Typography>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
+                      <Rating
+                        value={product.rating || 0}
+                        onChange={(_, v) => v && handleRateProduct(product.id, v)}
+                        precision={0.5}
+                      />
+                      <Typography variant="caption">({product.totalRatings || 0} ratings)</Typography>
+                    </Box>
+                    <Chip label={`NPR ${product.price}`} color="success" size="medium" sx={{ mb: 2, fontWeight: 700, fontSize: 16 }} />
+                    {product.category && <Chip label={product.category} variant="outlined" size="small" sx={{ ml: 1, mb: 2 }} />}
+                    <Typography variant="subtitle2" fontWeight={700} sx={{ mt: 1 }}>Ingredients</Typography>
+                    <Typography variant="body2" color="text.secondary" gutterBottom>{product.ingredients}</Typography>
+                    <Typography variant="subtitle2" fontWeight={700} sx={{ mt: 1 }}>Nutrition</Typography>
+                    <Typography variant="body2" color="text.secondary">{product.nutrition}</Typography>
+                  </Grid>
+                </Grid>
               </DialogContent>
-              <DialogActions>
-                <Button onClick={handleCloseProductDetail}>Close</Button>
-                <Button onClick={handleAddToCartFromDetail} variant="contained" color="primary">
-                  Add to Cart - NPR {product.price}
+              <DialogActions sx={{ p: 2 }}>
+                <Button onClick={() => setShowProductDetail(false)}>Close</Button>
+                <Button variant="outlined" onClick={() => { handleAddToFavorites(product); setShowProductDetail(false); }} startIcon={<Favorite />}>
+                  Favorite
+                </Button>
+                <Button variant="contained" onClick={() => { handleAddToCart(product); setShowProductDetail(false); }} startIcon={<ShoppingCart />}>
+                  Add to Cart
                 </Button>
               </DialogActions>
             </>
-          )}
-        </Dialog>
-      </Container>
+          );
+        })()}
+      </Dialog>
     </Box>
   );
 };

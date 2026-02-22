@@ -122,88 +122,19 @@ const SimpleAdminDashboard = () => {
       setLoading(true);
       setError('');
       
-      // Try to fetch data from backend API first
+      // Fetch data from backend API only - no localStorage fallbacks
       let allUsers = [];
-      let allVendorProducts = {};
       let allProducts = [];
-      let stats = {};
       
-      try {
-        // Fetch users from backend
-        const usersData = await adminService.getAllUsers();
-        allUsers = usersData.data || usersData || [];
-        console.log('AdminDashboard: Successfully fetched users from backend:', allUsers);
+      // Fetch users from backend
+      const usersData = await adminService.getAllUsers();
+      allUsers = usersData.data || usersData || [];
+      console.log('AdminDashboard: Successfully fetched users from backend:', allUsers);
 
-        // Fetch products from backend (non-blocking for user/vendor lists)
-        try {
-          const productsData = await adminService.getAllProducts();
-          allProducts = productsData.data || productsData || [];
-          console.log('AdminDashboard: Successfully fetched products from backend:', allProducts);
-        } catch (productsError) {
-          console.error('AdminDashboard: Failed to fetch products (continuing with users/vendors):', productsError);
-          allProducts = [];
-        }
-        
-      } catch (apiError) {
-        const status = apiError?.status;
-        const msg = apiError?.message || '';
-
-        // If you're not authorized, do NOT fall back to localStorage (it hides the real issue)
-        if (status === 401 || status === 403) {
-          console.error('AdminDashboard: Admin API unauthorized:', apiError);
-          setError('Unauthorized. Please login again as ADMIN.');
-          setLoading(false);
-          return;
-        }
-
-        // Only fall back when backend is genuinely unreachable
-        const isNetworkFailure = msg.includes('Failed to fetch') || msg.includes('NetworkError') || msg.includes('ECONNREFUSED');
-        if (!isNetworkFailure) {
-          console.error('AdminDashboard: Backend API error (not falling back):', apiError);
-          setError(`Failed to load admin data from backend: ${msg}`);
-          setLoading(false);
-          return;
-        }
-
-        console.log('AdminDashboard: Backend API not available, using localStorage fallback:', apiError);
-
-        // Fallback to localStorage if backend is not available
-        allUsers = await adminService.getUsersFromFallback();
-        allVendorProducts = JSON.parse(localStorage.getItem('allVendorProducts') || '{}');
-
-        // Convert localStorage vendor-product map into a flat product list
-        allProducts = [];
-        Object.keys(allVendorProducts).forEach(vendorKey => {
-          if (allVendorProducts[vendorKey]) {
-            allProducts = [...allProducts, ...allVendorProducts[vendorKey]];
-          }
-        });
-        
-        // Calculate stats from localStorage data
-        const vendors = allUsers.filter(u => u.role === 'VENDOR');
-        const regularUsers = allUsers.filter(u => u.role === 'USER');
-        const admins = allUsers.filter(u => u.role === 'ADMIN');
-        
-        // Count all products
-        let totalProducts = 0;
-        Object.keys(allVendorProducts).forEach(vendorKey => {
-          if (allVendorProducts[vendorKey]) {
-            totalProducts += allVendorProducts[vendorKey].length;
-          }
-        });
-        
-        stats = {
-          totalUsers: allUsers.length,
-          totalVendors: vendors.length,
-          totalRegularUsers: regularUsers.length,
-          totalAdmins: admins.length,
-          totalProducts: totalProducts,
-          totalOrders: 0, // Will be implemented when orders are stored
-          totalRevenue: 0, // Will be calculated from orders
-          connectedUsers: allUsers.filter(u => u.isConnected).length,
-          activeVendors: vendors.filter(v => v.isConnected).length
-        };
-      }
+      // Fetch products from backend
+      const productsData = await adminService.getAllProducts();
+      allProducts = productsData.data || productsData || [];
+      console.log('AdminDashboard: Successfully fetched products from backend:', allProducts);
       
       // Debug: Check what users we have
       console.log('AdminDashboard: Processing users:', allUsers);
@@ -382,7 +313,7 @@ const SimpleAdminDashboard = () => {
       
     } catch (error) {
       console.error('AdminDashboard: Error loading admin data:', error);
-      setError('Failed to load admin data');
+      setError('Failed to load admin data from backend. Please check if the server is running.');
       setLoading(false);
     }
   };
@@ -579,7 +510,6 @@ const SimpleAdminDashboard = () => {
 
   const handleLogout = () => {
     localStorage.removeItem('token');
-    localStorage.removeItem('user');
     window.location.href = '/login';
   };
 
@@ -626,11 +556,7 @@ const SimpleAdminDashboard = () => {
       setLoading(true);
       setError('');
       
-      // Clear localStorage cache to force fresh data from backend
-      localStorage.removeItem('allUsers');
-      localStorage.removeItem('allVendorProducts');
-      
-      // Reload data from backend
+      // Reload data from backend (no localStorage cache to clear)
       await loadAdminData();
       
       console.log('AdminDashboard: Manual refresh completed successfully');
@@ -654,29 +580,12 @@ const SimpleAdminDashboard = () => {
     try {
       console.log('AdminDashboard: Deleting user:', { userId, userEmail, userToDelete });
       
-      // Try to delete from backend first
-      try {
-        if (userId !== undefined && userId !== null) {
-          await adminService.deleteUser(userId);
-          console.log('AdminDashboard: User deleted from backend successfully');
-        } else {
-          throw new Error('Missing user id; cannot delete from backend. Using localStorage fallback.');
-        }
-      } catch (apiError) {
-        console.log('AdminDashboard: Backend delete failed, removing from localStorage:', apiError);
-        
-        // Fallback: remove from localStorage
-        const allUsers = JSON.parse(localStorage.getItem('allUsers') || '[]');
-        const updatedUsers = allUsers.filter(u => {
-          if (userId !== undefined && userId !== null) {
-            return u.id !== userId;
-          }
-          if (userEmail) {
-            return (u.email || '').toLowerCase() !== userEmail.toLowerCase();
-          }
-          return true;
-        });
-        localStorage.setItem('allUsers', JSON.stringify(updatedUsers));
+      // Delete from backend only
+      if (userId !== undefined && userId !== null) {
+        await adminService.deleteUser(userId);
+        console.log('AdminDashboard: User deleted from backend successfully');
+      } else {
+        throw new Error('Missing user id; cannot delete user.');
       }
       
       // Reload data to refresh the UI
@@ -700,52 +609,19 @@ const SimpleAdminDashboard = () => {
     try {
       console.log('AdminDashboard: Deleting vendor:', { vendorName, vendorEmail, vendorId });
       
-      // Remove vendor from users list using multiple identification methods
-      const allUsers = JSON.parse(localStorage.getItem('allUsers') || '[]');
-      console.log('AdminDashboard: Current users before deletion:', allUsers.length);
-      
-      const updatedUsers = allUsers.filter(u => {
-        // Filter out vendor by name, email, or ID
-        const shouldDelete = (
-          u.name === vendorName || 
-          u.businessName === vendorName || 
-          u.email === vendorEmail ||
-          (vendorId && u.id === vendorId)
-        );
-        
-        if (shouldDelete) {
-          console.log('AdminDashboard: Removing user:', u);
-        }
-        
-        return !shouldDelete;
-      });
-      
-      console.log('AdminDashboard: Users after deletion:', updatedUsers.length);
-      localStorage.setItem('allUsers', JSON.stringify(updatedUsers));
-      
-      // Remove vendor's products
-      const allVendorProducts = JSON.parse(localStorage.getItem('allVendorProducts') || '{}');
-      console.log('AdminDashboard: Current vendor products before deletion:', Object.keys(allVendorProducts));
-      
-      const vendorKeys = Object.keys(allVendorProducts).filter(key => 
-        key.includes(vendorName.toLowerCase()) || 
-        key.includes(vendorEmail?.toLowerCase()) ||
-        (vendorId && key.includes(vendorId.toString()))
-      );
-      
-      console.log('AdminDashboard: Removing vendor product keys:', vendorKeys);
-      
-      vendorKeys.forEach(vendorKey => {
-        delete allVendorProducts[vendorKey];
-      });
-      
-      localStorage.setItem('allVendorProducts', JSON.stringify(allVendorProducts));
+      // Delete vendor from backend using admin service
+      if (vendorId) {
+        await adminService.deleteUser(vendorId);
+        console.log('AdminDashboard: Vendor deleted from backend successfully');
+      } else {
+        throw new Error('Missing vendor id; cannot delete vendor.');
+      }
       
       // Reload data to refresh the UI
       console.log('AdminDashboard: Reloading data after deletion');
       await loadAdminData();
       
-      alert(`Vendor "${vendorName}" and their products deleted successfully`);
+      alert(`Vendor "${vendorName}" deleted successfully`);
       
     } catch (error) {
       console.error('AdminDashboard: Error deleting vendor:', error);
@@ -753,20 +629,19 @@ const SimpleAdminDashboard = () => {
     }
   };
 
-  const handleDeleteProduct = (productId) => {
+  const handleDeleteProduct = async (productId) => {
     if (window.confirm('Are you sure you want to delete this product?')) {
-      // Remove product from localStorage
-      const allVendorProducts = JSON.parse(localStorage.getItem('allVendorProducts') || '{}');
-      Object.keys(allVendorProducts).forEach(vendorKey => {
-        if (allVendorProducts[vendorKey]) {
-          allVendorProducts[vendorKey] = allVendorProducts[vendorKey].filter(p => p.id !== productId);
-        }
-      });
-      localStorage.setItem('allVendorProducts', JSON.stringify(allVendorProducts));
-      
-      // Reload data
-      loadAdminData();
-      alert('Product deleted successfully');
+      try {
+        await adminService.deleteProduct(productId);
+        console.log('AdminDashboard: Product deleted from backend successfully');
+        
+        // Reload data
+        await loadAdminData();
+        alert('Product deleted successfully');
+      } catch (error) {
+        console.error('AdminDashboard: Error deleting product:', error);
+        setError('Failed to delete product. Please try again.');
+      }
     }
   };
 

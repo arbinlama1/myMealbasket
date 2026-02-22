@@ -1,20 +1,64 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-  Container, Paper, Typography, Box, Grid, Card, CardContent, Button,
-  Avatar, CircularProgress, Chip, Rating, IconButton, TextField,
-  InputAdornment, Select, MenuItem, FormControl, InputLabel,
-  Table, TableBody, TableCell, TableContainer, TableHead, TableRow,
-  Dialog, DialogTitle, DialogContent, DialogActions, Drawer, List,
-  ListItem, ListItemButton, ListItemIcon, ListItemText, Divider, Badge,
-  useTheme, useMediaQuery
+  Container,
+  Paper,
+  Typography,
+  Box,
+  Grid,
+  Card,
+  CardContent,
+  Button,
+  Avatar,
+  CircularProgress,
+  Chip,
+  Rating,
+  IconButton,
+  TextField,
+  InputAdornment,
+  Select,
+  MenuItem,
+  FormControl,
+  InputLabel,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  Drawer,
+  List,
+  ListItem,
+  ListItemButton,
+  ListItemIcon,
+  ListItemText,
+  Divider,
+  Badge,
+  useTheme,
+  useMediaQuery
+
 } from '@mui/material';
 import {
-  Person, ShoppingCart, Restaurant, Search as SearchIcon,
-  Add, Remove, Delete as DeleteIcon, Favorite, Dashboard,
-  Menu as MenuIcon, Close as CloseIcon, Logout as LogoutIcon,
-  Star, TrendingUp, LocalOffer
+  Person,
+  ShoppingCart,
+  Restaurant,
+  Search as SearchIcon,
+  Add,
+  Remove,
+  Delete as DeleteIcon,
+  Favorite, Dashboard,
+  Menu as MenuIcon,
+  Close as CloseIcon,
+  Logout as LogoutIcon,
+  Star,
+  TrendingUp,
+  LocalOffer,
 } from '@mui/icons-material';
+import { cartAPI, favoritesAPI, productAPI, userAPI } from '../services/api';
 
 // ── Styled Nav Card ────────────────────────────────────────────────────────────
 const NavCard = ({ icon, label, count, active, onClick, color = '#1976d2' }) => (
@@ -63,7 +107,7 @@ const StatCard = ({ label, value, icon, bgcolor, color = 'text.primary' }) => (
 );
 
 // ── Product Card ───────────────────────────────────────────────────────────────
-const ProductCard = ({ product, onAddToCart, onFavorite, onDetails, imageFallback }) => (
+const ProductCard = ({ product, onAddToCart, onFavorite, onDetails, imageFallback, isFavorite }) => (
   <Card
     sx={{
       height: '100%',
@@ -123,9 +167,9 @@ const ProductCard = ({ product, onAddToCart, onFavorite, onDetails, imageFallbac
         </Button>
         <IconButton
           size="small"
-          color="error"
+          color={isFavorite ? "error" : "default"}
           onClick={() => onFavorite(product)}
-          sx={{ border: '1px solid', borderColor: 'error.light' }}
+          sx={{ border: '1px solid', borderColor: isFavorite ? 'error.main' : 'error.light' }}
         >
           <Favorite fontSize="small" />
         </IconButton>
@@ -138,6 +182,8 @@ const ProductCard = ({ product, onAddToCart, onFavorite, onDetails, imageFallbac
 );
 
 // ── Main Component ─────────────────────────────────────────────────────────────
+const API_BASE = "http://localhost:8081/api";
+
 const SimpleUserDashboard = () => {
   const navigate = useNavigate();
   const theme = useTheme();
@@ -154,6 +200,7 @@ const SimpleUserDashboard = () => {
 
   const [cartItems, setCartItems] = useState([]);
   const [favoriteItems, setFavoriteItems] = useState([]);
+  const [favoriteProductIds, setFavoriteProductIds] = useState(new Set());
   const [userStats, setUserStats] = useState({
     totalOrders: 0,
     totalSpent: 0,
@@ -173,45 +220,89 @@ const SimpleUserDashboard = () => {
     if (!token) navigate('/login');
   }, [navigate]);
 
-  // ── Load User ──────────────────────────────────
+  // ── Load User Data ──────────────────────────────
   useEffect(() => {
-    const stored = localStorage.getItem('user');
-    setUserData(stored ? JSON.parse(stored) : { name: 'Guest', email: 'guest@example.com', role: 'USER' });
-    setLoading(false);
+    const loadUserData = async () => {
+      try {
+        const userResponse = await userAPI.getProfile();
+        if (userResponse.data.success) {
+          setUserData(userResponse.data.data);
+        }
+
+        const statsResponse = await userAPI.getUserStats();
+        console.log('User stats response:', statsResponse);
+        if (statsResponse.data && statsResponse.data.success) {
+          console.log('Setting user stats:', statsResponse.data.data);
+          setUserStats(statsResponse.data.data);
+        } else {
+          console.log('Stats API failed:', statsResponse);
+        }
+      } catch (error) {
+        console.error('Failed to load user data:', error);
+        // Fallback to basic user data
+        setUserData({ name: 'Guest', email: 'guest@example.com', role: 'USER' });
+      } finally {
+        setLoading(false);
+      }
+    };
+    
+    // Only load user data if we have a token
+    const token = localStorage.getItem('token');
+    if (token) {
+      loadUserData();
+    } else {
+      setUserData({ name: 'Guest', email: 'guest@example.com', role: 'USER' });
+      setLoading(false);
+    }
   }, []);
 
-  // ── Load Cart & Favorites ──────────────────────
+  // ── Load Cart & Favorites from Backend ──────────
   useEffect(() => {
-    const storedCart = localStorage.getItem('cart');
-    if (storedCart) setCartItems(JSON.parse(storedCart));
-    const storedFavorites = localStorage.getItem('favorites');
-    if (storedFavorites) setFavoriteItems(JSON.parse(storedFavorites));
-  }, []);
+    const loadCartAndFavorites = async () => {
+      try {
+        // Load cart from backend
+        const cartResponse = await cartAPI.getCart();
+        if (cartResponse.data.success) {
+          setCartItems(cartResponse.data.data.items || []);
+        }
 
-  // ── Persist ────────────────────────────────────
-  useEffect(() => { localStorage.setItem('cart', JSON.stringify(cartItems)); }, [cartItems]);
-  useEffect(() => {
-    localStorage.setItem('favorites', JSON.stringify(favoriteItems));
-    setUserStats(prev => ({ ...prev, favoriteItemsCount: favoriteItems.length }));
-  }, [favoriteItems]);
+        // Load favorites from backend
+        const favoritesResponse = await favoritesAPI.getFavorites();
+        if (favoritesResponse.data.success) {
+          const favorites = favoritesResponse.data.data || [];
+          setFavoriteItems(favorites);
+          // Create a Set of favorite product IDs for quick lookup
+          setFavoriteProductIds(new Set(favorites.map(f => f.id)));
+        }
+      } catch (error) {
+        console.error('Failed to load cart and favorites:', error);
+      }
+    };
+    
+    // Only load cart and favorites if we have a token
+    const token = localStorage.getItem('token');
+    if (token) {
+      loadCartAndFavorites();
+    }
+  }, []);
 
   // ── Load Products ──────────────────────────────
   useEffect(() => {
     const loadProducts = async () => {
       try {
-        const res = await fetch('http://localhost:8081/api/products');
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        const data = await res.json();
-        const products = Array.isArray(data?.data) ? data.data : data || [];
-        const normalized = products.map(p => ({
-          ...p,
-          vendor: p?.vendor?.shopName || p?.vendor?.name || p?.vendor || 'Unknown Vendor',
-          image: p.image || imageFallback,
-          ingredients: p.ingredients || 'No ingredients listed',
-          nutrition: p.nutrition || 'No nutrition info',
-          reviews: p.reviews || [],
-        }));
-        setVendorProducts(normalized);
+        const response = await productAPI.getAll();
+        if (response.data.success) {
+          const products = response.data.data || [];
+          const normalized = products.map(p => ({
+            ...p,
+            vendor: p?.vendor?.shopName || p?.vendor?.name || p?.vendor || 'Unknown Vendor',
+            image: p.image || imageFallback,
+            ingredients: p.ingredients || 'No ingredients listed',
+            nutrition: p.nutrition || 'No nutrition info',
+            reviews: p.reviews || [],
+          }));
+          setVendorProducts(normalized);
+        }
       } catch (err) {
         console.error('Failed to load products:', err);
         setVendorProducts([]);
@@ -221,56 +312,312 @@ const SimpleUserDashboard = () => {
   }, []);
 
   // ── Cart Functions ─────────────────────────────
-  const handleAddToCart = (product) => {
-    setCartItems(prev => {
-      const existing = prev.find(item => item.id === product.id);
-      if (existing) return prev.map(item => item.id === product.id ? { ...item, quantity: item.quantity + 1 } : item);
-      return [...prev, { ...product, quantity: 1 }];
-    });
-    alert(`Added "${product.name}" to cart`);
-  };
-
-  const handleUpdateCartQuantity = (id, delta) => {
-    setCartItems(prev =>
-      prev.map(item => item.id === id ? { ...item, quantity: Math.max(1, item.quantity + delta) } : item)
-    );
-  };
-
-  const handleRemoveFromCart = (id) => setCartItems(prev => prev.filter(item => item.id !== id));
-
-  const handleCheckout = () => {
-    if (cartItems.length === 0) { alert('Cart is empty'); return; }
-    const total = cartItems.reduce((sum, item) => sum + item.price * item.quantity, 0);
-    alert(`Order placed successfully!\nTotal: NPR ${total.toFixed(2)}`);
-    setCartItems([]);
-    setUserStats(prev => {
-      const newOrders = prev.totalOrders + 1;
-      const newSpent = prev.totalSpent + total;
-      return {
-        ...prev,
-        totalOrders: newOrders,
-        totalSpent: newSpent,
-        points: prev.points + Math.floor(total),
-        lastOrder: new Date().toLocaleDateString(),
-        avgOrderValue: newOrders > 0 ? newSpent / newOrders : 0,
+  const handleAddToCart = async (product) => {
+    // Optimistic UI update - show immediate feedback
+    const existingItem = cartItems.find(item => item.productId === product.id);
+    if (existingItem) {
+      // Update quantity if already in cart
+      setCartItems(prev => prev.map(item => 
+        item.productId === product.id 
+          ? { ...item, quantity: item.quantity + 1 }
+          : item
+      ));
+    } else {
+      // Add new item to cart
+      const newItem = {
+        id: Date.now(), // temporary ID
+        productId: product.id,
+        name: product.name,
+        price: product.price,
+        image: product.image,
+        vendor: product.vendor,
+        quantity: 1
       };
-    });
+      setCartItems(prev => [...prev, newItem]);
+    }
+
+    try {
+      const response = await cartAPI.addToCart(product.id, 1);
+      if (response.data.success) {
+        // Refresh cart to get correct data from backend
+        const cartResponse = await cartAPI.getCart();
+        if (cartResponse.data.success) {
+          setCartItems(cartResponse.data.data.items || []);
+        }
+        // Show success feedback
+        const toast = document.createElement('div');
+        toast.innerHTML = `
+          <div style="position: fixed; bottom: 20px; right: 20px; 
+                      background: #4CAF50; color: white; padding: 12px 20px; 
+                      border-radius: 4px; box-shadow: 0 2px 10px rgba(0,0,0,0.2); 
+                      z-index: 9999; animation: slideIn 0.3s ease;">
+            ✅ Added "${product.name}" to cart
+          </div>
+        `;
+        document.body.appendChild(toast);
+        setTimeout(() => document.body.removeChild(toast), 2000);
+      }
+    } catch (error) {
+      console.error('Failed to add to cart:', error);
+      // Revert optimistic update on error
+      const cartResponse = await cartAPI.getCart();
+      if (cartResponse.data.success) {
+        setCartItems(cartResponse.data.data.items || []);
+      }
+      alert('Failed to add item to cart');
+    }
+  };
+
+  const handleCheckout = async () => {
+    if (cartItems.length === 0) { 
+      alert('Cart is empty'); 
+      return; 
+    }
+
+    try {
+      const total = cartItems.reduce((sum, item) => sum + item.price * item.quantity, 0);
+      const orderData = {
+        items: cartItems.map(item => ({
+          productId: item.productId,
+          quantity: item.quantity,
+          price: item.price
+        })),
+        totalAmount: total
+      };
+
+      // Show loading message
+      const loadingMessage = document.createElement('div');
+      loadingMessage.innerHTML = `
+        <div style="position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); 
+                    background: white; padding: 20px; border-radius: 8px; 
+                    box-shadow: 0 4px 20px rgba(0,0,0,0.2); z-index: 9999; text-align: center;">
+          <h3>🍔 Placing Your Order...</h3>
+          <p>Please wait while we process your order</p>
+        </div>
+      `;
+      document.body.appendChild(loadingMessage);
+
+      const response = await cartAPI.checkout(orderData);
+      console.log('Checkout response:', response);
+      console.log('Response data:', response.data);
+      
+      // Remove loading message
+      document.body.removeChild(loadingMessage);
+      
+      // Check response structure - handle both axios and direct responses
+      const responseData = response.data || response;
+      console.log('Using response data:', responseData);
+      
+      // Check for success in multiple ways
+      const isSuccess = responseData?.success || 
+                        responseData?.message?.includes('successfully') ||
+                        response.status === 200 ||
+                        response.status === 201;
+      
+      console.log('Is success:', isSuccess);
+      
+      if (isSuccess) {
+        console.log('Checkout successful, keeping cart items');
+        
+        // Show success message
+        const successMessage = document.createElement('div');
+        successMessage.innerHTML = `
+          <div style="position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); 
+                      background: #4CAF50; color: white; padding: 20px; border-radius: 8px; 
+                      box-shadow: 0 4px 20px rgba(0,0,0,0.2); z-index: 9999; text-align: center;">
+            <h3>✅ Successfully Placed Order!</h3>
+            <p>Total: NPR ${total.toFixed(2)}</p>
+            <p>Your order has been sent to the vendor</p>
+            <p style="font-size: 12px; opacity: 0.8;">Cart items preserved - use "Clear Cart" to empty cart</p>
+          </div>
+        `;
+        document.body.appendChild(successMessage);
+        
+        // Remove success message after 3 seconds
+        setTimeout(() => {
+          document.body.removeChild(successMessage);
+        }, 3000);
+        
+        // Refresh user stats
+        const statsResponse = await userAPI.getUserStats();
+        console.log('Post-checkout stats response:', statsResponse);
+        if (statsResponse.data && statsResponse.data.success) {
+          console.log('Updating user stats after checkout:', statsResponse.data.data);
+          setUserStats(statsResponse.data.data);
+        }
+      } else {
+        console.log('Checkout failed:', response);
+        const errorMsg = responseData?.error || responseData?.message || 'Unknown error occurred';
+        alert('Checkout failed: ' + errorMsg);
+      }
+    } catch (error) {
+      console.error('Failed to checkout:', error);
+      
+      // Remove loading message if exists
+      const loadingMessage = document.querySelector('div[style*="position: fixed"]');
+      if (loadingMessage) {
+        document.body.removeChild(loadingMessage);
+      }
+      
+      // Handle authentication errors
+      if (error.response?.status === 401) {
+        const authMessage = document.createElement('div');
+        authMessage.innerHTML = `
+          <div style="position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); 
+                      background: #f44336; color: white; padding: 20px; border-radius: 8px; 
+                      box-shadow: 0 4px 20px rgba(0,0,0,0.2); z-index: 9999; text-align: center;">
+            <h3>🔐 Session Expired</h3>
+            <p>Please login again to continue</p>
+            <button onclick="window.location.href='/login'" style="
+              background: white; color: #f44336; border: none; padding: 8px 16px; 
+              border-radius: 4px; cursor: pointer; margin-top: 10px;">
+              Login Again
+            </button>
+          </div>
+        `;
+        document.body.appendChild(authMessage);
+        setTimeout(() => {
+          document.body.removeChild(authMessage);
+          window.location.href = '/login';
+        }, 3000);
+        return;
+      }
+      
+      // Show error message
+      const errorMessage = document.createElement('div');
+      errorMessage.innerHTML = `
+        <div style="position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); 
+                    background: #f44336; color: white; padding: 20px; border-radius: 8px; 
+                    box-shadow: 0 4px 20px rgba(0,0,0,0.2); z-index: 9999; text-align: center;">
+          <h3>❌ Order Failed</h3>
+          <p>Failed to place order: ${error.message || 'Unknown error'}</p>
+          <p>Status: ${error.response?.status || 'Unknown'}</p>
+          <p>Please try again</p>
+        </div>
+      `;
+      document.body.appendChild(errorMessage);
+      setTimeout(() => document.body.removeChild(errorMessage), 3000);
+    }
+  };
+
+  const handleUpdateCartQuantity = async (id, delta) => {
+    const item = cartItems.find(item => item.id === id);
+    if (!item) return;
+
+    const newQuantity = Math.max(1, item.quantity + delta);
+    
+    // Optimistic UI update first (instant)
+    setCartItems(prev => prev.map(item => 
+      item.id === id ? { ...item, quantity: newQuantity } : item
+    ));
+    
+    try {
+      await cartAPI.updateCartItem(id, newQuantity);
+      // Success - UI already updated
+    } catch (error) {
+      console.error('Failed to update cart quantity:', error);
+      // Revert on error
+      setCartItems(prev => prev.map(item => 
+        item.id === id ? { ...item, quantity: item.quantity } : item
+      ));
+      alert('Failed to update cart quantity');
+    }
+  };
+
+  const handleRemoveFromCart = async (id) => {
+    // Optimistic UI update first (instant)
+    const originalItems = [...cartItems];
+    setCartItems(prev => prev.filter(item => item.id !== id));
+    
+    try {
+      await cartAPI.removeFromCart(id);
+      // Success - UI already updated
+    } catch (error) {
+      console.error('Failed to remove from cart:', error);
+      // Revert on error
+      setCartItems(originalItems);
+      alert('Failed to remove item from cart');
+    }
+  };
+
+  const handleClearCart = async () => {
+    // Show confirmation dialog
+    const confirmed = window.confirm('Are you sure you want to clear all items from your cart?');
+    if (!confirmed) return;
+    
+    try {
+      await cartAPI.clearCart();
+      setCartItems([]);
+      
+      // Show clear cart message
+      const clearMessage = document.createElement('div');
+      clearMessage.innerHTML = `
+        <div style="position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); 
+                    background: #FF9800; color: white; padding: 15px; border-radius: 8px; 
+                    box-shadow: 0 4px 20px rgba(0,0,0,0.2); z-index: 9999; text-align: center;">
+          <h3>🛒 Cart Cleared</h3>
+          <p>All items removed from cart</p>
+        </div>
+      `;
+      document.body.appendChild(clearMessage);
+      setTimeout(() => document.body.removeChild(clearMessage), 2000);
+    } catch (error) {
+      console.error('Failed to clear cart:', error);
+      // Force clear locally even if API fails
+      setCartItems([]);
+    }
   };
 
   // ── Favorites Functions ────────────────────────
-  const handleAddToFavorites = (product) => {
-    if (favoriteItems.some(f => f.id === product.id)) { alert('Already in favorites'); return; }
-    setFavoriteItems(prev => [...prev, {
-      id: product.id, name: product.name, vendor: product.vendor,
-      price: product.price, rating: product.rating, image: product.image
-    }]);
-    alert(`Added "${product.name}" to favorites`);
+  const handleAddToFavorites = async (product) => {
+    if (favoriteProductIds.has(product.id)) { 
+      alert('Already in favorites'); 
+      return; 
+    }
+
+    try {
+      const response = await favoritesAPI.addToFavorites(product.id);
+      if (response.data.success) {
+        // Refresh favorites
+        const favoritesResponse = await favoritesAPI.getFavorites();
+        if (favoritesResponse.data.success) {
+          const favorites = favoritesResponse.data.data || [];
+          setFavoriteItems(favorites);
+          setFavoriteProductIds(new Set(favorites.map(f => f.id)));
+        }
+        alert(`Added "${product.name}" to favorites`);
+      }
+    } catch (error) {
+      console.error('Failed to add to favorites:', error);
+      alert('Failed to add to favorites');
+    }
   };
 
-  const handleRemoveFromFavorites = (id) => setFavoriteItems(prev => prev.filter(f => f.id !== id));
+  const handleRemoveFromFavorites = async (id) => {
+    try {
+      console.log('Removing from favorites, product ID:', id);
+      const response = await favoritesAPI.removeFromFavorites(id);
+      console.log('Remove from favorites response:', response.data);
+      if (response.data.success) {
+        // Refresh favorites
+        const favoritesResponse = await favoritesAPI.getFavorites();
+        if (favoritesResponse.data.success) {
+          const favorites = favoritesResponse.data.data || [];
+          setFavoriteItems(favorites);
+          setFavoriteProductIds(new Set(favorites.map(f => f.id)));
+        }
+      } else {
+        console.error('Remove from favorites failed:', response.data.error);
+        alert('Failed to remove from favorites: ' + response.data.error);
+      }
+    } catch (error) {
+      console.error('Failed to remove from favorites:', error);
+      alert('Failed to remove from favorites');
+    }
+  };
 
   const handleLogout = () => {
-    ['token', 'user', 'favorites', 'cart'].forEach(k => localStorage.removeItem(k));
+    localStorage.removeItem('token');
     navigate('/home');
   };
 
@@ -543,6 +890,7 @@ const SimpleUserDashboard = () => {
                         onFavorite={handleAddToFavorites}
                         onDetails={(id) => { setSelectedProductId(id); setShowProductDetail(true); }}
                         imageFallback={imageFallback}
+                        isFavorite={favoriteProductIds.has(product.id)}
                       />
                     </Grid>
                   ))}
@@ -674,7 +1022,10 @@ const SimpleUserDashboard = () => {
                         </Typography>
                       </Box>
                       <Button variant="contained" color="primary" size="large" fullWidth onClick={handleCheckout}>
-                        Checkout
+                        Place Order
+                      </Button>
+                      <Button variant="outlined" color="error" size="large" fullWidth sx={{ mt: 1 }} onClick={handleClearCart}>
+                        🗑️ Clear Cart
                       </Button>
                       <Button variant="text" fullWidth sx={{ mt: 1 }} onClick={() => switchView('meals')}>
                         Continue Shopping

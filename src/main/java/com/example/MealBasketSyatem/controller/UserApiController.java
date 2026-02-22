@@ -2,13 +2,18 @@ package com.example.MealBasketSyatem.controller;
 
 import com.example.MealBasketSyatem.dto.ApiResponse;
 import com.example.MealBasketSyatem.entity.User;
+import com.example.MealBasketSyatem.entity.Order;
 import com.example.MealBasketSyatem.service.UserService;
+import com.example.MealBasketSyatem.service.OrderService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/user")
@@ -17,6 +22,9 @@ public class UserApiController {
 
     @Autowired
     private UserService userService;
+
+    @Autowired
+    private OrderService orderService;
 
     @GetMapping("/all")
     public ResponseEntity<ApiResponse<List<User>>> getAllUsers() {
@@ -99,6 +107,68 @@ public class UserApiController {
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(ApiResponse.error("Failed to delete user: " + e.getMessage()));
+        }
+    }
+
+    @GetMapping("/stats")
+    public ResponseEntity<ApiResponse<?>> getUserStats() {
+        try {
+            // Use the same authentication pattern as other controllers
+            Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+            if (auth == null || auth instanceof org.springframework.security.authentication.AnonymousAuthenticationToken) {
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                        .body(ApiResponse.error("User not authenticated"));
+            }
+            
+            String email = auth.getName();
+            User user = userService.findUserByEmail(email);
+            if (user == null) {
+                return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                        .body(ApiResponse.error("User not found"));
+            }
+            
+            // Calculate real stats from user's orders
+            List<Order> userOrders = orderService.getOrdersByUser(user.getId());
+            System.out.println("Found " + userOrders.size() + " orders for user " + user.getId());
+            
+            double totalSpent = userOrders.stream()
+                .mapToDouble(order -> order.getTotalAmount() != null ? order.getTotalAmount() : order.getAmount())
+                .sum();
+            
+            int totalOrders = userOrders.size();
+            
+            // Calculate points (1 point per NPR spent)
+            int points = (int) totalSpent;
+            
+            // Calculate average order value
+            double avgOrderValue = totalOrders > 0 ? totalSpent / totalOrders : 0.0;
+            
+            // Get member since date (static for now since User entity doesn't have createdAt)
+            String memberSince = "January 2024";
+            
+            // Get last order date (simplified)
+            String lastOrder = userOrders.isEmpty() ? "No orders yet" : 
+                userOrders.get(userOrders.size() - 1).getCreatedAt() != null ? 
+                userOrders.get(userOrders.size() - 1).getCreatedAt().toString() : "Recent order";
+            
+            System.out.println("User stats - Orders: " + totalOrders + ", Spent: " + totalSpent + ", Points: " + points);
+            
+            Map<String, Object> stats = Map.of(
+                "totalOrders", totalOrders,
+                "totalSpent", totalSpent,
+                "points", points,
+                "memberSince", memberSince,
+                "lastOrder", lastOrder,
+                "avgOrderValue", avgOrderValue,
+                "favoriteItemsCount", 0 // This would need to be calculated from favorites
+            );
+            
+            return ResponseEntity.ok(ApiResponse.success("User stats retrieved successfully", stats));
+        } catch (Exception e) {
+            System.err.println("Error in getUserStats: " + e.getMessage());
+            e.printStackTrace();
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(ApiResponse.error("Failed to retrieve user stats: " + e.getMessage()));
         }
     }
 }

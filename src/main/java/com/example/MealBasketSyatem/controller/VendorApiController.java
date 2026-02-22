@@ -2,8 +2,10 @@ package com.example.MealBasketSyatem.controller;
 
 import com.example.MealBasketSyatem.dto.ApiResponse;
 import com.example.MealBasketSyatem.dto.ProductDTO;
+import com.example.MealBasketSyatem.entity.Order;
 import com.example.MealBasketSyatem.entity.Product;
 import com.example.MealBasketSyatem.entity.Vendor;
+import com.example.MealBasketSyatem.service.OrderService;
 import com.example.MealBasketSyatem.service.VendorService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
@@ -14,6 +16,7 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.Map;
 
 /**
  * Vendor API Controller
@@ -25,6 +28,9 @@ public class VendorApiController {
 
     @Autowired
     private VendorService vendorService;
+
+    @Autowired
+    private OrderService orderService;
 
     // Get vendor by ID
     @GetMapping("/{id}")
@@ -167,6 +173,74 @@ public class VendorApiController {
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(ApiResponse.error("Failed to update product: " + e.getMessage()));
+        }
+    }
+
+    // Get vendor orders
+    @GetMapping("/{vendorId}/orders")
+    public ResponseEntity<ApiResponse<List<Map<String, Object>>>> getVendorOrders(@PathVariable Long vendorId) {
+        try {
+            // Get real orders from OrderService
+            List<Order> orders = orderService.getOrdersByVendor(vendorId);
+            
+            // Transform orders to match frontend expectations
+            List<Map<String, Object>> transformedOrders = orders.stream().map(order -> {
+                Map<String, Object> orderData = new java.util.HashMap<>();
+                orderData.put("id", order.getId());
+                orderData.put("totalAmount", order.getTotalAmount());
+                orderData.put("status", order.getStatus());
+                orderData.put("createdAt", order.getCreatedAt());
+                orderData.put("deliveryAddress", order.getDeliveryAddress());
+                orderData.put("phone", order.getPhone());
+                orderData.put("notes", order.getNotes());
+                
+                // Add order items
+                if (order.getOrderItems() != null) {
+                    List<Map<String, Object>> items = order.getOrderItems().stream().map(item -> {
+                        Map<String, Object> itemData = new java.util.HashMap<>();
+                        itemData.put("id", item.getId());
+                        itemData.put("productId", item.getProduct().getId());
+                        itemData.put("productName", item.getProduct().getName());
+                        itemData.put("price", item.getPrice());
+                        itemData.put("quantity", item.getQuantity());
+                        itemData.put("subtotal", item.getSubtotal());
+                        return itemData;
+                    }).collect(java.util.stream.Collectors.toList());
+                    orderData.put("items", items);
+                }
+                
+                return orderData;
+            }).collect(java.util.stream.Collectors.toList());
+            
+            return ResponseEntity.ok(ApiResponse.success("Vendor orders retrieved successfully", transformedOrders));
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(ApiResponse.error("Failed to retrieve vendor orders: " + e.getMessage()));
+        }
+    }
+
+    // Update order status
+    @PutMapping("/{vendorId}/orders/{orderId}")
+    public ResponseEntity<ApiResponse<?>> updateOrderStatus(
+            @PathVariable Long vendorId,
+            @PathVariable Long orderId,
+            @RequestBody Map<String, String> request) {
+        try {
+            String newStatus = request.get("status");
+            
+            // Update order using OrderService
+            Order updatedOrder = orderService.updateOrderStatus(orderId, newStatus);
+            
+            if (updatedOrder != null) {
+                return ResponseEntity.ok(ApiResponse.success("Order status updated successfully", 
+                    Map.of("orderId", orderId, "status", newStatus)));
+            } else {
+                return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                        .body(ApiResponse.error("Order not found"));
+            }
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(ApiResponse.error("Failed to update order status: " + e.getMessage()));
         }
     }
 

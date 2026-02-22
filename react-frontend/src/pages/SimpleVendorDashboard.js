@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import vendorService from '../services/vendorService';
+import { vendorAPI, productAPI, authAPI } from '../services/api';
 import {
   Container, Paper, Typography, Box, Grid, Card, CardContent, Button,
   Avatar, List, ListItem, ListItemText, ListItemIcon, Divider, Alert,
@@ -53,9 +54,24 @@ const NavItem = ({ icon, label, view, currentView, count, onClick }) => (
 // ── Order Status Chip ─────────────────────────────────────────────────────────
 const StatusChip = ({ status }) => {
   const colorMap = {
-    Pending: 'default', Preparing: 'warning', Ready: 'info', Delivered: 'success', Cancelled: 'error',
+    PENDING: 'default', 
+    PREPARING: 'warning', 
+    READY: 'info', 
+    DELIVERED: 'success', 
+    CANCELLED: 'error',
   };
-  return <Chip label={status} color={colorMap[status] || 'default'} size="small" />;
+  
+  const statusUpper = status?.toUpperCase() || 'PENDING';
+  const color = colorMap[statusUpper] || 'default';
+  
+  return (
+    <Chip 
+      label={statusUpper} 
+      size="small" 
+      color={color}
+      sx={{ fontWeight: 600, textTransform: 'uppercase' }}
+    />
+  );
 };
 
 // ── Main Component ────────────────────────────────────────────────────────────
@@ -100,33 +116,57 @@ const SimpleVendorDashboard = () => {
   useEffect(() => {
     const loadVendorData = async () => {
       try {
-        const user = localStorage.getItem('user');
-        if (!user) {
-          setError('No user found. Please login again.');
+        const token = localStorage.getItem('token');
+        if (!token) {
+          setError('No authentication token found. Please login again.');
           setLoading(false);
           setTimeout(() => { window.location.href = '/login'; }, 2000);
           return;
         }
-        const parsedUser = JSON.parse(user);
-        if (parsedUser.role !== 'VENDOR') {
-          setError('Access denied. Vendor account required.');
+
+        // Get current user profile from auth endpoint
+        const profileResponse = await authAPI.getProfile();
+        if (profileResponse.data.success) {
+          const userProfile = profileResponse.data.data;
+          
+          // Check if user is a vendor
+          if (userProfile.role !== 'VENDOR') {
+            setError('Access denied. Vendor role required.');
+            setLoading(false);
+            setTimeout(() => { window.location.href = '/login'; }, 2000);
+            return;
+          }
+          
+          setVendorData(userProfile);
+          
+          // Load vendor products
+          try {
+            const productsResponse = await vendorAPI.getProducts(userProfile.id);
+            if (productsResponse.data.success) {
+              setProducts(productsResponse.data.data || []);
+            }
+          } catch (productErr) {
+            console.error('Failed to load vendor products:', productErr);
+          }
+
+          // Load vendor orders
+          try {
+            const ordersResponse = await vendorAPI.getOrders(userProfile.id);
+            if (ordersResponse.data.success) {
+              setOrders(ordersResponse.data.data || []);
+            }
+          } catch (orderErr) {
+            console.error('Failed to load vendor orders:', orderErr);
+          }
+        } else {
+          setError('Failed to load vendor profile. Please login again.');
           setLoading(false);
           setTimeout(() => { window.location.href = '/login'; }, 2000);
-          return;
         }
-        vendorService.setCurrentVendor(parsedUser.id);
-        try {
-          const [vendorProducts, vendorProfile] = await Promise.all([
-            vendorService.getVendorProducts(),
-            vendorService.getVendorProfile(),
-          ]);
-          setProducts(vendorProducts);
-          setVendorData(vendorProfile);
-        } catch (err) {
-          console.error('Failed to load vendor data:', err);
-        }
+        
         setLoading(false);
       } catch (err) {
+        console.error('Failed to load vendor dashboard:', err);
         setError('Failed to load vendor dashboard. Please refresh.');
         setLoading(false);
       }
@@ -174,15 +214,15 @@ const SimpleVendorDashboard = () => {
       const productData = { name, price: parseFloat(price), description, category, image: productImage };
 
       if (editingProduct) {
-        const updated = await vendorService.updateProduct(editingProduct.id, productData);
-        setProducts(prev => prev.map(p => p.id === editingProduct.id ? updated : p));
-        window.postMessage({ type: 'PRODUCT_UPDATED', product: updated, vendorId: vendorData.id }, '*');
-        alert(`Product "${updated.name}" updated!`);
+        const updated = await vendorAPI.updateProduct(vendorData.id, editingProduct.id, productData);
+        setProducts(prev => prev.map(p => p.id === editingProduct.id ? updated.data.data : p));
+        window.postMessage({ type: 'PRODUCT_UPDATED', product: updated.data.data, vendorId: vendorData.id }, '*');
+        alert(`Product "${updated.data.data.name}" updated!`);
       } else {
-        const saved = await vendorService.addProduct(productData);
-        setProducts(prev => [...prev, saved]);
+        const saved = await vendorAPI.createProduct(vendorData.id, productData);
+        setProducts(prev => [...prev, saved.data.data]);
         setVendorData(prev => ({ ...prev, totalProducts: (prev.totalProducts || 0) + 1 }));
-        alert(`Product "${saved.name}" added! Price: NPR ${saved.price}`);
+        alert(`Product "${saved.data.data.name}" added! Price: NPR ${saved.data.data.price}`);
       }
       resetForm();
     } catch (err) {
@@ -200,10 +240,10 @@ const SimpleVendorDashboard = () => {
     const product = products.find(p => p.id === productId);
     if (!product || !window.confirm(`Delete "${product.name}"?`)) return;
     try {
-      const deleted = await vendorService.deleteProduct(productId);
+      await vendorAPI.deleteProduct(vendorData.id, productId);
       setProducts(prev => prev.filter(p => p.id !== productId));
       setVendorData(prev => ({ ...prev, totalProducts: Math.max(0, (prev.totalProducts || 0) - 1) }));
-      window.postMessage({ type: 'PRODUCT_DELETED', product: deleted, vendorId: vendorData.id }, '*');
+      window.postMessage({ type: 'PRODUCT_DELETED', product: product, vendorId: vendorData.id }, '*');
       alert(`"${product.name}" deleted.`);
     } catch (err) {
       alert(`Failed to delete: ${err.message}`);
@@ -214,8 +254,11 @@ const SimpleVendorDashboard = () => {
     const product = products.find(p => p.id === productId);
     if (!product) return;
     try {
-      const updated = await vendorService.updateProduct(productId, { inStock: !product.inStock });
-      setProducts(prev => prev.map(p => p.id === productId ? updated : p));
+      const updatedProduct = await vendorAPI.updateProduct(vendorData.id, productId, { 
+        ...product, 
+        inStock: !product.inStock 
+      });
+      setProducts(prev => prev.map(p => p.id === productId ? updatedProduct.data.data : p));
     } catch (err) {
       alert(`Failed to update: ${err.message}`);
     }
@@ -228,8 +271,15 @@ const SimpleVendorDashboard = () => {
   };
 
   // ── Order Actions ─────────────────────────────
-  const handleUpdateOrderStatus = (orderId, newStatus) => {
-    setOrders(prev => prev.map(o => o.id === orderId ? { ...o, status: newStatus } : o));
+  const handleUpdateOrderStatus = async (orderId, newStatus) => {
+    try {
+      console.log('Updating order status:', orderId, newStatus);
+      await vendorAPI.updateOrderStatus(vendorData.id, orderId, newStatus);
+      setOrders(prev => prev.map(o => o.id === orderId ? { ...o, status: newStatus } : o));
+    } catch (err) {
+      console.error('Failed to update order status:', err);
+      alert(`Failed to update order status: ${err.message}`);
+    }
   };
 
   // ── Promotions ────────────────────────────────
@@ -251,7 +301,7 @@ const SimpleVendorDashboard = () => {
 
   // ── Misc ──────────────────────────────────────
   const handleLogout = () => {
-    ['token', 'user'].forEach(k => localStorage.removeItem(k));
+    localStorage.removeItem('token');
     window.location.href = '/login';
   };
 
@@ -261,7 +311,10 @@ const SimpleVendorDashboard = () => {
   };
 
   const filteredProducts = products.filter(p => selectedCategory === 'All' || p.category === selectedCategory);
-  const pendingOrders = orders.filter(o => o.status === 'Pending').length;
+  const pendingOrders = orders.filter(o => o.status?.toUpperCase() === 'PENDING').length;
+  const preparingOrders = orders.filter(o => o.status?.toUpperCase() === 'PREPARING').length;
+  const readyOrders = orders.filter(o => o.status?.toUpperCase() === 'READY').length;
+  const deliveredOrders = orders.filter(o => o.status?.toUpperCase() === 'DELIVERED').length;
   const totalRevenue = vendorData.revenue || 0;
   const lowStock = products.filter(p => (p.stock || 0) > 0 && (p.stock || 0) <= 5).length;
 
@@ -421,12 +474,11 @@ const SimpleVendorDashboard = () => {
                       {orders.slice(0, 4).map(order => (
                         <ListItem key={order.id} sx={{ borderRadius: 1, mb: 0.5, bgcolor: 'grey.50' }}>
                           <ListItemText
-                            primary={`#${order.id} — ${order.customer}`}
-                            secondary={`NPR ${order.total} • ${order.time}`}
-                            primaryTypographyProps={{ fontSize: 13, fontWeight: 600 }}
+                            primary={`#${order.id} — ${order.customer || 'Customer'}`}
+                            secondary={`NPR ${order.totalAmount || order.total} • ${order.time || new Date(order.createdAt).toLocaleTimeString()}`}
+                            primaryTypographyProps={{ fontWeight: 600, fontSize: 14 }}
                             secondaryTypographyProps={{ fontSize: 12 }}
                           />
-                          <StatusChip status={order.status} />
                         </ListItem>
                       ))}
                     </List>
@@ -583,15 +635,15 @@ const SimpleVendorDashboard = () => {
               {/* Order Stats */}
               <Grid container spacing={2} sx={{ mb: 3 }}>
                 {[
-                  { label: 'Pending', color: 'default', count: orders.filter(o => o.status === 'Pending').length },
-                  { label: 'Preparing', color: 'warning', count: orders.filter(o => o.status === 'Preparing').length },
-                  { label: 'Ready', color: 'info', count: orders.filter(o => o.status === 'Ready').length },
-                  { label: 'Delivered', color: 'success', count: orders.filter(o => o.status === 'Delivered').length },
+                  { label: 'Pending', color: 'default', count: pendingOrders },
+                  { label: 'Preparing', color: 'warning', count: preparingOrders },
+                  { label: 'Ready', color: 'info', count: readyOrders },
+                  { label: 'Delivered', color: 'success', count: deliveredOrders },
                 ].map(({ label, color, count }) => (
                   <Grid item xs={6} sm={3} key={label}>
                     <Paper sx={{ p: 2, textAlign: 'center' }}>
-                      <Typography variant="h5" fontWeight={700}>{count}</Typography>
-                      <Chip label={label} color={color} size="small" sx={{ mt: 0.5 }} />
+                      <Typography variant="h4" fontWeight={700} color={`${color}.main`}>{count}</Typography>
+                      <Typography variant="body2" color="text.secondary">{label}</Typography>
                     </Paper>
                   </Grid>
                 ))}
@@ -614,31 +666,37 @@ const SimpleVendorDashboard = () => {
                     {orders.map(order => (
                       <TableRow key={order.id} hover>
                         <TableCell sx={{ fontWeight: 700 }}>#{order.id}</TableCell>
-                        <TableCell>{order.customer}</TableCell>
+                        <TableCell>{order.customer || 'Customer'}</TableCell>
                         <TableCell>
-                          <Typography variant="body2" noWrap sx={{ maxWidth: 160 }}>{order.items}</Typography>
+                          <Typography variant="body2" noWrap sx={{ maxWidth: 160 }}>
+                            {order.items ? order.items.map(item => `${item.quantity}x ${item.productName}`).join(', ') : 'No items'}
+                          </Typography>
                         </TableCell>
-                        <TableCell align="right" sx={{ fontWeight: 600 }}>{order.total}</TableCell>
+                        <TableCell align="right" sx={{ fontWeight: 600 }}>NPR {order.totalAmount || order.total}</TableCell>
                         <TableCell align="center"><StatusChip status={order.status} /></TableCell>
                         <TableCell>
-                          <Typography variant="caption" color="text.secondary">{order.time}</Typography>
+                          <Typography variant="caption" color="text.secondary">{order.time || new Date(order.createdAt).toLocaleTimeString()}</Typography>
                         </TableCell>
                         <TableCell align="center">
                           <Box sx={{ display: 'flex', gap: 0.5, justifyContent: 'center', flexWrap: 'wrap' }}>
-                            {order.status === 'Pending' && (
+                            {/* Debug: Show current status */}
+                            <Typography variant="caption" sx={{ fontSize: 10, color: 'gray' }}>
+                              Status: "{order.status}"
+                            </Typography>
+                            {order.status?.toUpperCase() === 'PENDING' && (
                               <>
-                                <Button size="small" variant="contained" color="success" onClick={() => handleUpdateOrderStatus(order.id, 'Preparing')}>Accept</Button>
-                                <Button size="small" variant="outlined" color="error" onClick={() => handleUpdateOrderStatus(order.id, 'Cancelled')}>Reject</Button>
+                                <Button size="small" variant="contained" color="success" onClick={() => handleUpdateOrderStatus(order.id, 'PREPARING')}>Accept</Button>
+                                <Button size="small" variant="outlined" color="error" onClick={() => handleUpdateOrderStatus(order.id, 'CANCELLED')}>Reject</Button>
                               </>
                             )}
-                            {order.status === 'Preparing' && (
-                              <Button size="small" variant="contained" color="info" onClick={() => handleUpdateOrderStatus(order.id, 'Ready')}>Mark Ready</Button>
+                            {order.status?.toUpperCase() === 'PREPARING' && (
+                              <Button size="small" variant="contained" color="info" onClick={() => handleUpdateOrderStatus(order.id, 'READY')}>Mark Ready</Button>
                             )}
-                            {order.status === 'Ready' && (
-                              <Button size="small" variant="contained" color="success" onClick={() => handleUpdateOrderStatus(order.id, 'Delivered')}>Delivered</Button>
+                            {order.status?.toUpperCase() === 'READY' && (
+                              <Button size="small" variant="contained" color="success" onClick={() => handleUpdateOrderStatus(order.id, 'DELIVERED')}>Delivered</Button>
                             )}
-                            {(order.status === 'Delivered' || order.status === 'Cancelled') && (
-                              <Chip label={order.status} size="small" color={order.status === 'Delivered' ? 'success' : 'error'} />
+                            {(order.status?.toUpperCase() === 'DELIVERED' || order.status?.toUpperCase() === 'CANCELLED') && (
+                              <Chip label={order.status} size="small" color={order.status?.toUpperCase() === 'DELIVERED' ? 'success' : 'error'} />
                             )}
                           </Box>
                         </TableCell>

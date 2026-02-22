@@ -42,8 +42,16 @@ const Orders = () => {
     try {
       setLoading(true);
       const response = await orderAPI.getUserOrders();
-      if (response.data.success) {
+      console.log('=== ORDERS API RESPONSE ===');
+      console.log('Full response:', response);
+      console.log('Response data:', response.data);
+      if (response.data && response.data.success) {
+        console.log('Orders array:', response.data.data);
+        console.log('Number of orders:', response.data.data?.length || 0);
         setOrders(response.data.data || []);
+      } else {
+        console.log('Orders API failed:', response);
+        setError('Failed to load orders');
       }
     } catch (error) {
       setError('Failed to load orders');
@@ -149,7 +157,7 @@ const Orders = () => {
           <Button
             variant="contained"
             sx={{ mt: 2 }}
-            onClick={() => window.location.href = '/products'}
+            onClick={() => window.location.href = '/home'}
           >
             Browse Products
           </Button>
@@ -178,7 +186,7 @@ const Orders = () => {
                         Order #{order.id}
                       </Typography>
                       <Typography variant="body2" color="text.secondary">
-                        {format(new Date(order.orderDate), 'MMM dd, yyyy HH:mm')}
+                        {order.createdAt ? format(new Date(order.createdAt), 'MMM dd, yyyy HH:mm') : 'Recent order'}
                       </Typography>
                     </Box>
                     <Chip
@@ -192,49 +200,31 @@ const Orders = () => {
                   {/* Order Items */}
                   <Box sx={{ mb: 2 }}>
                     <Typography variant="body2" color="text.secondary" gutterBottom>
-                      Items ({order.items?.length || 0}):
+                      Order Details:
                     </Typography>
-                    {order.items?.slice(0, 3).map((item, index) => (
-                      <Box key={index} sx={{ display: 'flex', justifyContent: 'space-between', py: 0.5 }}>
-                        <Typography variant="body2">
-                          {item.quantity}x {item.productName}
-                        </Typography>
-                        <Typography variant="body2" color="primary.main">
-                          ${(item.price * item.quantity).toFixed(2)}
-                        </Typography>
-                      </Box>
-                    ))}
-                    {order.items?.length > 3 && (
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
+                      <Typography variant="body2">
+                        Status: {order.status}
+                      </Typography>
+                      <Typography variant="body2" color="primary.main">
+                        Amount: NPR {order.totalAmount || order.amount || '0.00'}
+                      </Typography>
+                    </Box>
+                    {order.user && (
                       <Typography variant="body2" color="text.secondary">
-                        +{order.items.length - 3} more items
+                        Customer: {order.user.name}
                       </Typography>
                     )}
                   </Box>
 
                   {/* Order Details */}
                   <Box sx={{ mt: 'auto' }}>
-                    <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
-                      <Typography variant="body2" color="text.secondary">
-                        Subtotal:
-                      </Typography>
-                      <Typography variant="body2">
-                        ${order.subtotal?.toFixed(2) || '0.00'}
-                      </Typography>
-                    </Box>
-                    <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
-                      <Typography variant="body2" color="text.secondary">
-                        Delivery:
-                      </Typography>
-                      <Typography variant="body2">
-                        ${order.deliveryFee?.toFixed(2) || '0.00'}
-                      </Typography>
-                    </Box>
                     <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 2 }}>
                       <Typography variant="h6" color="primary.main">
                         Total:
                       </Typography>
                       <Typography variant="h6" color="primary.main">
-                        ${order.totalAmount?.toFixed(2) || '0.00'}
+                        NPR {order.totalAmount || order.amount || '0.00'}
                       </Typography>
                     </Box>
 

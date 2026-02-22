@@ -64,7 +64,6 @@ api.interceptors.response.use(
     if (error.response?.status === 401 && !skipRedirect) {
       console.log('401 error detected, redirecting to login');
       localStorage.removeItem('token');
-      localStorage.removeItem('user');
       window.location.href = '/login';
     }
     
@@ -84,21 +83,35 @@ export const authAPI = {
   registerVendor: (vendorData) => api.post('/auth/register/vendor', vendorData),
   logout: () => {
     localStorage.removeItem('token');
-    localStorage.removeItem('user');
-    localStorage.removeItem('userEmail');
-    localStorage.removeItem('userName');
-    localStorage.removeItem('userRole');
     return Promise.resolve();
   },
   getCurrentUser: () => {
-    const user = JSON.parse(localStorage.getItem('user') || '{}');
     const token = localStorage.getItem('token');
-    return { user, token };
+    return { token };
   },
+  getProfile: () => api.get('/auth/profile'),
   updateProfile: (userData) => api.put('/auth/profile', userData),
   changePassword: (passwordData) => api.put('/auth/change-password', passwordData),
   forgotPassword: (email) => api.post('/auth/forgot-password', { email }),
   resetPassword: (resetData) => api.post('/auth/reset-password', resetData)
+};
+
+// Cart APIs
+export const cartAPI = {
+  getCart: () => api.get('/cart'),
+ addToCart: (productId, quantity = 1) => api.post('/cart/add', { productId, quantity }),
+  updateCartItem: (itemId, quantity) => api.put(`/cart/${itemId}`, { quantity }),
+  removeFromCart: (itemId) => api.delete(`/cart/${itemId}`),
+  clearCart: () => api.delete('/cart'),
+ checkout: (orderData) => api.post('/cart/checkout', orderData)
+};
+
+// Favorites APIs
+export const favoritesAPI = {
+  getFavorites: () => api.get('/favorites'),
+  addToFavorites: (productId) => api.post('/favorites', { productId }),
+  removeFromFavorites: (productId) => api.delete(`/favorites/${productId}`),
+  isFavorite: (productId) => api.get(`/favorites/check/${productId}`)
 };
 
 // Product APIs
@@ -121,6 +134,7 @@ export const userAPI = {
   getUserOrders: () => api.get('/orders/user'),
   updateUserPreferences: (preferences) => api.put('/auth/preferences', preferences),
   getUserActivity: () => api.get('/auth/activity'),
+  getUserStats: () => api.get('/user/stats')
 };
 
 // Vendor APIs
@@ -129,7 +143,9 @@ export const vendorAPI = {
   getProducts: (vendorId) => api.get(`/vendor/${vendorId}/products`),
   createProduct: (vendorId, product) => api.post(`/vendor/${vendorId}/products`, product),
   updateProduct: (vendorId, productId, product) => api.put(`/vendor/${vendorId}/products/${productId}`, product),
-  deleteProduct: (vendorId, productId) => api.delete(`/vendor/${vendorId}/products/${productId}`)
+  deleteProduct: (vendorId, productId) => api.delete(`/vendor/${vendorId}/products/${productId}`),
+  getOrders: (vendorId) => api.get(`/vendor/${vendorId}/orders`),
+  updateOrderStatus: (vendorId, orderId, status) => api.put(`/vendor/${vendorId}/orders/${orderId}`, { status })
 };
 export const orderAPI = {
   getAll: () => api.get('/orders'),

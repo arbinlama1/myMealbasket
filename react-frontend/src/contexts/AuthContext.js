@@ -94,20 +94,30 @@ const AuthContext = createContext(null);
 export const AuthProvider = ({ children }) => {
   const [state, dispatch] = useReducer(authReducer, initialState);
 
-  // Load persisted user on mount
+  // Load user from backend on mount using token
   useEffect(() => {
     const token = localStorage.getItem('token');
-    const userStr = localStorage.getItem('user');
-    if (token && userStr) {
-      try {
-        const parsedUser = JSON.parse(userStr);
-        dispatch({ type: AUTH_ACTIONS.LOAD_USER, payload: parsedUser });
-      } catch {
-        localStorage.removeItem('token');
-        localStorage.removeItem('user');
-        dispatch({ type: AUTH_ACTIONS.LOGOUT });
-      }
+    if (token) {
+      // Verify token with backend and get current user
+      authAPI.getProfile()
+        .then(response => {
+          if (response.data.success) {
+            const user = response.data.data;
+            dispatch({ type: AUTH_ACTIONS.LOAD_USER, payload: user });
+          } else {
+            // Token invalid, clear it
+            localStorage.removeItem('token');
+            dispatch({ type: AUTH_ACTIONS.LOGOUT });
+          }
+        })
+        .catch((error) => {
+          console.error('Failed to load user profile:', error);
+          // Backend error, clear token and set to logged out state
+          localStorage.removeItem('token');
+          dispatch({ type: AUTH_ACTIONS.LOGOUT });
+        });
     } else {
+      // No token, set to logged out state
       dispatch({ type: AUTH_ACTIONS.LOGOUT });
     }
   }, []);
@@ -128,8 +138,8 @@ export const AuthProvider = ({ children }) => {
         };
         const token = loginResponse.token;
 
+        // Only store token in localStorage
         localStorage.setItem('token', token);
-        localStorage.setItem('user', JSON.stringify(user));
 
         dispatch({ type: AUTH_ACTIONS.LOGIN_SUCCESS, payload: { user, token } });
         return { success: true, user, token };
@@ -182,9 +192,8 @@ export const AuthProvider = ({ children }) => {
     } catch {
       // Swallow logout API errors — still clear local state
     } finally {
-      ['token', 'user', 'userEmail', 'userName', 'userRole'].forEach((k) =>
-        localStorage.removeItem(k)
-      );
+      // Only clear token from localStorage
+      localStorage.removeItem('token');
       dispatch({ type: AUTH_ACTIONS.LOGOUT });
       window.location.href = '/login';
     }

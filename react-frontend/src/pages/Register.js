@@ -151,7 +151,7 @@ const Register = () => {
         });
       }
       
-      if (result.success) {
+      if (result.data.success) {
         console.log('Registration successful for:', userType);
         
         // Show success message
@@ -176,8 +176,8 @@ const Register = () => {
         }, 2000);
         
       } else {
-        console.error('Registration error:', result.error);
-        alert(`Registration failed: ${result.error}`);
+        console.error('Registration error:', result.data.error);
+        alert(`Registration failed: ${result.data.error}`);
       }
     } catch (error) {
       console.error('Registration error:', error);

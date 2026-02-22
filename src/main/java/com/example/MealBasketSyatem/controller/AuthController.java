@@ -240,15 +240,34 @@ public class AuthController {
                 // Try vendor
                 Vendor vendor = vendorService.findVendorByEmail(email);
                 if (vendor != null) {
-                    return ResponseEntity.ok(ApiResponse.success("Profile retrieved successfully", vendor));
+                    // Add role field to vendor response
+                    Map<String, Object> vendorWithRole = new java.util.HashMap<>();
+                    vendorWithRole.put("id", vendor.getId());
+                    vendorWithRole.put("name", vendor.getName());
+                    vendorWithRole.put("email", vendor.getEmail());
+                    vendorWithRole.put("shopName", vendor.getShopName());
+                    vendorWithRole.put("businessType", vendor.getBusinessType());
+                    vendorWithRole.put("phone", vendor.getPhone());
+                    vendorWithRole.put("address", vendor.getAddress());
+                    vendorWithRole.put("role", "VENDOR");
+                    
+                    return ResponseEntity.ok(ApiResponse.success("Profile retrieved successfully", vendorWithRole));
                 }
                 return ResponseEntity.status(HttpStatus.NOT_FOUND)
                         .body(ApiResponse.error("User not found"));
             }
 
-            // Remove password from response
+            // Remove password from response and add role
             user.setPassword(null);
-            return ResponseEntity.ok(ApiResponse.success("Profile retrieved successfully", user));
+            
+            // Add role field to user response
+            Map<String, Object> userWithRole = new java.util.HashMap<>();
+            userWithRole.put("id", user.getId());
+            userWithRole.put("name", user.getName());
+            userWithRole.put("email", user.getEmail());
+            userWithRole.put("role", "USER");
+            
+            return ResponseEntity.ok(ApiResponse.success("Profile retrieved successfully", userWithRole));
 
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)

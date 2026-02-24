@@ -68,7 +68,17 @@ public class OrderApiController {
                         .body(ApiResponse.error("User not found"));
             }
             
-            List<Order> orders = orderService.findOrdersByUser(user);
+            List<Order> orders = orderService.getOrdersByUser(user.getId());
+            System.out.println("=== DEBUGGING ORDERS ===");
+            System.out.println("Found " + orders.size() + " orders for user " + user.getId());
+            for (int i = 0; i < orders.size(); i++) {
+                Order order = orders.get(i);
+                System.out.println("Order " + (i+1) + ": ID=" + order.getId() + 
+                    ", Status=" + order.getStatus() + 
+                    ", Amount=" + order.getTotalAmount() + 
+                    ", Created=" + order.getCreatedAt());
+            }
+            System.out.println("========================");
             return ResponseEntity.ok(ApiResponse.success("Orders retrieved successfully", orders));
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)

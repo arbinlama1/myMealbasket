@@ -4,6 +4,7 @@ import com.example.MealBasketSyatem.dto.ApiResponse;
 import com.example.MealBasketSyatem.entity.MealPlan;
 import com.example.MealBasketSyatem.entity.User;
 import com.example.MealBasketSyatem.service.MealPlanService;
+import com.example.MealBasketSyatem.service.UserService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -21,6 +22,9 @@ public class MealPlanController {
 
     @Autowired
     private MealPlanService mealPlanService;
+
+    @Autowired
+    private UserService userService;
 
     @GetMapping
     public ResponseEntity<ApiResponse<List<MealPlan>>> getAllMealPlans() {
@@ -140,12 +144,13 @@ public class MealPlanController {
         }
     }
 
-    // Helper method to get User from UserDetails (implement this in UserService)
+    // Helper method to get User from UserDetails
     private User getUserFromDetails(UserDetails userDetails) {
-        // This is a placeholder - you'll need to implement proper user retrieval
-        User user = new User();
-        user.setEmail(userDetails.getUsername());
-        user.setId(1L); // Placeholder ID
+        String email = userDetails.getUsername();
+        User user = userService.findUserByEmail(email);
+        if (user == null) {
+            throw new RuntimeException("User not found: " + email);
+        }
         return user;
     }
 }

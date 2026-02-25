@@ -206,26 +206,43 @@ const SimpleVendorDashboard = () => {
   };
 
   const handleSaveProduct = async () => {
-    const { name, price, category, description } = newProduct;
-    if (!name || !price || !category || !description) { alert('Please fill in all required fields'); return; }
+    if (!newProduct.name.trim() || !newProduct.price || newProduct.price <= 0) {
+      alert('Please fill in product name and valid price');
+      return;
+    }
+
     try {
+      console.log('Saving product:', newProduct);
+      console.log('Stock value:', newProduct.stock);
+      
       let productImage = newProduct.image;
       if (newProduct.photoFile) productImage = await handlePhotoUpload(newProduct.photoFile);
-      const productData = { name, price: parseFloat(price), description, category, image: productImage };
-
+      
+      const productData = { 
+        name: newProduct.name, 
+        price: parseFloat(newProduct.price), 
+        description: newProduct.description, 
+        category: newProduct.category, 
+        image: productImage,
+        stock: newProduct.stock || 0
+      };
+      
       if (editingProduct) {
+        console.log('Updating existing product:', editingProduct.id, productData);
         const updated = await vendorAPI.updateProduct(vendorData.id, editingProduct.id, productData);
         setProducts(prev => prev.map(p => p.id === editingProduct.id ? updated.data.data : p));
         window.postMessage({ type: 'PRODUCT_UPDATED', product: updated.data.data, vendorId: vendorData.id }, '*');
         alert(`Product "${updated.data.data.name}" updated!`);
       } else {
+        console.log('Creating new product:', productData);
         const saved = await vendorAPI.createProduct(vendorData.id, productData);
         setProducts(prev => [...prev, saved.data.data]);
-        setVendorData(prev => ({ ...prev, totalProducts: (prev.totalProducts || 0) + 1 }));
-        alert(`Product "${saved.data.data.name}" added! Price: NPR ${saved.data.data.price}`);
+        window.postMessage({ type: 'PRODUCT_ADDED', product: saved.data.data, vendorId: vendorData.id }, '*');
+        alert(`Product "${saved.data.data.name}" added!`);
       }
       resetForm();
     } catch (err) {
+      console.error('Failed to save product:', err);
       alert(`Failed to save product: ${err.message}`);
     }
   };
@@ -253,13 +270,25 @@ const SimpleVendorDashboard = () => {
   const handleToggleStock = async (productId) => {
     const product = products.find(p => p.id === productId);
     if (!product) return;
+    
+    console.log('Toggling stock for product:', product);
+    console.log('Current stock:', product.stock);
+    
     try {
-      const updatedProduct = await vendorAPI.updateProduct(vendorData.id, productId, { 
+      const updateData = { 
         ...product, 
-        inStock: !product.inStock 
-      });
+        stock: !product.inStock ? 0 : (product.stock || 0),
+        inStock: !product.inStock
+      };
+      
+      console.log('Sending update data:', updateData);
+      
+      const updatedProduct = await vendorAPI.updateProduct(vendorData.id, productId, updateData);
+      console.log('Update response:', updatedProduct);
+      
       setProducts(prev => prev.map(p => p.id === productId ? updatedProduct.data.data : p));
     } catch (err) {
+      console.error('Failed to update stock:', err);
       alert(`Failed to update: ${err.message}`);
     }
   };
@@ -316,6 +345,7 @@ const SimpleVendorDashboard = () => {
   const readyOrders = orders.filter(o => o.status?.toUpperCase() === 'READY').length;
   const deliveredOrders = orders.filter(o => o.status?.toUpperCase() === 'DELIVERED').length;
   const totalRevenue = vendorData.revenue || 0;
+  const actualTotalOrders = orders.length; // Calculate from actual orders data
   const lowStock = products.filter(p => (p.stock || 0) > 0 && (p.stock || 0) <= 5).length;
 
   const navItems = [
@@ -431,7 +461,7 @@ const SimpleVendorDashboard = () => {
                   <StatCard label="Low Stock" value={lowStock} icon={<Warning />} bgcolor="warning.main" />
                 </Grid>
                 <Grid item xs={6} md={3}>
-                  <StatCard label="Total Orders" value={vendorData.totalOrders || 0} icon={<ShoppingCart />} bgcolor="info.main" />
+                  <StatCard label="Total Orders" value={actualTotalOrders} icon={<ShoppingCart />} bgcolor="info.main" />
                 </Grid>
               </Grid>
 
@@ -504,7 +534,7 @@ const SimpleVendorDashboard = () => {
                 <Typography variant="h6" fontWeight={700} gutterBottom>Vendor Profile</Typography>
                 <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap', mt: 1 }}>
                   <Chip label={`⭐ ${vendorData.rating || 0} Rating`} color="primary" />
-                  <Chip label={`${vendorData.totalOrders || 0} Orders`} color="success" />
+                  <Chip label={`${actualTotalOrders} Orders`} color="success" />
                   <Chip label={`NPR ${totalRevenue.toFixed(0)} Revenue`} color="warning" />
                   <Chip label={`${products.length} Products`} color="info" />
                 </Box>
@@ -718,7 +748,7 @@ const SimpleVendorDashboard = () => {
                   <StatCard label="Total Revenue" value={`NPR ${totalRevenue.toFixed(0)}`} icon={<AttachMoney />} bgcolor="success.main" />
                 </Grid>
                 <Grid item xs={6} md={3}>
-                  <StatCard label="Total Orders" value={vendorData.totalOrders || orders.length} icon={<ShoppingCart />} bgcolor="primary.main" />
+                  <StatCard label="Total Orders" value={actualTotalOrders} icon={<ShoppingCart />} bgcolor="primary.main" />
                 </Grid>
                 <Grid item xs={6} md={3}>
                   <StatCard label="Avg. Order" value={`NPR ${orders.length ? Math.round(orders.reduce((s, o) => s + o.total, 0) / orders.length) : 0}`} icon={<TrendingUp />} bgcolor="info.main" />

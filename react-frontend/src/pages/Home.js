@@ -6,6 +6,7 @@ import {
 import { Search, ShoppingCart, Restaurant, Star } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 import { productAPI } from '../services/api';
+import SpeechSearchButton from '../components/SpeechSearchButton';
 
 const Home = () => {
   const navigate = useNavigate();
@@ -150,6 +151,7 @@ const Home = () => {
             ),
             endAdornment: (
               <InputAdornment position="end">
+                <SpeechSearchButton onSearchResult={(text) => setSearchTerm(text)} />
                 <Button onClick={handleSearch} variant="contained" sx={{ ml: 1 }}>
                   Search
                 </Button>

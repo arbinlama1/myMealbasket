@@ -36,6 +36,12 @@ public class Product {
 	@Column(name="category", length=100)
 	private String category;
 
+	@Column(name="stock", nullable=false)
+	private int stock = 0;
+
+	@Column(name="in_stock", nullable=false)
+	private boolean inStock = true;
+
 	@ManyToOne
 	@JoinColumn(name = "vendor_id", nullable=false)
 	private Vendor vendor;
@@ -62,6 +68,12 @@ public class Product {
 
 	public String getCategory() { return category; }
 	public void setCategory(String category) { this.category = category; }
+
+	public int getStock() { return stock; }
+	public void setStock(int stock) { this.stock = stock; }
+
+	public boolean isInStock() { return inStock; }
+	public void setInStock(boolean inStock) { this.inStock = inStock; }
 
 	public Vendor getVendor() { return vendor; }
 	public void setVendor(Vendor vendor) { this.vendor = vendor; }

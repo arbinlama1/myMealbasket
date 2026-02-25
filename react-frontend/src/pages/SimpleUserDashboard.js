@@ -43,14 +43,27 @@ import {
 
 } from '@mui/material';
 import {
-  Person,
   ShoppingCart,
+  Favorite,
+  FavoriteBorder,
   Restaurant,
+  Dashboard,
+  AccountCircle,
   Search as SearchIcon,
   Add,
   Remove,
+  Delete,
+  Visibility,
+  LocalShipping,
+  AccessTime,
+  AttachMoney,
+} from '@mui/icons-material';
+import { useAuth } from '../contexts/AuthContext';
+import { productAPI, cartAPI, favoriteAPI, userAPI } from '../services/api';
+import SpeechSearchButton from '../components/SpeechSearchButton';
+import {
+  Person,
   Delete as DeleteIcon,
-  Favorite, Dashboard,
   Menu as MenuIcon,
   Close as CloseIcon,
   Logout as LogoutIcon,
@@ -58,7 +71,6 @@ import {
   TrendingUp,
   LocalOffer,
 } from '@mui/icons-material';
-import { cartAPI, favoritesAPI, productAPI, userAPI } from '../services/api';
 
 // ── Styled Nav Card ────────────────────────────────────────────────────────────
 const NavCard = ({ icon, label, count, active, onClick, color = '#1976d2' }) => (
@@ -852,14 +864,21 @@ const SimpleUserDashboard = () => {
           {currentView === 'meals' && (
             <>
               <Typography variant="h4" fontWeight={700} gutterBottom>Available Products</Typography>
-              <Box sx={{ display: 'flex', gap: 2, mb: 3, flexWrap: 'wrap' }}>
+              <Box sx={{ display: 'flex', gap: 2, mb: 3, flexWrap: 'wrap', alignItems: 'center' }}>
                 <TextField
                   sx={{ flexGrow: 1, minWidth: 200 }}
                   variant="outlined"
                   placeholder="Search products or vendors..."
                   value={searchQuery}
                   onChange={e => setSearchQuery(e.target.value)}
-                  InputProps={{ startAdornment: <InputAdornment position="start"><SearchIcon /></InputAdornment> }}
+                  InputProps={{ 
+                    startAdornment: <InputAdornment position="start"><SearchIcon /></InputAdornment>,
+                    endAdornment: (
+                      <InputAdornment position="end">
+                        <SpeechSearchButton onSearchResult={(text) => setSearchQuery(text)} />
+                      </InputAdornment>
+                    )
+                  }}
                 />
                 <FormControl sx={{ minWidth: 140 }}>
                   <InputLabel>Category</InputLabel>

@@ -31,6 +31,7 @@ import {
   Home,
 } from '@mui/icons-material';
 import { productAPI } from '../services/api';
+import SpeechSearchButton from '../components/SpeechSearchButton';
 
 const Products = () => {
   const navigate = useNavigate();
@@ -194,6 +195,7 @@ const Products = () => {
             ),
             endAdornment: (
               <InputAdornment position="end">
+                <SpeechSearchButton onSearchResult={(text) => setSearchTerm(text)} />
                 <Button onClick={handleSearch} variant="contained" sx={{ ml: 1 }}>
                   Search
                 </Button>

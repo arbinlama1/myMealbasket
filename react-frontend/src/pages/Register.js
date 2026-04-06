@@ -117,7 +117,9 @@ const Register = () => {
 
   // Manual registration function - NO AUTO-ANYTHING
   const handleManualRegister = async () => {
+    console.log('=== REGISTRATION DEBUG START ===');
     console.log('Manual register button clicked for:', userType);
+    console.log('Form data:', formData);
     
     if (!validateForm()) {
       console.log('Validation failed');
@@ -127,31 +129,142 @@ const Register = () => {
     console.log('Starting manual registration for:', formData.email);
     
     const { confirmPassword, ...registerData } = formData;
+    console.log('Register data (without confirm):', registerData);
+    
     let result;
     
     try {
       if (userType === 'vendor') {
+        console.log('=== VENDOR REGISTRATION ===');
         // Use vendor registration API
         const vendorData = {
-          name: registerData.name,
-          email: registerData.email,
-          password: registerData.password,
-          shopName: registerData.businessName,
-          businessType: registerData.businessType,
-          phone: registerData.phone,
-          address: registerData.address
+          name: registerData.name || '',
+          email: registerData.email || '',
+          password: registerData.password || '',
+          shopName: registerData.businessName || '',
+          businessType: registerData.businessType || '',
+          phone: registerData.phone || '',
+          address: registerData.address || ''
         };
         
-        result = await authAPI.registerVendor(vendorData);
+        console.log('=== VENDOR REGISTRATION DEBUG ===');
+        console.log('userType:', userType);
+        console.log('registerData:', registerData);
+        console.log('Final vendorData:', vendorData);
+        console.log('JSON.stringify(vendorData):', JSON.stringify(vendorData));
+        
+        // Validate data before sending
+        if (!vendorData.name || !vendorData.email || !vendorData.password || !vendorData.shopName || !vendorData.businessType || !vendorData.phone || !vendorData.address) {
+          console.error('Missing required vendor fields:', {
+            name: !!vendorData.name,
+            email: !!vendorData.email,
+            password: !!vendorData.password,
+            shopName: !!vendorData.shopName,
+            businessType: !!vendorData.businessType,
+            phone: !!vendorData.phone,
+            address: !!vendorData.address
+          });
+          alert('Please fill in all required vendor fields');
+          return;
+        }
+        
+        // Try direct fetch for vendor
+        try {
+          console.log('Trying direct fetch for vendor...');
+          const fetchResponse = await fetch('http://localhost:8081/api/auth/register/vendor', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(vendorData)
+          });
+          
+          const fetchResult = await fetchResponse.json();
+          console.log('Direct vendor fetch result:', fetchResult);
+          
+          if (fetchResult.success) {
+            result = { success: true, data: fetchResult };
+          } else {
+            result = { success: false, error: fetchResult.message || 'Vendor registration failed' };
+          }
+        } catch (fetchError) {
+          console.log('Direct vendor fetch failed, trying axios...');
+          result = await authAPI.registerVendor(vendorData);
+        }
+        
+        console.log('Vendor data being sent:', vendorData);
+        console.log('Vendor registration response:', result);
+        console.log('Vendor response success:', result.data?.success);
       } else {
+        console.log('=== USER REGISTRATION ===');
         // Use regular user registration API
-        result = await register({
-          ...registerData,
+        const userData = {
+          name: registerData.name || '',
+          email: registerData.email || '',
+          password: registerData.password || '',
           role: userType.toUpperCase()
-        });
+        };
+        
+        console.log('=== USER REGISTRATION DEBUG ===');
+        console.log('userType:', userType);
+        console.log('userType.toUpperCase():', userType.toUpperCase());
+        console.log('registerData:', registerData);
+        console.log('Final userData:', userData);
+        console.log('JSON.stringify(userData):', JSON.stringify(userData));
+        
+        // Validate data before sending
+        if (!userData.name || !userData.email || !userData.password) {
+          console.error('Missing required fields:', {
+            name: !!userData.name,
+            email: !!userData.email,
+            password: !!userData.password
+          });
+          alert('Please fill in all required fields');
+          return;
+        }
+        
+        // Try direct fetch as fallback
+        try {
+          console.log('Trying direct fetch...');
+          const fetchResponse = await fetch('http://localhost:8081/api/auth/register', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(userData)
+          });
+          
+          const fetchResult = await fetchResponse.json();
+          console.log('Direct fetch result:', fetchResult);
+          
+          if (fetchResult.success) {
+            result = { success: true, data: fetchResult };
+          } else {
+            result = { success: false, error: fetchResult.message || 'Registration failed' };
+          }
+        } catch (fetchError) {
+          console.log('Direct fetch failed, trying axios...');
+          result = await register(userData);
+        }
+        
+        console.log('User registration response:', result);
       }
       
-      if (result.success) {
+      console.log('=== CHECKING RESULT ===');
+      console.log('Result:', result);
+      console.log('Result.success:', result.success);
+      console.log('Result.data:', result.data);
+      console.log('Result.data?.success:', result.data?.success);
+      
+      // Handle both direct API response and AuthContext response
+      const isSuccess = result.data?.success || result.success;
+      const errorMsg = result.data?.error || result.error || 'Unknown error occurred';
+      
+      console.log('Is success:', isSuccess);
+      console.log('Error message:', errorMsg);
+      
+      if (isSuccess) {
+        console.log('=== REGISTRATION SUCCESS ===');
         console.log('Registration successful for:', userType);
         
         // Show success message
@@ -176,12 +289,21 @@ const Register = () => {
         }, 2000);
         
       } else {
-        console.error('Registration error:', result.error);
-        alert(`Registration failed: ${result.error}`);
+        console.error('=== REGISTRATION FAILED ===');
+        console.error('Registration error:', result);
+        alert(`Registration failed: ${errorMsg}`);
       }
     } catch (error) {
+      console.error('=== REGISTRATION EXCEPTION ===');
       console.error('Registration error:', error);
-      alert('Registration failed. Please try again.');
+      console.error('Error response:', error.response);
+      console.error('Error response data:', error.response?.data);
+      console.error('Error status:', error.response?.status);
+      console.error('Error message:', error.message);
+      
+      const errorMsg = error.response?.data?.error || error.message || 'Registration failed';
+      console.error('Final error message:', errorMsg);
+      alert('Registration failed: ' + errorMsg);
     }
   };
 

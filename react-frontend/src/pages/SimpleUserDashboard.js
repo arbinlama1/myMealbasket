@@ -208,7 +208,22 @@ const SimpleUserDashboard = () => {
       }
 
       // Load user orders
-      const ordersResponse = await userAPI.getMyOrders(); // Use new dedicated My Orders API
+      let ordersResponse;
+      try {
+        ordersResponse = await userAPI.getMyOrders(); // Use new dedicated My Orders API
+      } catch (ordersError) {
+        console.error('Orders API error:', ordersError);
+        // Handle authentication errors specifically for orders
+        if (ordersError.response?.status === 401) {
+          console.error('Orders authentication error - redirecting to login');
+          localStorage.removeItem('token'); // Clear invalid token
+          navigate('/login'); // Redirect to login
+          return;
+        }
+        // For other errors, set ordersResponse to null to trigger fallback
+        ordersResponse = { data: { success: false } };
+      }
+      
       console.log('=== MY ORDERS API RESPONSE ===');
       console.log('API Response:', ordersResponse);
       
@@ -316,6 +331,15 @@ const SimpleUserDashboard = () => {
       }
     } catch (error) {
       console.error('Failed to load user data:', error);
+      
+      // Handle authentication errors specifically
+      if (error.response?.status === 401) {
+        console.error('Authentication error - redirecting to login');
+        localStorage.removeItem('token'); // Clear invalid token
+        navigate('/login'); // Redirect to login
+        return;
+      }
+      
       // Fallback to basic user data
       setUserData({ name: 'Guest', email: 'guest@example.com', role: 'USER' });
       // Set sample orders for demo (latest first)

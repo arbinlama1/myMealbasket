@@ -132,6 +132,7 @@ export const userAPI = {
   updateProfile: (userData) => api.put('/auth/profile', userData),
   deleteAccount: () => api.delete('/auth/account'),
   getUserOrders: () => api.get('/orders/user'),
+  getMyOrders: () => api.get('/orders/my-orders'), // New dedicated My Orders API
   updateUserPreferences: (preferences) => api.put('/auth/preferences', preferences),
   getUserActivity: () => api.get('/auth/activity'),
   getUserStats: () => api.get('/user/stats')

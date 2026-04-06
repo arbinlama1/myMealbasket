@@ -100,7 +100,7 @@ const Login = () => {
         } else if (role === 'VENDOR') {
           navigate('/vendor/dashboard');
         } else {
-          navigate('/meal-planner'); // or '/dashboard' depending on your route
+          navigate('/home'); // Redirect to home page after login
         }
       }
       // No else needed — if login fails, AuthContext should set error state

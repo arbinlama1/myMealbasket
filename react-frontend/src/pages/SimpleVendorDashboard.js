@@ -324,6 +324,7 @@ const SimpleVendorDashboard = () => {
     { view: 'orders', label: 'Orders', icon: <ShoppingCart />, count: pendingOrders || undefined },
     { view: 'analytics', label: 'Analytics', icon: <BarChart /> },
     { view: 'promotions', label: 'Promotions', icon: <LocalOffer /> },
+    { view: 'profile', label: 'Profile', icon: <Person /> },
   ];
 
   if (loading) {
@@ -876,6 +877,50 @@ const SimpleVendorDashboard = () => {
                   ))}
                 </Grid>
               )}
+            </>
+          )}
+
+          {/* ════════════════ PROFILE VIEW ════════════════ */}
+          {currentView === 'profile' && (
+            <>
+              <Typography variant="h4" fontWeight={700} sx={{ mb: 3 }}>Vendor Profile</Typography>
+              <Grid container spacing={3}>
+                <Grid item xs={12} md={4}>
+                  <Paper sx={{ p: 4, textAlign: 'center' }}>
+                    <Avatar sx={{ width: 96, height: 96, bgcolor: 'primary.main', fontSize: 40, mx: 'auto', mb: 2 }}>
+                      {vendorData.name?.[0] || 'V'}
+                    </Avatar>
+                    <Typography variant="h5" fontWeight={700}>{vendorData.name}</Typography>
+                    <Typography color="text.secondary" gutterBottom>{vendorData.email}</Typography>
+                    <Chip label="VENDOR" color="primary" size="small" sx={{ mb: 3 }} />
+                    <Button variant="outlined" color="error" fullWidth startIcon={<Logout />} onClick={() => { window.location.href = '/login'; }}>
+                      Logout
+                    </Button>
+                  </Paper>
+                </Grid>
+                <Grid item xs={12} md={8}>
+                  <Paper sx={{ p: 4 }}>
+                    <Typography variant="h6" fontWeight={700} gutterBottom>Business Information</Typography>
+                    <Divider sx={{ mb: 3 }} />
+                    {[
+                      ['Shop Name', vendorData.name || 'N/A'],
+                      ['Email', vendorData.email || 'N/A'],
+                      ['Phone', vendorData.phone || 'N/A'],
+                      ['Address', vendorData.address || 'N/A'],
+                      ['Business Type', vendorData.businessType || 'N/A'],
+                      ['Registration Date', vendorData.registrationDate || 'N/A'],
+                      ['Total Products', products.length],
+                      ['Total Revenue', `NPR ${totalRevenue.toFixed(2)}`],
+                      ['Active Orders', pendingOrders || 0],
+                    ].map(([label, value]) => (
+                      <Box key={label} sx={{ display: 'flex', justifyContent: 'space-between', py: 1.5, borderBottom: '1px solid', borderColor: 'divider' }}>
+                        <Typography color="text.secondary">{label}</Typography>
+                        <Typography fontWeight={600}>{value}</Typography>
+                      </Box>
+                    ))}
+                  </Paper>
+                </Grid>
+              </Grid>
             </>
           )}
 

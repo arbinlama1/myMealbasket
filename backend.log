@@ -1,0 +1,132 @@
+nohup: ignoring input
+[[1;34mINFO[m] Scanning for projects...
+[[1;34mINFO[m] 
+[[1;34mINFO[m] [1m--------------------< [0;36mcom.example:MealBasketSyatem[0;1m >--------------------[m
+[[1;34mINFO[m] [1mBuilding MealBasketSystem 0.0.1-SNAPSHOT[m
+[[1;34mINFO[m] [1m--------------------------------[ jar ]---------------------------------[m
+[[1;34mINFO[m] 
+[[1;34mINFO[m] [1m>>> [0;32mspring-boot-maven-plugin:4.0.1:run[m [1m(default-cli)[0;1m > [0;1mtest-compile[m @ [36mMealBasketSyatem[0;1m >>>[m
+[[1;34mINFO[m] 
+[[1;34mINFO[m] [1m--- [0;32mmaven-resources-plugin:3.3.1:resources[m [1m(default-resources)[m @ [36mMealBasketSyatem[0;1m ---[m
+[[1;34mINFO[m] Copying 1 resource from src/main/resources to target/classes
+[[1;34mINFO[m] Copying 2 resources from src/main/resources to target/classes
+[[1;34mINFO[m] 
+[[1;34mINFO[m] [1m--- [0;32mmaven-compiler-plugin:3.14.1:compile[m [1m(default-compile)[m @ [36mMealBasketSyatem[0;1m ---[m
+[[1;34mINFO[m] Recompiling the module because of [1madded or removed source files[m.
+[[1;34mINFO[m] Compiling 71 source files with javac [debug parameters release 17] to target/classes
+[[1;34mINFO[m] 
+[[1;34mINFO[m] [1m--- [0;32mmaven-resources-plugin:3.3.1:testResources[m [1m(default-testResources)[m @ [36mMealBasketSyatem[0;1m ---[m
+[[1;34mINFO[m] skip non existing resourceDirectory /home/arbinlama/6semProject/Mealbasket1/src/test/resources
+[[1;34mINFO[m] 
+[[1;34mINFO[m] [1m--- [0;32mmaven-compiler-plugin:3.14.1:testCompile[m [1m(default-testCompile)[m @ [36mMealBasketSyatem[0;1m ---[m
+[[1;34mINFO[m] Recompiling the module because of [1mchanged dependency[m.
+[[1;34mINFO[m] Compiling 1 source file with javac [debug parameters release 17] to target/test-classes
+[[1;34mINFO[m] 
+[[1;34mINFO[m] [1m<<< [0;32mspring-boot-maven-plugin:4.0.1:run[m [1m(default-cli)[0;1m < [0;1mtest-compile[m @ [36mMealBasketSyatem[0;1m <<<[m
+[[1;34mINFO[m] 
+[[1;34mINFO[m] 
+[[1;34mINFO[m] [1m--- [0;32mspring-boot-maven-plugin:4.0.1:run[m [1m(default-cli)[m @ [36mMealBasketSyatem[0;1m ---[m
+[[1;34mINFO[m] Attaching agents: []
+
+  .   ____          _            __ _ _
+ /\\ / ___'_ __ _ _(_)_ __  __ _ \ \ \ \
+( ( )\___ | '_ | '_| | '_ \/ _` | \ \ \ \
+ \\/  ___)| |_)| | | | | || (_| |  ) ) ) )
+  '  |____| .__|_| |_|_| |_\__, | / / / /
+ =========|_|==============|___/=/_/_/_/
+
+ :: Spring Boot ::                (v4.0.1)
+
+2026-04-06T11:47:44.705+05:45  INFO 72128 --- [MealBasketSyatem] [  restartedMain] c.e.M.MealBasketSyatemApplication        : Starting MealBasketSyatemApplication using Java 17.0.18 with PID 72128 (/home/arbinlama/6semProject/Mealbasket1/target/classes started by arbinlama in /home/arbinlama/6semProject/Mealbasket1)
+2026-04-06T11:47:44.707+05:45  INFO 72128 --- [MealBasketSyatem] [  restartedMain] c.e.M.MealBasketSyatemApplication        : No active profile set, falling back to 1 default profile: "default"
+2026-04-06T11:47:44.732+05:45  INFO 72128 --- [MealBasketSyatem] [  restartedMain] .e.DevToolsPropertyDefaultsPostProcessor : Devtools property defaults active! Set 'spring.devtools.add-properties' to 'false' to disable
+2026-04-06T11:47:44.732+05:45  INFO 72128 --- [MealBasketSyatem] [  restartedMain] .e.DevToolsPropertyDefaultsPostProcessor : For additional web related logging consider setting the 'logging.level.web' property to 'DEBUG'
+2026-04-06T11:47:45.117+05:45  INFO 72128 --- [MealBasketSyatem] [  restartedMain] .s.d.r.c.RepositoryConfigurationDelegate : Bootstrapping Spring Data JPA repositories in DEFAULT mode.
+2026-04-06T11:47:45.159+05:45  INFO 72128 --- [MealBasketSyatem] [  restartedMain] .s.d.r.c.RepositoryConfigurationDelegate : Finished Spring Data repository scanning in 36 ms. Found 13 JPA repository interfaces.
+2026-04-06T11:47:45.498+05:45  INFO 72128 --- [MealBasketSyatem] [  restartedMain] o.s.boot.tomcat.TomcatWebServer          : Tomcat initialized with port 8081 (http)
+2026-04-06T11:47:45.505+05:45  INFO 72128 --- [MealBasketSyatem] [  restartedMain] o.apache.catalina.core.StandardService   : Starting service [Tomcat]
+2026-04-06T11:47:45.506+05:45  INFO 72128 --- [MealBasketSyatem] [  restartedMain] o.apache.catalina.core.StandardEngine    : Starting Servlet engine: [Apache Tomcat/11.0.15]
+2026-04-06T11:47:45.522+05:45  INFO 72128 --- [MealBasketSyatem] [  restartedMain] b.w.c.s.WebApplicationContextInitializer : Root WebApplicationContext: initialization completed in 789 ms
+2026-04-06T11:47:45.594+05:45  INFO 72128 --- [MealBasketSyatem] [  restartedMain] org.hibernate.orm.jpa                    : HHH008540: Processing PersistenceUnitInfo [name: default]
+2026-04-06T11:47:45.629+05:45  INFO 72128 --- [MealBasketSyatem] [  restartedMain] org.hibernate.orm.core                   : HHH000001: Hibernate ORM core version 7.2.0.Final
+2026-04-06T11:47:45.854+05:45  INFO 72128 --- [MealBasketSyatem] [  restartedMain] o.s.o.j.p.SpringPersistenceUnitInfo      : No LoadTimeWeaver setup: ignoring JPA class transformer
+2026-04-06T11:47:45.871+05:45  INFO 72128 --- [MealBasketSyatem] [  restartedMain] com.zaxxer.hikari.HikariDataSource       : HikariPool-1 - Starting...
+2026-04-06T11:47:46.034+05:45  INFO 72128 --- [MealBasketSyatem] [  restartedMain] com.zaxxer.hikari.pool.HikariPool        : HikariPool-1 - Added connection org.postgresql.jdbc.PgConnection@4ad82c54
+2026-04-06T11:47:46.035+05:45  INFO 72128 --- [MealBasketSyatem] [  restartedMain] com.zaxxer.hikari.HikariDataSource       : HikariPool-1 - Start completed.
+2026-04-06T11:47:46.052+05:45  WARN 72128 --- [MealBasketSyatem] [  restartedMain] org.hibernate.orm.deprecation            : HHH90000025: PostgreSQLDialect does not need to be specified explicitly using 'hibernate.dialect' (remove the property setting and it will be selected by default)
+2026-04-06T11:47:46.068+05:45  INFO 72128 --- [MealBasketSyatem] [  restartedMain] org.hibernate.orm.connections.pooling    : HHH10001005: Database info:
+	Database JDBC URL [jdbc:postgresql://localhost:5433/mealbasketsystem]
+	Database driver: PostgreSQL JDBC Driver
+	Database dialect: PostgreSQLDialect
+	Database version: 16.13
+	Default catalog/schema: mealbasketsystem/public
+	Autocommit mode: undefined/unknown
+	Isolation level: READ_COMMITTED [default READ_COMMITTED]
+	JDBC fetch size: none
+	Pool: DataSourceConnectionProvider
+	Minimum pool size: undefined/unknown
+	Maximum pool size: undefined/unknown
+2026-04-06T11:47:46.717+05:45  INFO 72128 --- [MealBasketSyatem] [  restartedMain] org.hibernate.orm.core                   : HHH000489: No JTA platform available (set 'hibernate.transaction.jta.platform' to enable JTA platform integration)
+2026-04-06T11:47:46.771+05:45  INFO 72128 --- [MealBasketSyatem] [  restartedMain] j.LocalContainerEntityManagerFactoryBean : Initialized JPA EntityManagerFactory for persistence unit 'default'
+2026-04-06T11:47:46.814+05:45  INFO 72128 --- [MealBasketSyatem] [  restartedMain] o.s.d.j.r.query.QueryEnhancerFactories   : Hibernate is in classpath; If applicable, HQL parser will be used.
+2026-04-06T11:47:47.398+05:45  WARN 72128 --- [MealBasketSyatem] [  restartedMain] JpaBaseConfiguration$JpaWebConfiguration : spring.jpa.open-in-view is enabled by default. Therefore, database queries may be performed during view rendering. Explicitly configure spring.jpa.open-in-view to disable this warning
+2026-04-06T11:47:47.449+05:45  INFO 72128 --- [MealBasketSyatem] [  restartedMain] r$InitializeUserDetailsManagerConfigurer : Global AuthenticationManager configured with UserDetailsService bean with name userDetailsServiceImpl
+2026-04-06T11:47:47.773+05:45  INFO 72128 --- [MealBasketSyatem] [  restartedMain] o.s.boot.tomcat.TomcatWebServer          : Tomcat started on port 8081 (http) with context path '/'
+2026-04-06T11:47:47.777+05:45  INFO 72128 --- [MealBasketSyatem] [  restartedMain] c.e.M.MealBasketSyatemApplication        : Started MealBasketSyatemApplication in 3.289 seconds (process running for 3.537)
+Hibernate: select a1_0.id,a1_0.email,a1_0.name,a1_0.password from admins a1_0 where a1_0.email=?
+2026-04-06T11:55:11.310+05:45  INFO 72128 --- [MealBasketSyatem] [   File Watcher] rtingClassPathChangeChangedEventListener : Restarting due to 24 class path changes (0 additions, 0 deletions, 24 modifications)
+2026-04-06T11:55:11.313+05:45  INFO 72128 --- [MealBasketSyatem] [       Thread-1] o.s.boot.tomcat.GracefulShutdown         : Commencing graceful shutdown. Waiting for active requests to complete
+2026-04-06T11:55:11.317+05:45  INFO 72128 --- [MealBasketSyatem] [tomcat-shutdown] o.s.boot.tomcat.GracefulShutdown         : Graceful shutdown complete
+2026-04-06T11:55:11.321+05:45  INFO 72128 --- [MealBasketSyatem] [       Thread-1] j.LocalContainerEntityManagerFactoryBean : Closing JPA EntityManagerFactory for persistence unit 'default'
+2026-04-06T11:55:11.322+05:45  INFO 72128 --- [MealBasketSyatem] [       Thread-1] com.zaxxer.hikari.HikariDataSource       : HikariPool-1 - Shutdown initiated...
+2026-04-06T11:55:11.326+05:45  INFO 72128 --- [MealBasketSyatem] [       Thread-1] com.zaxxer.hikari.HikariDataSource       : HikariPool-1 - Shutdown completed.
+
+  .   ____          _            __ _ _
+ /\\ / ___'_ __ _ _(_)_ __  __ _ \ \ \ \
+( ( )\___ | '_ | '_| | '_ \/ _` | \ \ \ \
+ \\/  ___)| |_)| | | | | || (_| |  ) ) ) )
+  '  |____| .__|_| |_|_| |_\__, | / / / /
+ =========|_|==============|___/=/_/_/_/
+
+ :: Spring Boot ::                (v4.0.1)
+
+2026-04-06T11:55:11.368+05:45  INFO 72128 --- [MealBasketSyatem] [  restartedMain] c.e.M.MealBasketSyatemApplication        : Starting MealBasketSyatemApplication using Java 17.0.18 with PID 72128 (/home/arbinlama/6semProject/Mealbasket1/target/classes started by arbinlama in /home/arbinlama/6semProject/Mealbasket1)
+2026-04-06T11:55:11.369+05:45  INFO 72128 --- [MealBasketSyatem] [  restartedMain] c.e.M.MealBasketSyatemApplication        : No active profile set, falling back to 1 default profile: "default"
+2026-04-06T11:55:11.438+05:45  INFO 72128 --- [MealBasketSyatem] [  restartedMain] .s.d.r.c.RepositoryConfigurationDelegate : Bootstrapping Spring Data JPA repositories in DEFAULT mode.
+2026-04-06T11:55:11.449+05:45  INFO 72128 --- [MealBasketSyatem] [  restartedMain] .s.d.r.c.RepositoryConfigurationDelegate : Finished Spring Data repository scanning in 9 ms. Found 13 JPA repository interfaces.
+2026-04-06T11:55:11.514+05:45  INFO 72128 --- [MealBasketSyatem] [  restartedMain] o.s.boot.tomcat.TomcatWebServer          : Tomcat initialized with port 8081 (http)
+2026-04-06T11:55:11.515+05:45  INFO 72128 --- [MealBasketSyatem] [  restartedMain] o.apache.catalina.core.StandardService   : Starting service [Tomcat]
+2026-04-06T11:55:11.515+05:45  INFO 72128 --- [MealBasketSyatem] [  restartedMain] o.apache.catalina.core.StandardEngine    : Starting Servlet engine: [Apache Tomcat/11.0.15]
+2026-04-06T11:55:11.520+05:45  INFO 72128 --- [MealBasketSyatem] [  restartedMain] b.w.c.s.WebApplicationContextInitializer : Root WebApplicationContext: initialization completed in 150 ms
+2026-04-06T11:55:11.543+05:45  INFO 72128 --- [MealBasketSyatem] [  restartedMain] org.hibernate.orm.jpa                    : HHH008540: Processing PersistenceUnitInfo [name: default]
+2026-04-06T11:55:11.555+05:45  INFO 72128 --- [MealBasketSyatem] [  restartedMain] o.s.o.j.p.SpringPersistenceUnitInfo      : No LoadTimeWeaver setup: ignoring JPA class transformer
+2026-04-06T11:55:11.556+05:45  INFO 72128 --- [MealBasketSyatem] [  restartedMain] com.zaxxer.hikari.HikariDataSource       : HikariPool-2 - Starting...
+2026-04-06T11:55:11.573+05:45  INFO 72128 --- [MealBasketSyatem] [  restartedMain] com.zaxxer.hikari.pool.HikariPool        : HikariPool-2 - Added connection org.postgresql.jdbc.PgConnection@249e0415
+2026-04-06T11:55:11.574+05:45  INFO 72128 --- [MealBasketSyatem] [  restartedMain] com.zaxxer.hikari.HikariDataSource       : HikariPool-2 - Start completed.
+2026-04-06T11:55:11.575+05:45  WARN 72128 --- [MealBasketSyatem] [  restartedMain] org.hibernate.orm.deprecation            : HHH90000025: PostgreSQLDialect does not need to be specified explicitly using 'hibernate.dialect' (remove the property setting and it will be selected by default)
+2026-04-06T11:55:11.577+05:45  INFO 72128 --- [MealBasketSyatem] [  restartedMain] org.hibernate.orm.connections.pooling    : HHH10001005: Database info:
+	Database JDBC URL [jdbc:postgresql://localhost:5433/mealbasketsystem]
+	Database driver: PostgreSQL JDBC Driver
+	Database dialect: PostgreSQLDialect
+	Database version: 16.13
+	Default catalog/schema: mealbasketsystem/public
+	Autocommit mode: undefined/unknown
+	Isolation level: READ_COMMITTED [default READ_COMMITTED]
+	JDBC fetch size: none
+	Pool: DataSourceConnectionProvider
+	Minimum pool size: undefined/unknown
+	Maximum pool size: undefined/unknown
+2026-04-06T11:55:11.665+05:45  INFO 72128 --- [MealBasketSyatem] [  restartedMain] org.hibernate.orm.core                   : HHH000489: No JTA platform available (set 'hibernate.transaction.jta.platform' to enable JTA platform integration)
+2026-04-06T11:55:11.686+05:45  INFO 72128 --- [MealBasketSyatem] [  restartedMain] j.LocalContainerEntityManagerFactoryBean : Initialized JPA EntityManagerFactory for persistence unit 'default'
+2026-04-06T11:55:11.910+05:45  WARN 72128 --- [MealBasketSyatem] [  restartedMain] JpaBaseConfiguration$JpaWebConfiguration : spring.jpa.open-in-view is enabled by default. Therefore, database queries may be performed during view rendering. Explicitly configure spring.jpa.open-in-view to disable this warning
+2026-04-06T11:55:11.939+05:45  INFO 72128 --- [MealBasketSyatem] [  restartedMain] r$InitializeUserDetailsManagerConfigurer : Global AuthenticationManager configured with UserDetailsService bean with name userDetailsServiceImpl
+2026-04-06T11:55:12.068+05:45  INFO 72128 --- [MealBasketSyatem] [  restartedMain] o.s.boot.tomcat.TomcatWebServer          : Tomcat started on port 8081 (http) with context path '/'
+2026-04-06T11:55:12.071+05:45  INFO 72128 --- [MealBasketSyatem] [  restartedMain] c.e.M.MealBasketSyatemApplication        : Started MealBasketSyatemApplication in 0.714 seconds (process running for 447.83)
+Hibernate: select a1_0.id,a1_0.email,a1_0.name,a1_0.password from admins a1_0 where a1_0.email=?
+2026-04-06T11:55:12.090+05:45  INFO 72128 --- [MealBasketSyatem] [  restartedMain] .ConditionEvaluationDeltaLoggingListener : Condition evaluation unchanged
+2026-04-06T11:55:26.696+05:45  INFO 72128 --- [MealBasketSyatem] [nio-8081-exec-2] o.a.c.c.C.[Tomcat].[localhost].[/]       : Initializing Spring DispatcherServlet 'dispatcherServlet'
+2026-04-06T11:55:26.696+05:45  INFO 72128 --- [MealBasketSyatem] [nio-8081-exec-2] o.s.web.servlet.DispatcherServlet        : Initializing Servlet 'dispatcherServlet'
+2026-04-06T11:55:26.697+05:45  INFO 72128 --- [MealBasketSyatem] [nio-8081-exec-2] o.s.web.servlet.DispatcherServlet        : Completed initialization in 1 ms
+Hibernate: select u1_0.id,u1_0.email,u1_0.name,u1_0.password from users u1_0 where u1_0.email=?
+Hibernate: insert into users (email,name,password) values (?,?,?)
+Hibernate: select u1_0.id,u1_0.email,u1_0.name,u1_0.password from users u1_0 where u1_0.email=?

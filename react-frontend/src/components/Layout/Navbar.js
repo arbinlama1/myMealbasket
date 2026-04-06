@@ -73,8 +73,7 @@ const Navbar = () => {
   if (isAuthenticated) {
     if (role === 'USER') {
       menuItems.push(
-        { text: 'Meal Planner', icon: <Restaurant />, path: '/meal-planner' },
-        { text: 'My Orders', icon: <ShoppingCart />, path: '/orders' }
+        { text: 'Meal Planner', icon: <Restaurant />, path: '/meal-planner' }
       );
     } else if (role === 'VENDOR') {
       menuItems.push(
@@ -111,6 +110,36 @@ const Navbar = () => {
             <ListItemText primary={item.text} />
           </ListItem>
         ))}
+        
+        {/* Auth buttons for mobile */}
+        {!isAuthenticated && (
+          <>
+            <Divider sx={{ my: 1 }} />
+            <ListItem button onClick={() => navigate('/login')}>
+              <ListItemIcon><Login /></ListItemIcon>
+              <ListItemText primary="Login" />
+            </ListItem>
+            <ListItem button onClick={() => navigate('/register')}>
+              <ListItemIcon><AppRegistration /></ListItemIcon>
+              <ListItemText primary="Register" />
+            </ListItem>
+          </>
+        )}
+        
+        {/* User menu for mobile when authenticated */}
+        {isAuthenticated && (
+          <>
+            <Divider sx={{ my: 1 }} />
+            <ListItem>
+              <ListItemIcon><Person /></ListItemIcon>
+              <ListItemText primary={`${user?.name} (${role})`} />
+            </ListItem>
+            <ListItem button onClick={handleLogout}>
+              <ListItemIcon><Logout /></ListItemIcon>
+              <ListItemText primary="Logout" />
+            </ListItem>
+          </>
+        )}
       </List>
     </Box>
   );
@@ -155,92 +184,59 @@ const Navbar = () => {
                 </Button>
               ))}
 
-              {/* Authenticated user area - only avatar */}
-              {isAuthenticated ? (
-                <IconButton
-                  color="inherit"
-                  onClick={handleMenuOpen}
-                  sx={{ ml: 2 }}
-                >
-                  <Avatar
-                    sx={{
-                      width: 40,
-                      height: 40,
-                      bgcolor: 'secondary.main',
-                      fontWeight: 'bold',
-                      fontSize: '1.2rem',
-                    }}
-                  >
-                    {user?.name?.charAt(0)?.toUpperCase() || 'U'}
-                  </Avatar>
-                </IconButton>
-              ) : (
+              {/* Auth buttons */}
+              {!isAuthenticated ? (
                 <>
                   <Button
                     color="inherit"
                     startIcon={<Login />}
                     onClick={() => navigate('/login')}
+                    sx={{
+                      '&:hover': { bgcolor: 'rgba(255,255,255,0.08)' },
+                    }}
                   >
                     Login
                   </Button>
                   <Button
+                    variant="outlined"
                     color="inherit"
                     startIcon={<AppRegistration />}
                     onClick={() => navigate('/register')}
+                    sx={{
+                      borderColor: 'white',
+                      '&:hover': { bgcolor: 'rgba(255,255,255,0.08)' },
+                    }}
                   >
                     Register
                   </Button>
                 </>
-              )}
-
-              {/* User dropdown menu */}
-              {isAuthenticated && (
-                <Menu
-                  anchorEl={anchorEl}
-                  open={Boolean(anchorEl)}
-                  onClose={handleMenuClose}
-                  anchorOrigin={{
-                    vertical: 'bottom',
-                    horizontal: 'right',
-                  }}
-                  transformOrigin={{
-                    vertical: 'top',
-                    horizontal: 'right',
-                  }}
-                  PaperProps={{
-                    elevation: 4,
-                    sx: { minWidth: 180, mt: 1 },
-                  }}
-                >
-                  {/* User's name as non-clickable header */}
-                  <Box sx={{ px: 2, py: 1.5 }}>
-                    <Typography variant="subtitle1" fontWeight={600}>
-                      {user?.name || 'User'}
-                    </Typography>
-                    {role && (
-                      <Typography variant="caption" color="text.secondary">
-                        {role.toLowerCase()}
-                      </Typography>
-                    )}
-                  </Box>
-
-                  <Divider />
-
-                  {/* <MenuItem
-                    onClick={() => {
-                      navigate('/profile');
-                      handleMenuClose();
-                    }}
+              ) : (
+                <>
+                  <Avatar
+                    sx={{ bgcolor: 'secondary.main', cursor: 'pointer' }}
+                    onClick={handleMenuOpen}
                   >
-                    <Person sx={{ mr: 1.5 }} fontSize="small" />
-                    Profile
-                  </MenuItem> */}
-
-                  <MenuItem onClick={handleLogout}>
-                    <Logout sx={{ mr: 1.5 }} fontSize="small" />
-                   <a href='/home'>Logout</a> 
-                  </MenuItem>
-                </Menu>
+                    {user?.name?.[0]?.toUpperCase() || 'U'}
+                  </Avatar>
+                  <Menu
+                    anchorEl={anchorEl}
+                    open={Boolean(anchorEl)}
+                    onClose={handleMenuClose}
+                  >
+                    <MenuItem onClick={handleMenuClose}>
+                      <Typography variant="body2">
+                        {user?.name} ({role})
+                      </Typography>
+                    </MenuItem>
+                    <Divider />
+                    <MenuItem onClick={handleLogout}>
+                      <ListItemIcon>
+                        <Logout fontSize="small" />
+                      </ListItemIcon>
+                      Logout
+                    </MenuItem>
+                  </Menu>
+                </>
               )}
             </Box>
           )}

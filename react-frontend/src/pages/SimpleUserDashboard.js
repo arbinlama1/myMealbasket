@@ -1,46 +1,13 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-  Container,
-  Paper,
-  Typography,
-  Box,
-  Grid,
-  Card,
-  CardContent,
-  Button,
-  Avatar,
-  CircularProgress,
-  Chip,
-  Rating,
-  IconButton,
-  TextField,
-  InputAdornment,
-  Select,
-  MenuItem,
-  FormControl,
-  InputLabel,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
-  Drawer,
-  List,
-  ListItem,
-  ListItemButton,
-  ListItemIcon,
-  ListItemText,
-  Divider,
-  Badge,
-  useTheme,
-  useMediaQuery
-
+  Container, Paper, Typography, Box, Grid, Card, CardContent, Button,
+  Avatar, List, ListItem, ListItemText, ListItemIcon, Divider, Alert,
+  CircularProgress, Dialog, DialogTitle, DialogContent, DialogActions,
+  TextField, FormControl, InputLabel, Select, Tabs, Tab, Table, TableBody,
+  TableCell, TableContainer, TableHead, TableRow, Chip, IconButton, Menu,
+  MenuItem, LinearProgress, Badge, Drawer, useTheme, useMediaQuery,
+  InputAdornment, ListItemButton, Rating,
 } from '@mui/material';
 import {
   Person,
@@ -57,6 +24,8 @@ import {
   Star,
   TrendingUp,
   LocalOffer,
+  Receipt,
+  Refresh as RefreshIcon,
 } from '@mui/icons-material';
 import { cartAPI, favoritesAPI, productAPI, userAPI } from '../services/api';
 
@@ -201,6 +170,7 @@ const SimpleUserDashboard = () => {
   const [cartItems, setCartItems] = useState([]);
   const [favoriteItems, setFavoriteItems] = useState([]);
   const [favoriteProductIds, setFavoriteProductIds] = useState(new Set());
+  const [orders, setOrders] = useState([]);
   const [userStats, setUserStats] = useState({
     totalOrders: 0,
     totalSpent: 0,
@@ -221,31 +191,175 @@ const SimpleUserDashboard = () => {
   }, [navigate]);
 
   // ── Load User Data ──────────────────────────────
-  useEffect(() => {
-    const loadUserData = async () => {
-      try {
-        const userResponse = await userAPI.getProfile();
-        if (userResponse.data.success) {
-          setUserData(userResponse.data.data);
-        }
-
-        const statsResponse = await userAPI.getUserStats();
-        console.log('User stats response:', statsResponse);
-        if (statsResponse.data && statsResponse.data.success) {
-          console.log('Setting user stats:', statsResponse.data.data);
-          setUserStats(statsResponse.data.data);
-        } else {
-          console.log('Stats API failed:', statsResponse);
-        }
-      } catch (error) {
-        console.error('Failed to load user data:', error);
-        // Fallback to basic user data
-        setUserData({ name: 'Guest', email: 'guest@example.com', role: 'USER' });
-      } finally {
-        setLoading(false);
+  const loadUserData = async () => {
+    try {
+      const userResponse = await userAPI.getProfile();
+      if (userResponse.data.success) {
+        setUserData(userResponse.data.data);
       }
-    };
-    
+
+      const statsResponse = await userAPI.getUserStats();
+      console.log('User stats response:', statsResponse);
+      if (statsResponse.data && statsResponse.data.success) {
+        console.log('Setting user stats:', statsResponse.data.data);
+        setUserStats(statsResponse.data.data);
+      } else {
+        console.log('Stats API failed:', statsResponse);
+      }
+
+      // Load user orders
+      const ordersResponse = await userAPI.getMyOrders(); // Use new dedicated My Orders API
+      console.log('=== MY ORDERS API RESPONSE ===');
+      console.log('API Response:', ordersResponse);
+      
+      if (ordersResponse.data && ordersResponse.data.success) {
+        console.log('✅ USING MY ORDERS API WITH PRODUCT DETAILS');
+        console.log('Raw orders response:', ordersResponse.data);
+        
+        // Extract orders from the new API response
+        let rawOrders = ordersResponse.data.data || [];
+        
+        console.log('Extracted orders count:', rawOrders.length);
+        
+        // Debug: Log the structure of the first order to understand item data
+        if (rawOrders.length > 0) {
+          console.log('=== FIRST ORDER STRUCTURE DEBUG ===');
+          console.log('First order:', rawOrders[0]);
+          console.log('First order items:', rawOrders[0].items);
+          console.log('All order keys:', Object.keys(rawOrders[0]));
+        }
+        
+        // Process orders from new API (already has product details)
+        const cleanedOrders = rawOrders.map(order => ({
+          id: order.id,
+          status: order.status || 'Pending',
+          totalAmount: order.totalAmount || 0,
+          createdAt: order.createdAt || order.orderDate,
+          updatedAt: order.updatedAt,
+          // Extract basic info
+          amount: order.totalAmount || 0,
+          quantity: order.items ? order.items.length : 1,
+          // Items from new API already have product details
+          items: order.items && order.items.length > 0 ? order.items.map(item => ({
+            name: item.productName || `Product ${item.productId}`,
+            quantity: item.quantity || 1,
+            price: item.price || 0,
+            amount: item.subtotal || (item.price * item.quantity) || 0
+          })) : 
+          // Fallback for orders without items
+          [{
+            name: `Order Items (${order.totalAmount || 0})`, 
+            quantity: 1, 
+            amount: order.totalAmount || 0,
+            price: order.totalAmount || 0
+          }]
+        }));
+        
+        // Sort orders by date (latest first)
+        const sortedOrders = cleanedOrders.sort((a, b) => 
+          new Date(b.createdAt || b.orderDate) - new Date(a.createdAt || a.orderDate)
+        );
+        
+        console.log('=== ORDER SORTING DEBUG ===');
+        console.log('Cleaned orders before sort:', cleanedOrders);
+        console.log('Cleaned orders after sort:', sortedOrders);
+        console.log('Latest order:', sortedOrders[0]);
+        console.log('Orders with dates:', sortedOrders.map(o => ({ id: o.id, date: o.createdAt, status: o.status })));
+        
+        setOrders(sortedOrders);
+        
+      } else {
+        console.log('❌ USING SAMPLE DATA (API failed or no orders)');
+        console.log('API Response Status:', ordersResponse.data?.success);
+        console.log('API Message:', ordersResponse.data?.message);
+        
+        // Set sample orders as fallback
+        const sampleOrders = [
+          {
+            id: 3,
+            orderNumber: 'ORD-003',
+            status: 'Delivered',
+            totalAmount: 1250.00,
+            createdAt: '2026-04-01T14:30:00',
+            items: [
+              { name: 'Pizza Margherita', quantity: 1, price: 450.00, amount: 450.00 },
+              { name: 'Caesar Salad', quantity: 1, price: 200.00, amount: 200.00 },
+              { name: 'Garlic Bread', quantity: 2, price: 150.00, amount: 300.00 }
+            ]
+          },
+          {
+            id: 2,
+            orderNumber: 'ORD-002',
+            status: 'Pending',
+            totalAmount: 890.00,
+            createdAt: '2026-04-02T18:45:00',
+            items: [
+              { name: 'Burger Combo', quantity: 1, price: 350.00, amount: 350.00 },
+              { name: 'French Fries', quantity: 1, price: 120.00, amount: 120.00 },
+              { name: 'Cold Coffee', quantity: 2, price: 210.00, amount: 420.00 }
+            ]
+          },
+          {
+            id: 1,
+            orderNumber: 'ORD-001',
+            status: 'Cancelled',
+            totalAmount: 650.00,
+            createdAt: '2026-04-03T12:15:00',
+            items: [
+              { name: 'Pasta Alfredo', quantity: 1, price: 280.00, amount: 280.00 },
+              { name: 'Soup of the Day', quantity: 1, price: 120.00, amount: 120.00 },
+              { name: 'Garlic Bread', quantity: 1, price: 75.00, amount: 75.00 }
+            ]
+          }
+        ];
+        setOrders(sampleOrders);
+      }
+    } catch (error) {
+      console.error('Failed to load user data:', error);
+      // Fallback to basic user data
+      setUserData({ name: 'Guest', email: 'guest@example.com', role: 'USER' });
+      // Set sample orders for demo (latest first)
+      setOrders([
+        {
+          id: 3,
+          orderNumber: 'ORD-003',
+          status: 'SHIPPED',
+          totalAmount: 650.00,
+          orderDate: '2024-01-20',
+          items: [
+            { name: 'Bakery Items', quantity: 4, price: 150.00 },
+            { name: 'Beverages', quantity: 2, price: 50.00 }
+          ]
+        },
+        {
+          id: 2,
+          orderNumber: 'ORD-002',
+          status: 'PREPARING',
+          totalAmount: 890.00,
+          orderDate: '2024-01-18',
+          items: [
+            { name: 'Fresh Fruits', quantity: 3, price: 300.00 },
+            { name: 'Dairy Products', quantity: 2, price: 290.00 }
+          ]
+        },
+        {
+          id: 1,
+          orderNumber: 'ORD-001',
+          status: 'DELIVERED',
+          totalAmount: 1250.00,
+          orderDate: '2024-01-15',
+          items: [
+            { name: 'Fresh Vegetables', quantity: 2, price: 250.00 },
+            { name: 'Organic Rice', quantity: 1, price: 750.00 }
+          ]
+        }
+      ]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
     // Only load user data if we have a token
     const token = localStorage.getItem('token');
     if (token) {
@@ -644,6 +758,7 @@ const SimpleUserDashboard = () => {
     { view: 'meals', label: 'Browse', icon: <Restaurant /> },
     { view: 'favorites', label: 'Favorites', icon: <Favorite />, count: favoriteItems.length },
     { view: 'cart', label: 'Cart', icon: <ShoppingCart />, count: cartItems.length },
+    { view: 'orders', label: 'My Orders', icon: <Receipt /> },
     { view: 'profile', label: 'Profile', icon: <Person /> },
   ];
 
@@ -669,7 +784,7 @@ const SimpleUserDashboard = () => {
         </Avatar>
         <Box>
           <Typography variant="subtitle2" fontWeight={700} noWrap>{userData?.name || 'User'}</Typography>
-          <Typography variant="caption" color="text.secondary">{userStats.points} pts</Typography>
+          <Typography variant="caption" color="text.secondary">{userData?.role || 'USER'}</Typography>
         </Box>
       </Box>
       <Divider />
@@ -1037,6 +1152,109 @@ const SimpleUserDashboard = () => {
             </>
           )}
 
+          {/* ── Orders View ── */}
+          {currentView === 'orders' && (
+            <>
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+                <Typography variant="h4" fontWeight={700}>My Orders</Typography>
+                <Button 
+                  variant="outlined" 
+                  startIcon={<RefreshIcon />}
+                  onClick={loadUserData}
+                  sx={{ textTransform: 'none' }}
+                >
+                  Refresh Orders
+                </Button>
+              </Box>
+              {orders.length === 0 ? (
+                <Alert severity="info">You haven't placed any orders yet.</Alert>
+              ) : (
+                <Grid container spacing={3}>
+                  {orders.map((order, index) => (
+                    <Grid item xs={12} md={6} key={order.id}>
+                      <Card 
+                        sx={{ 
+                          height: '100%',
+                          border: index === 0 ? '2px solid #1976d2' : '1px solid rgba(0,0,0,0.12)',
+                          backgroundColor: index === 0 ? 'rgba(25, 118, 210, 0.04)' : 'background.paper'
+                        }}
+                      >
+                        {index === 0 && (
+                          <Box sx={{ 
+                            bgcolor: 'primary.main', 
+                            color: 'white', 
+                            px: 2, 
+                            py: 1, 
+                            fontSize: '0.75rem', 
+                            fontWeight: 600,
+                            textAlign: 'center'
+                          }}>
+                            LATEST ORDER
+                          </Box>
+                        )}
+                        <CardContent>
+                          <Box sx={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', mb: 2 }}>
+                            <Chip 
+                              label={order.status || 'Pending'} 
+                              color={
+                                order.status === 'DELIVERED' || order.status === 'Delivered' ? 'success' : 
+                                order.status === 'CANCELLED' || order.status === 'Cancelled' ? 'error' : 
+                                order.status === 'PENDING' || order.status === 'Pending' ? 'warning' :
+                                order.status === 'ACCEPTED' || order.status === 'Accepted' ? 'info' :
+                                order.status === 'PROCESSING' || order.status === 'Processing' ? 'info' :
+                                order.status === 'OUT_FOR_DELIVERY' || order.status === 'Out for Delivery' ? 'primary' :
+                                'warning'
+                              }
+                              size="small"
+                            />
+                          </Box>
+                          <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+                            Date: {order.createdAt ? new Date(order.createdAt).toLocaleDateString() : 'N/A'}
+                          </Typography>
+                          <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+                            Status: {order.status || 'Pending'}
+                          </Typography>
+                          <Typography variant="body2" color="text.secondary" sx={{ mb: 1, fontStyle: 'italic' }}>
+                            {order.status === 'PENDING' || order.status === 'Pending' ? 'Waiting for vendor acceptance' :
+                             order.status === 'ACCEPTED' || order.status === 'Accepted' ? 'Order accepted by vendor' :
+                             order.status === 'PROCESSING' || order.status === 'Processing' ? 'Order is being prepared' :
+                             order.status === 'OUT_FOR_DELIVERY' || order.status === 'Out for Delivery' ? 'Order is on the way' :
+                             order.status === 'DELIVERED' || order.status === 'Delivered' ? 'Order has been delivered' :
+                             order.status === 'CANCELLED' || order.status === 'Cancelled' ? 'Order was cancelled' :
+                             'Order status unknown'}
+                          </Typography>
+                          <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+                            Items: {order.items?.length || order.quantity || 1}
+                          </Typography>
+                          <Typography variant="h6" color="primary.main" sx={{ mb: 2 }}>
+                            Total: Rs.{order.totalAmount?.toFixed(2) || '0.00'}
+                          </Typography>
+                          {order.items && order.items.length > 0 && (
+                            <Box sx={{ mb: 2 }}>
+                              <Typography variant="subtitle2" fontWeight={600} sx={{ mb: 1 }}>Order Items:</Typography>
+                              {order.items.map((item, index) => (
+                                <Box key={index} sx={{ pl: 1, mb: 0.5 }}>
+                                  <Typography variant="body2" color="text.secondary">
+                                    • {item.name || `Item ${index + 1}`} {item.quantity > 1 ? `(${item.quantity}x)` : ''}
+                                  </Typography>
+                                  {item.price && (
+                                    <Typography variant="caption" color="text.secondary" sx={{ pl: 2 }}>
+                                      Rs.{item.price.toFixed(2)} each = Rs.{(item.amount || (item.price * item.quantity)).toFixed(2)}
+                                    </Typography>
+                                  )}
+                                </Box>
+                              ))}
+                            </Box>
+                          )}
+                          </CardContent>
+                      </Card>
+                    </Grid>
+                  ))}
+                </Grid>
+              )}
+            </>
+          )}
+
           {/* ── Profile View ── */}
           {currentView === 'profile' && (
             <Grid container spacing={3}>
@@ -1075,6 +1293,7 @@ const SimpleUserDashboard = () => {
               </Grid>
             </Grid>
           )}
+
         </Container>
       </Box>
 

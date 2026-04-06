@@ -1,6 +1,8 @@
 package com.example.MealBasketSyatem.controller;
 
 import com.example.MealBasketSyatem.dto.ApiResponse;
+import com.example.MealBasketSyatem.dto.MyOrderDTO;
+import com.example.MealBasketSyatem.dto.OrderItemDTO;
 import com.example.MealBasketSyatem.entity.Order;
 import com.example.MealBasketSyatem.entity.User;
 import com.example.MealBasketSyatem.service.OrderService;
@@ -54,6 +56,87 @@ public class OrderApiController {
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(ApiResponse.error("Failed to create order: " + e.getMessage()));
+        }
+    }
+
+    @GetMapping("/my-orders")
+    public ResponseEntity<ApiResponse<List<MyOrderDTO>>> getMyOrders(@AuthenticationPrincipal UserDetails userDetails) {
+        try {
+            String email = userDetails.getUsername();
+            User user = userService.findUserByEmail(email);
+            
+            if (user == null) {
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                        .body(ApiResponse.error("User not found"));
+            }
+            
+            List<Order> orders = orderService.getOrdersByUser(user.getId());
+            
+            // Convert to MyOrderDTO with product details
+            List<MyOrderDTO> myOrderDTOs = orders.stream().map(order -> {
+                MyOrderDTO dto = new MyOrderDTO();
+                dto.setId(order.getId());
+                dto.setStatus(order.getStatus());
+                dto.setTotalAmount(order.getTotalAmount());
+                dto.setCreatedAt(order.getCreatedAt());
+                dto.setUpdatedAt(order.getUpdatedAt());
+                dto.setDeliveryAddress(order.getDeliveryAddress());
+                dto.setPhone(order.getPhone());
+                dto.setNotes(order.getNotes());
+                
+                // Convert order items to include product details
+                if (order.getOrderItems() != null && !order.getOrderItems().isEmpty()) {
+                    List<OrderItemDTO> itemDTOs = order.getOrderItems().stream().map(item -> {
+                        OrderItemDTO itemDTO = new OrderItemDTO();
+                        itemDTO.setId(item.getId());
+                        itemDTO.setQuantity(item.getQuantity());
+                        itemDTO.setPrice(item.getPrice());
+                        itemDTO.setSubtotal(item.getSubtotal());
+                        
+                        // Include product details
+                        if (item.getProduct() != null) {
+                            itemDTO.setProductId(item.getProduct().getId());
+                            itemDTO.setProductName(item.getProduct().getName());
+                            itemDTO.setProductDescription(item.getProduct().getDescription());
+                            itemDTO.setProductImage(item.getProduct().getImage());
+                        }
+                        
+                        return itemDTO;
+                    }).collect(java.util.stream.Collectors.toList());
+                    
+                    dto.setItems(itemDTOs);
+                } else if (order.getProduct() != null) {
+                    // Handle legacy single product orders
+                    OrderItemDTO itemDTO = new OrderItemDTO();
+                    itemDTO.setQuantity(order.getQuantity());
+                    itemDTO.setPrice(order.getPrice());
+                    itemDTO.setSubtotal(order.getAmount());
+                    itemDTO.setProductId(order.getProduct().getId());
+                    itemDTO.setProductName(order.getProduct().getName());
+                    itemDTO.setProductDescription(order.getProduct().getDescription());
+                    itemDTO.setProductImage(order.getProduct().getImage());
+                    
+                    dto.setItems(java.util.Arrays.asList(itemDTO));
+                }
+                
+                return dto;
+            }).collect(java.util.stream.Collectors.toList());
+            
+            System.out.println("=== MY ORDERS API DEBUG ===");
+            System.out.println("Found " + myOrderDTOs.size() + " orders for user " + user.getId());
+            for (int i = 0; i < myOrderDTOs.size(); i++) {
+                MyOrderDTO order = myOrderDTOs.get(i);
+                System.out.println("Order " + (i+1) + ": ID=" + order.getId() + 
+                    ", Status=" + order.getStatus() + 
+                    ", Items=" + (order.getItems() != null ? order.getItems().size() : 0) +
+                    ", Total=" + order.getTotalAmount());
+            }
+            System.out.println("==============================");
+            
+            return ResponseEntity.ok(ApiResponse.success("My orders retrieved successfully", myOrderDTOs));
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(ApiResponse.error("Failed to retrieve my orders: " + e.getMessage()));
         }
     }
 

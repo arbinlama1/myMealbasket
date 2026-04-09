@@ -9,6 +9,8 @@ import Navbar from './components/Layout/Navbar';
 import Home from './pages/Home';
 import Login from './pages/Login';
 import Register from './pages/Register';
+import ForgotPassword from './pages/ForgotPassword';
+import ResetPassword from './pages/ResetPassword';
 import SimpleUserDashboard from './pages/SimpleUserDashboard';
 import SimpleVendorDashboard from './pages/SimpleVendorDashboard';
 import SimpleAdminDashboard from './pages/SimpleAdminDashboard';
@@ -54,6 +56,8 @@ function AppRoutes() {
         {/* ── Public routes ───────────────────────────────────────────────── */}
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
+        <Route path="/forgot-password" element={<ForgotPassword />} />
+        <Route path="/reset-password/:token" element={<ResetPassword />} />
         <Route path="/about-us" element={<AboutUs />} />
         <Route path="/contact" element={<Contact />} />
         <Route path="/products" element={<Products />} />

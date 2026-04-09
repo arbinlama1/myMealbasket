@@ -10,6 +10,7 @@ import com.example.MealBasketSyatem.security.JwtUtil;
 import com.example.MealBasketSyatem.service.UserService;
 import com.example.MealBasketSyatem.service.VendorService;
 import com.example.MealBasketSyatem.service.AdminService;
+import com.example.MealBasketSyatem.repo.VendorRepo;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -21,11 +22,15 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.Map;
 import java.util.UUID;
+import java.util.HashMap;
 
 @RestController
 @RequestMapping("/api/auth")
 @CrossOrigin(origins = {"http://localhost:3000", "http://localhost:3001"})
 public class AuthController {
+
+    // Simple in-memory token store for demo (in production, use database)
+    private static Map<String, String> resetTokenStore = new HashMap<>();
 
     @Autowired
     private UserService userService;
@@ -35,6 +40,9 @@ public class AuthController {
 
     @Autowired
     private AdminService adminService;
+    
+    @Autowired
+    private VendorRepo vendorRepo; // Direct repository access
 
     @Autowired
     private JwtUtil jwtUtil;
@@ -366,21 +374,30 @@ public class AuthController {
                         .body(ApiResponse.error("Email is required"));
             }
 
-            // Check if user exists
+            // Check if user exists (both User and Vendor)
             User user = userService.findUserByEmail(email);
-            if (user == null) {
+            Vendor vendor = vendorService.findVendorByEmail(email);
+            
+            if (user == null && vendor == null) {
                 return ResponseEntity.status(HttpStatus.NOT_FOUND)
-                        .body(ApiResponse.error("User not found"));
+                        .body(ApiResponse.error("No account found with this email"));
             }
 
-            // Generate reset token (in real app, send email)
+            // Store reset token in database (you'd create a PasswordReset entity)
+            // For demo, we'll store token->email mapping in a simple map
             String resetToken = UUID.randomUUID().toString();
             
-            // Store reset token in database (you'd create a PasswordReset entity)
-            // For now, just return success with the token
+            // Store token with email (in production, use database)
+            if (resetTokenStore == null) {
+                resetTokenStore = new java.util.HashMap<>();
+            }
+            resetTokenStore.put(resetToken, email);
+            
+            String userType = user != null ? "user" : "vendor";
             return ResponseEntity.ok(ApiResponse.success("Password reset email sent", 
-                Map.of("message", "Password reset instructions have been sent to " + email, "resetToken", resetToken)));
-
+                Map.of("message", "Password reset instructions have been sent to " + email, 
+                       "resetToken", resetToken,
+                       "userType", userType)));
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(ApiResponse.error("Failed to send reset email: " + e.getMessage()));
@@ -399,8 +416,31 @@ public class AuthController {
             }
 
             // In real app, validate token and update password
-            // For now, just return success
-            return ResponseEntity.ok(ApiResponse.success("Password reset successfully", null));
+            // For demo, we'll use the token store to get email
+            String email = resetTokenStore.get(token);
+            
+            if (email != null) {
+                // Try user first
+                User user = userService.findUserByEmail(email);
+                if (user != null) {
+                    user.setPassword(passwordEncoder.encode(newPassword));
+                    userService.updateUser(user);
+                    resetTokenStore.remove(token); // Clean up token
+                    return ResponseEntity.ok(ApiResponse.success("Password reset successfully", null));
+                }
+                
+                // Try vendor
+                Vendor vendor = vendorService.findVendorByEmail(email);
+                if (vendor != null) {
+                    vendor.setPassword(passwordEncoder.encode(newPassword));
+                    vendorRepo.save(vendor); // Use repository save directly
+                    resetTokenStore.remove(token); // Clean up token
+                    return ResponseEntity.ok(ApiResponse.success("Password reset successfully", null));
+                }
+            }
+            
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body(ApiResponse.error("Invalid or expired reset token"));
 
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)

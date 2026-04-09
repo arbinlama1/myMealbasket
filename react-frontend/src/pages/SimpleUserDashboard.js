@@ -7,7 +7,8 @@ import {
   TextField, FormControl, InputLabel, Select, Tabs, Tab, Table, TableBody,
   TableCell, TableContainer, TableHead, TableRow, Chip, IconButton, Menu,
   MenuItem, LinearProgress, Badge, Drawer, useTheme, useMediaQuery,
-  InputAdornment, ListItemButton, Rating,
+  InputAdornment, ListItemButton, Rating, Snackbar, Stack, FormGroup,
+  FormControlLabel, Checkbox,
 } from '@mui/material';
 import {
   Person,
@@ -26,8 +27,13 @@ import {
   LocalOffer,
   Receipt,
   Refresh as RefreshIcon,
+  Mic,
+  MicOff,
+  Edit,
+  Save,
 } from '@mui/icons-material';
 import { cartAPI, favoritesAPI, productAPI, userAPI } from '../services/api';
+import useVoiceSearch from '../hooks/useVoiceSearch';
 
 // ── Styled Nav Card ────────────────────────────────────────────────────────────
 const NavCard = ({ icon, label, count, active, onClick, color = '#1976d2' }) => (
@@ -182,6 +188,45 @@ const SimpleUserDashboard = () => {
 
   const [searchQuery, setSearchQuery] = useState('');
   const [filterCategory, setFilterCategory] = useState('all');
+  const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
+
+  // Profile Management States
+  const [editMode, setEditMode] = useState(false);
+  const [profileData, setProfileData] = useState({
+    name: '',
+    phone: '',
+    dietaryPreferences: [],
+    allergies: [],
+    weeklyBudget: 5000,
+    deliveryAddresses: []
+  });
+  const [newAllergy, setNewAllergy] = useState('');
+  const [showAddAddress, setShowAddAddress] = useState(false);
+  const [newAddress, setNewAddress] = useState({
+    type: 'Home',
+    street: '',
+    city: '',
+    state: '',
+    postalCode: '',
+    phone: '',
+    isDefault: false
+  });
+
+  // Voice Search Hook
+  const showSnackbar = (message, severity = 'success') => {
+    setSnackbar({ open: true, message, severity });
+  };
+
+  const handleVoiceResult = (processedResult) => {
+    setSearchQuery(processedResult);
+  };
+
+  const { isListening, voiceSupported, startVoiceSearch, stopVoiceSearch } = useVoiceSearch(
+    handleVoiceResult,
+    {
+      showSnackbar,
+    }
+  );
   const imageFallback = 'https://via.placeholder.com/300x200?text=No+Image';
 
   // ── Auth ───────────────────────────────────────
@@ -196,6 +241,15 @@ const SimpleUserDashboard = () => {
       const userResponse = await userAPI.getProfile();
       if (userResponse.data.success) {
         setUserData(userResponse.data.data);
+        // Initialize profile data
+        setProfileData({
+          name: userResponse.data.data.name || '',
+          phone: userResponse.data.data.phone || '',
+          dietaryPreferences: userResponse.data.data.dietaryPreferences || [],
+          allergies: userResponse.data.data.allergies || [],
+          weeklyBudget: userResponse.data.data.weeklyBudget || 5000,
+          deliveryAddresses: userResponse.data.data.deliveryAddresses || []
+        });
       }
 
       const statsResponse = await userAPI.getUserStats();
@@ -791,6 +845,105 @@ const SimpleUserDashboard = () => {
     setMobileDrawerOpen(false);
   };
 
+  // Profile Management Handlers
+  const handleSaveProfile = () => {
+    // Save profile data to backend
+    setUserData(prev => ({ ...prev, name: profileData.name, phone: profileData.phone }));
+    setEditMode(false);
+    showSnackbar('Profile updated successfully', 'success');
+  };
+
+  const handleDietaryChange = (diet, checked) => {
+    setProfileData(prev => ({
+      ...prev,
+      dietaryPreferences: checked
+        ? [...prev.dietaryPreferences, diet]
+        : prev.dietaryPreferences.filter(d => d !== diet)
+    }));
+  };
+
+  const handleAddAllergy = () => {
+    if (newAllergy.trim() && !profileData.allergies.includes(newAllergy.trim())) {
+      setProfileData(prev => ({
+        ...prev,
+        allergies: [...prev.allergies, newAllergy.trim()]
+      }));
+      setNewAllergy('');
+    }
+  };
+
+  const handleRemoveAllergy = (index) => {
+    setProfileData(prev => ({
+      ...prev,
+      allergies: prev.allergies.filter((_, i) => i !== index)
+    }));
+  };
+
+  const handleAddAddress = () => {
+    if (newAddress.street && newAddress.city && newAddress.phone) {
+      const addressToAdd = {
+        ...newAddress,
+        isDefault: profileData.deliveryAddresses.length === 0 || newAddress.isDefault
+      };
+      
+      // If setting as default, remove default from other addresses
+      const updatedAddresses = addressToAdd.isDefault
+        ? profileData.deliveryAddresses.map(addr => ({ ...addr, isDefault: false }))
+        : profileData.deliveryAddresses;
+      
+      setProfileData(prev => ({
+        ...prev,
+        deliveryAddresses: [...updatedAddresses, addressToAdd]
+      }));
+      
+      setNewAddress({
+        type: 'Home',
+        street: '',
+        city: '',
+        state: '',
+        postalCode: '',
+        phone: '',
+        isDefault: false
+      });
+      setShowAddAddress(false);
+      showSnackbar('Address added successfully', 'success');
+    }
+  };
+
+  const handleRemoveAddress = (index) => {
+    setProfileData(prev => ({
+      ...prev,
+      deliveryAddresses: prev.deliveryAddresses.filter((_, i) => i !== index)
+    }));
+  };
+
+  const handleSetDefaultAddress = (index) => {
+    setProfileData(prev => ({
+      ...prev,
+      deliveryAddresses: prev.deliveryAddresses.map((addr, i) => ({
+        ...addr,
+        isDefault: i === index
+      }))
+    }));
+  };
+
+  const getBudgetStatus = () => {
+    const spent = userStats.totalSpent;
+    const budget = parseFloat(profileData.weeklyBudget) || 5000;
+    const percentage = (spent / budget) * 100;
+    
+    if (percentage >= 100) return 'Budget exceeded';
+    if (percentage >= 80) return 'Warning: Near budget limit';
+    if (percentage >= 60) return 'Moderate spending';
+    return 'On track';
+  };
+
+  const getBudgetProgress = () => {
+    const spent = userStats.totalSpent;
+    const budget = parseFloat(profileData.weeklyBudget) || 5000;
+    return Math.min((spent / budget) * 100, 100);
+  };
+
   if (loading) {
     return (
       <Box display="flex" justifyContent="center" alignItems="center" minHeight="80vh">
@@ -912,7 +1065,7 @@ const SimpleUserDashboard = () => {
                       icon={icon}
                       label={label}
                       count={count}
-                      active={false}
+                      active={currentView === view}
                       onClick={() => switchView(view)}
                       color={view === 'cart' ? '#d32f2f' : view === 'favorites' ? '#e91e63' : '#1976d2'}
                     />
@@ -995,10 +1148,29 @@ const SimpleUserDashboard = () => {
                 <TextField
                   sx={{ flexGrow: 1, minWidth: 200 }}
                   variant="outlined"
-                  placeholder="Search products or vendors..."
+                  placeholder="Search products or vendors or use voice search..."
                   value={searchQuery}
                   onChange={e => setSearchQuery(e.target.value)}
-                  InputProps={{ startAdornment: <InputAdornment position="start"><SearchIcon /></InputAdornment> }}
+                  InputProps={{
+                    startAdornment: <InputAdornment position="start"><SearchIcon /></InputAdornment>,
+                    endAdornment: voiceSupported && (
+                      <IconButton
+                        size="small"
+                        onClick={isListening ? stopVoiceSearch : startVoiceSearch}
+                        color={isListening ? 'error' : 'primary'}
+                        sx={{ 
+                          animation: isListening ? 'pulse 1.5s infinite' : 'none',
+                          '@keyframes pulse': {
+                            '0%': { opacity: 1 },
+                            '50%': { opacity: 0.5 },
+                            '100%': { opacity: 1 },
+                          }
+                        }}
+                      >
+                        {isListening ? <MicOff /> : <Mic />}
+                      </IconButton>
+                    ),
+                  }}
                 />
                 <FormControl sx={{ minWidth: 140 }}>
                   <InputLabel>Category</InputLabel>
@@ -1010,6 +1182,17 @@ const SimpleUserDashboard = () => {
                     ))}
                   </Select>
                 </FormControl>
+                
+                {/* Voice Search Status */}
+                {voiceSupported && (
+                  <Chip
+                    label={isListening ? 'Listening...' : 'Voice Ready'}
+                    color={isListening ? 'warning' : 'success'}
+                    size="small"
+                    icon={isListening ? <Mic /> : <MicOff />}
+                    sx={{ alignSelf: 'center' }}
+                  />
+                )}
               </Box>
 
               {filteredProducts.length === 0 ? (
@@ -1279,7 +1462,7 @@ const SimpleUserDashboard = () => {
             </>
           )}
 
-          {/* ── Profile View ── */}
+          {/* Profile View */}
           {currentView === 'profile' && (
             <Grid container spacing={3}>
               <Grid item xs={12} md={4}>
@@ -1296,24 +1479,194 @@ const SimpleUserDashboard = () => {
                 </Paper>
               </Grid>
               <Grid item xs={12} md={8}>
-                <Paper sx={{ p: 4 }}>
-                  <Typography variant="h6" fontWeight={700} gutterBottom>Account Info</Typography>
-                  <Divider sx={{ mb: 3 }} />
-                  {[
-                    ['Member Since', userStats.memberSince],
-                    ['Last Order', userStats.lastOrder],
-                    ['Total Orders', userStats.totalOrders],
-                    ['Total Spent', `NPR ${userStats.totalSpent.toFixed(2)}`],
-                    ['Avg. Order Value', `NPR ${userStats.avgOrderValue.toFixed(2)}`],
-                    ['Points Earned', userStats.points],
-                    ['Favorites', favoriteItems.length],
-                  ].map(([label, value]) => (
-                    <Box key={label} sx={{ display: 'flex', justifyContent: 'space-between', py: 1.5, borderBottom: '1px solid', borderColor: 'divider' }}>
-                      <Typography color="text.secondary">{label}</Typography>
-                      <Typography fontWeight={600}>{value}</Typography>
+                <Stack spacing={3}>
+                  {/* Personal Information */}
+                  <Paper sx={{ p: 4 }}>
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+                      <Typography variant="h6" fontWeight={700}>Personal Information</Typography>
+                      <IconButton onClick={() => setEditMode(!editMode)} color="primary">
+                        {editMode ? <Save /> : <Edit />}
+                      </IconButton>
                     </Box>
-                  ))}
-                </Paper>
+                    <Divider sx={{ mb: 3 }} />
+                    <Grid container spacing={2}>
+                      <Grid item xs={12} sm={6}>
+                        <TextField
+                          fullWidth
+                          label="Full Name"
+                          value={profileData.name}
+                          onChange={(e) => setProfileData(prev => ({ ...prev, name: e.target.value }))}
+                          disabled={!editMode}
+                          margin="normal"
+                        />
+                      </Grid>
+                      <Grid item xs={12} sm={6}>
+                        <TextField
+                          fullWidth
+                          label="Phone Number"
+                          value={profileData.phone}
+                          onChange={(e) => setProfileData(prev => ({ ...prev, phone: e.target.value }))}
+                          disabled={!editMode}
+                          margin="normal"
+                        />
+                      </Grid>
+                      <Grid item xs={12}>
+                        <TextField
+                          fullWidth
+                          label="Email"
+                          value={userData?.email || ''}
+                          disabled
+                          margin="normal"
+                          helperText="Email cannot be changed"
+                        />
+                      </Grid>
+                    </Grid>
+                    {editMode && (
+                      <Box sx={{ mt: 2, display: 'flex', gap: 2 }}>
+                        <Button variant="contained" onClick={handleSaveProfile}>Save Changes</Button>
+                        <Button variant="outlined" onClick={() => setEditMode(false)}>Cancel</Button>
+                      </Box>
+                    )}
+                  </Paper>
+
+                  {/* Dietary Preferences */}
+                  <Paper sx={{ p: 4 }}>
+                    <Typography variant="h6" fontWeight={700} gutterBottom>Dietary Preferences</Typography>
+                    <Divider sx={{ mb: 3 }} />
+                    <FormGroup>
+                      {[
+                        { value: 'vegetarian', label: 'Vegetarian' },
+                        { value: 'vegan', label: 'Vegan' },
+                        { value: 'non-veg', label: 'Non-Vegetarian' },
+                        { value: 'gluten-free', label: 'Gluten-Free' },
+                        { value: 'dairy-free', label: 'Dairy-Free' },
+                        { value: 'keto', label: 'Keto' },
+                        { value: 'low-carb', label: 'Low-Carb' },
+                        { value: 'halal', label: 'Halal' },
+                      ].map((diet) => (
+                        <FormControlLabel
+                          key={diet.value}
+                          control={
+                            <Checkbox
+                              checked={profileData.dietaryPreferences.includes(diet.value)}
+                              onChange={(e) => handleDietaryChange(diet.value, e.target.checked)}
+                            />
+                          }
+                          label={diet.label}
+                        />
+                      ))}
+                    </FormGroup>
+                  </Paper>
+
+                  {/* Allergies */}
+                  <Paper sx={{ p: 4 }}>
+                    <Typography variant="h6" fontWeight={700} gutterBottom>Allergies & Restrictions</Typography>
+                    <Divider sx={{ mb: 3 }} />
+                    <Box sx={{ mb: 2 }}>
+                      {profileData.allergies.map((allergy, index) => (
+                        <Chip
+                          key={index}
+                          label={allergy}
+                          onDelete={() => handleRemoveAllergy(index)}
+                          color="error"
+                          variant="outlined"
+                          sx={{ mr: 1, mb: 1 }}
+                        />
+                      ))}
+                    </Box>
+                    <Box sx={{ display: 'flex', gap: 2 }}>
+                      <TextField
+                        size="small"
+                        placeholder="Add allergy (e.g., peanuts, shellfish)"
+                        value={newAllergy}
+                        onChange={(e) => setNewAllergy(e.target.value)}
+                        onKeyPress={(e) => e.key === 'Enter' && handleAddAllergy()}
+                      />
+                      <Button variant="outlined" onClick={handleAddAllergy}>Add</Button>
+                    </Box>
+                  </Paper>
+
+                  {/* Weekly Budget */}
+                  <Paper sx={{ p: 4 }}>
+                    <Typography variant="h6" fontWeight={700} gutterBottom>Weekly Budget</Typography>
+                    <Divider sx={{ mb: 3 }} />
+                    <TextField
+                      fullWidth
+                      type="number"
+                      label="Weekly Budget (NPR)"
+                      value={profileData.weeklyBudget}
+                      onChange={(e) => setProfileData(prev => ({ ...prev, weeklyBudget: e.target.value }))}
+                      InputProps={{
+                        startAdornment: <InputAdornment position="start">NPR</InputAdornment>,
+                      }}
+                      helperText={`Current spending: NPR ${userStats.totalSpent.toFixed(2)} this week`}
+                    />
+                    <Box sx={{ mt: 2 }}>
+                      <Typography variant="body2" color="text.secondary">
+                        Budget Status: {getBudgetStatus()}
+                      </Typography>
+                      <LinearProgress
+                        variant="determinate"
+                        value={getBudgetProgress()}
+                        sx={{ mt: 1, height: 8, borderRadius: 4 }}
+                        color={getBudgetProgress() > 80 ? 'error' : 'primary'}
+                      />
+                    </Box>
+                  </Paper>
+
+                  {/* Delivery Address */}
+                  <Paper sx={{ p: 4 }}>
+                    <Typography variant="h6" fontWeight={700} gutterBottom>Delivery Addresses</Typography>
+                    <Divider sx={{ mb: 3 }} />
+                    {profileData.deliveryAddresses.map((address, index) => (
+                      <Box key={index} sx={{ mb: 2, p: 2, border: '1px solid', borderColor: 'divider', borderRadius: 2 }}>
+                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start' }}>
+                          <Box>
+                            <Typography variant="subtitle2" fontWeight={600}>
+                              {address.type} {address.isDefault && <Chip label="Default" size="small" color="primary" sx={{ ml: 1 }} />}
+                            </Typography>
+                            <Typography variant="body2" color="text.secondary">
+                              {address.street}, {address.city}<br />
+                              {address.state}, {address.postalCode}<br />
+                              Phone: {address.phone}
+                            </Typography>
+                          </Box>
+                          <Box sx={{ display: 'flex', gap: 1 }}>
+                            <IconButton size="small" onClick={() => handleSetDefaultAddress(index)}>
+                              <Star />
+                            </IconButton>
+                            <IconButton size="small" onClick={() => handleRemoveAddress(index)}>
+                              <Delete />
+                            </IconButton>
+                          </Box>
+                        </Box>
+                      </Box>
+                    ))}
+                    <Button variant="outlined" startIcon={<Add />} onClick={() => setShowAddAddress(true)}>
+                      Add New Address
+                    </Button>
+                  </Paper>
+
+                  {/* Account Statistics */}
+                  <Paper sx={{ p: 4 }}>
+                    <Typography variant="h6" fontWeight={700} gutterBottom>Account Statistics</Typography>
+                    <Divider sx={{ mb: 3 }} />
+                    {[
+                      ['Member Since', userStats.memberSince],
+                      ['Last Order', userStats.lastOrder],
+                      ['Total Orders', userStats.totalOrders],
+                      ['Total Spent', `NPR ${userStats.totalSpent.toFixed(2)}`],
+                      ['Avg. Order Value', `NPR ${userStats.avgOrderValue.toFixed(2)}`],
+                      ['Points Earned', userStats.points],
+                      ['Favorites', favoriteItems.length],
+                    ].map(([label, value]) => (
+                      <Box key={label} sx={{ display: 'flex', justifyContent: 'space-between', py: 1.5, borderBottom: '1px solid', borderColor: 'divider' }}>
+                        <Typography color="text.secondary">{label}</Typography>
+                        <Typography fontWeight={600}>{value}</Typography>
+                      </Box>
+                    ))}
+                  </Paper>
+                </Stack>
               </Grid>
             </Grid>
           )}
@@ -1371,6 +1724,100 @@ const SimpleUserDashboard = () => {
           );
         })()}
       </Dialog>
+
+      {/* Add Address Dialog */}
+      <Dialog open={showAddAddress} onClose={() => setShowAddAddress(false)} maxWidth="sm" fullWidth>
+        <DialogTitle>Add New Delivery Address</DialogTitle>
+        <DialogContent>
+          <Grid container spacing={2} sx={{ mt: 1 }}>
+            <Grid item xs={12}>
+              <FormControl fullWidth>
+                <InputLabel>Address Type</InputLabel>
+                <Select
+                  value={newAddress.type}
+                  label="Address Type"
+                  onChange={(e) => setNewAddress(prev => ({ ...prev, type: e.target.value }))}
+                >
+                  <MenuItem value="Home">Home</MenuItem>
+                  <MenuItem value="Work">Work</MenuItem>
+                  <MenuItem value="Other">Other</MenuItem>
+                </Select>
+              </FormControl>
+            </Grid>
+            <Grid item xs={12}>
+              <TextField
+                fullWidth
+                label="Street Address"
+                value={newAddress.street}
+                onChange={(e) => setNewAddress(prev => ({ ...prev, street: e.target.value }))}
+                multiline
+                rows={2}
+              />
+            </Grid>
+            <Grid item xs={12} sm={6}>
+              <TextField
+                fullWidth
+                label="City"
+                value={newAddress.city}
+                onChange={(e) => setNewAddress(prev => ({ ...prev, city: e.target.value }))}
+              />
+            </Grid>
+            <Grid item xs={12} sm={6}>
+              <TextField
+                fullWidth
+                label="State/Province"
+                value={newAddress.state}
+                onChange={(e) => setNewAddress(prev => ({ ...prev, state: e.target.value }))}
+              />
+            </Grid>
+            <Grid item xs={12} sm={6}>
+              <TextField
+                fullWidth
+                label="Postal Code"
+                value={newAddress.postalCode}
+                onChange={(e) => setNewAddress(prev => ({ ...prev, postalCode: e.target.value }))}
+              />
+            </Grid>
+            <Grid item xs={12} sm={6}>
+              <TextField
+                fullWidth
+                label="Phone Number"
+                value={newAddress.phone}
+                onChange={(e) => setNewAddress(prev => ({ ...prev, phone: e.target.value }))}
+              />
+            </Grid>
+            <Grid item xs={12}>
+              <FormControlLabel
+                control={
+                  <Checkbox
+                    checked={newAddress.isDefault}
+                    onChange={(e) => setNewAddress(prev => ({ ...prev, isDefault: e.target.checked }))}
+                  />
+                }
+                label="Set as default address"
+              />
+            </Grid>
+          </Grid>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setShowAddAddress(false)}>Cancel</Button>
+          <Button variant="contained" onClick={handleAddAddress}>Add Address</Button>
+        </DialogActions>
+      </Dialog>
+      
+      {/* Voice Search Snackbar */}
+      <Snackbar
+        open={snackbar.open}
+        autoHideDuration={3000}
+        onClose={() => setSnackbar(prev => ({ ...prev, open: false }))}
+      >
+        <Alert 
+          severity={snackbar.severity} 
+          onClose={() => setSnackbar(prev => ({ ...prev, open: false }))}
+        >
+          {snackbar.message}
+        </Alert>
+      </Snackbar>
     </Box>
   );
 };

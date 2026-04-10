@@ -4,13 +4,16 @@ import com.example.MealBasketSyatem.dto.ApiResponse;
 import com.example.MealBasketSyatem.dto.LoginRequest;
 import com.example.MealBasketSyatem.dto.LoginResponse;
 import com.example.MealBasketSyatem.entity.Admin;
+import com.example.MealBasketSyatem.entity.Order;
 import com.example.MealBasketSyatem.entity.User;
 import com.example.MealBasketSyatem.entity.Vendor;
 import com.example.MealBasketSyatem.security.JwtUtil;
+import com.example.MealBasketSyatem.service.OrderService;
 import com.example.MealBasketSyatem.service.UserService;
 import com.example.MealBasketSyatem.service.VendorService;
 import com.example.MealBasketSyatem.service.AdminService;
 import com.example.MealBasketSyatem.repo.VendorRepo;
+import java.util.List;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -31,6 +34,9 @@ public class AuthController {
 
     // Simple in-memory token store for demo (in production, use database)
     private static Map<String, String> resetTokenStore = new HashMap<>();
+    
+    // Simple in-memory address store for demo (in production, use database)
+    private static Map<String, java.util.List<Map<String, Object>>> addressStore = new HashMap<>();
 
     @Autowired
     private UserService userService;
@@ -40,6 +46,9 @@ public class AuthController {
 
     @Autowired
     private AdminService adminService;
+    
+    @Autowired
+    private OrderService orderService;
     
     @Autowired
     private VendorRepo vendorRepo; // Direct repository access
@@ -258,6 +267,29 @@ public class AuthController {
                     vendorWithRole.put("phone", vendor.getPhone());
                     vendorWithRole.put("address", vendor.getAddress());
                     vendorWithRole.put("role", "VENDOR");
+                    // Add registration date dynamically from vendor entity
+                    if (vendor.getCreatedAt() != null) {
+                        // Format the date as "Month Year" (e.g., "January 2024")
+                        String registrationDate = vendor.getCreatedAt().getMonth() + " " + vendor.getCreatedAt().getYear();
+                        vendorWithRole.put("registrationDate", registrationDate);
+                    } else {
+                        // For existing vendors without createdAt, use a default date
+                        vendorWithRole.put("registrationDate", "January 2024");
+                    }
+                    
+                    // Calculate revenue from vendor's orders
+                    try {
+                        List<Order> vendorOrders = orderService.getOrdersByVendor(vendor.getId());
+                        double totalRevenue = vendorOrders.stream()
+                            .filter(order -> "DELIVERED".equals(order.getStatus()))
+                            .mapToDouble(order -> order.getTotalAmount() != null ? order.getTotalAmount() : 0.0)
+                            .sum();
+                        vendorWithRole.put("revenue", totalRevenue);
+                        vendorWithRole.put("totalOrders", vendorOrders.size());
+                    } catch (Exception e) {
+                        vendorWithRole.put("revenue", 0.0);
+                        vendorWithRole.put("totalOrders", 0);
+                    }
                     
                     return ResponseEntity.ok(ApiResponse.success("Profile retrieved successfully", vendorWithRole));
                 }
@@ -316,10 +348,14 @@ public class AuthController {
 
             userService.updateUser(user);
 
-            // Remove password from response
-            user.setPassword(null);
+            // Create response map with only user data (avoid JSON nesting issue)
+            Map<String, Object> userResponse = new java.util.HashMap<>();
+            userResponse.put("id", user.getId());
+            userResponse.put("name", user.getName());
+            userResponse.put("email", user.getEmail());
+            userResponse.put("role", "USER");
 
-            return ResponseEntity.ok(ApiResponse.success("Profile updated successfully", user));
+            return ResponseEntity.ok(ApiResponse.success("Profile updated successfully", userResponse));
 
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
@@ -445,6 +481,115 @@ public class AuthController {
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(ApiResponse.error("Failed to reset password: " + e.getMessage()));
+        }
+    }
+
+    // Delivery Address Management Endpoints
+    @GetMapping("/addresses")
+    public ResponseEntity<ApiResponse<?>> getDeliveryAddresses() {
+        try {
+            // Get current user from security context
+            Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+            if (auth == null || !(auth instanceof UsernamePasswordAuthenticationToken)) {
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                        .body(ApiResponse.error("User not authenticated"));
+            }
+
+            UsernamePasswordAuthenticationToken authToken = (UsernamePasswordAuthenticationToken) auth;
+            String email = authToken.getName();
+
+            // Get user
+            User user = userService.findUserByEmail(email);
+            if (user == null) {
+                return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                        .body(ApiResponse.error("User not found"));
+            }
+
+            // Get addresses from in-memory storage
+            java.util.List<Map<String, Object>> addresses = addressStore.getOrDefault(email, new java.util.ArrayList<>());
+            
+            // Log the address fetch for debugging
+            System.out.println("=== FETCHING DELIVERY ADDRESSES ===");
+            System.out.println("User: " + email);
+            System.out.println("Addresses count: " + addresses.size());
+
+            return ResponseEntity.ok(ApiResponse.success("Addresses retrieved successfully", addresses));
+
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(ApiResponse.error("Failed to fetch addresses: " + e.getMessage()));
+        }
+    }
+
+    @PostMapping("/addresses")
+    public ResponseEntity<ApiResponse<?>> addDeliveryAddress(@RequestBody Map<String, Object> addressData) {
+        try {
+            // Get current user from security context
+            Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+            if (auth == null || !(auth instanceof UsernamePasswordAuthenticationToken)) {
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                        .body(ApiResponse.error("User not authenticated"));
+            }
+
+            UsernamePasswordAuthenticationToken authToken = (UsernamePasswordAuthenticationToken) auth;
+            String email = authToken.getName();
+
+            // Get user
+            User user = userService.findUserByEmail(email);
+            if (user == null) {
+                return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                        .body(ApiResponse.error("User not found"));
+            }
+
+            // Store address in in-memory storage
+            java.util.List<Map<String, Object>> userAddresses = addressStore.getOrDefault(email, new java.util.ArrayList<>());
+            userAddresses.add(addressData);
+            addressStore.put(email, userAddresses);
+            
+            // Log the address addition for debugging
+            System.out.println("=== DELIVERY ADDRESS ADDED ===");
+            System.out.println("User: " + email);
+            System.out.println("Address: " + addressData);
+            System.out.println("Total addresses for user: " + userAddresses.size());
+
+            return ResponseEntity.ok(ApiResponse.success("Address added successfully", addressData));
+
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(ApiResponse.error("Failed to add address: " + e.getMessage()));
+        }
+    }
+
+    @DeleteMapping("/addresses/{addressId}")
+    public ResponseEntity<ApiResponse<?>> deleteDeliveryAddress(@PathVariable Long addressId) {
+        try {
+            // Get current user from security context
+            Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+            if (auth == null || !(auth instanceof UsernamePasswordAuthenticationToken)) {
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                        .body(ApiResponse.error("User not authenticated"));
+            }
+
+            UsernamePasswordAuthenticationToken authToken = (UsernamePasswordAuthenticationToken) auth;
+            String email = authToken.getName();
+
+            // Get user
+            User user = userService.findUserByEmail(email);
+            if (user == null) {
+                return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                        .body(ApiResponse.error("User not found"));
+            }
+
+            // Log the address deletion for debugging
+            System.out.println("=== DELIVERY ADDRESS DELETED ===");
+            System.out.println("User: " + email);
+            System.out.println("Address ID: " + addressId);
+
+            return ResponseEntity.ok(ApiResponse.success("Address deleted successfully", null));
+
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(ApiResponse.error("Failed to delete address: " + e.getMessage()));
         }
     }
 }

@@ -194,6 +194,15 @@ public class VendorApiController {
                 orderData.put("phone", order.getPhone());
                 orderData.put("notes", order.getNotes());
                 
+                // Add customer information
+                if (order.getUser() != null) {
+                    orderData.put("customer", order.getUser().getName());
+                    orderData.put("customerEmail", order.getUser().getEmail());
+                } else {
+                    orderData.put("customer", "Customer");
+                    orderData.put("customerEmail", "Unknown");
+                }
+                
                 // Add order items
                 if (order.getOrderItems() != null) {
                     List<Map<String, Object>> items = order.getOrderItems().stream().map(item -> {
@@ -241,6 +250,62 @@ public class VendorApiController {
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(ApiResponse.error("Failed to update order status: " + e.getMessage()));
+        }
+    }
+
+    // Update vendor profile
+    @PutMapping("/{vendorId}/profile")
+    public ResponseEntity<ApiResponse<?>> updateVendorProfile(
+            @PathVariable Long vendorId,
+            @RequestBody Map<String, Object> profileData) {
+        try {
+            // Get vendor
+            Vendor vendor = vendorService.getVendorById(vendorId)
+                    .orElseThrow(() -> new RuntimeException("Vendor not found"));
+            
+            // Update vendor fields
+            if (profileData.containsKey("name")) {
+                vendor.setName((String) profileData.get("name"));
+            }
+            if (profileData.containsKey("email")) {
+                vendor.setEmail((String) profileData.get("email"));
+            }
+            if (profileData.containsKey("phone")) {
+                vendor.setPhone((String) profileData.get("phone"));
+            }
+            if (profileData.containsKey("address")) {
+                vendor.setAddress((String) profileData.get("address"));
+            }
+            if (profileData.containsKey("businessType")) {
+                vendor.setBusinessType((String) profileData.get("businessType"));
+            }
+            
+            // Save updated vendor
+            vendorService.updateVendor(vendor);
+            
+            // Create response map with updated vendor data
+            Map<String, Object> updatedVendorData = new java.util.HashMap<>();
+            updatedVendorData.put("id", vendor.getId());
+            updatedVendorData.put("name", vendor.getName());
+            updatedVendorData.put("email", vendor.getEmail());
+            updatedVendorData.put("shopName", vendor.getShopName());
+            updatedVendorData.put("businessType", vendor.getBusinessType());
+            updatedVendorData.put("phone", vendor.getPhone());
+            updatedVendorData.put("address", vendor.getAddress());
+            updatedVendorData.put("role", "VENDOR");
+            
+            // Add registration date
+            if (vendor.getCreatedAt() != null) {
+                String registrationDate = vendor.getCreatedAt().getMonth() + " " + vendor.getCreatedAt().getYear();
+                updatedVendorData.put("registrationDate", registrationDate);
+            } else {
+                updatedVendorData.put("registrationDate", "January 2024");
+            }
+            
+            return ResponseEntity.ok(ApiResponse.success("Vendor profile updated successfully", updatedVendorData));
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(ApiResponse.error("Failed to update vendor profile: " + e.getMessage()));
         }
     }
 

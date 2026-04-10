@@ -1,6 +1,7 @@
 package com.example.MealBasketSyatem.entity;
 
 import java.util.List;
+import java.time.LocalDateTime;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.CascadeType;
@@ -11,6 +12,7 @@ import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.OneToMany;
 import jakarta.persistence.Table;
+import jakarta.persistence.PrePersist;
 
 @Entity
 @Table(name="vendors")
@@ -41,9 +43,19 @@ public class Vendor {
     @Column(name="address")
     private String address;
 
+    @Column(name="created_at")
+    private LocalDateTime createdAt;
+
     @OneToMany(mappedBy = "vendor", cascade = CascadeType.ALL)
     @JsonIgnore
     private List<Product> products;
+
+    @PrePersist
+    protected void onCreate() {
+        if (createdAt == null) {
+            createdAt = LocalDateTime.now();
+        }
+    }
 
     // Constructors
     public Vendor() {}
@@ -78,6 +90,9 @@ public class Vendor {
 
     public String getAddress() { return address; }
     public void setAddress(String address) { this.address = address; }
+
+    public LocalDateTime getCreatedAt() { return createdAt; }
+    public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
 
     public List<Product> getProducts() { return products; }
     public void setProducts(List<Product> products) { this.products = products; }

@@ -135,7 +135,11 @@ export const userAPI = {
   getMyOrders: () => api.get('/orders/my-orders'), // New dedicated My Orders API
   updateUserPreferences: (preferences) => api.put('/auth/preferences', preferences),
   getUserActivity: () => api.get('/auth/activity'),
-  getUserStats: () => api.get('/user/stats')
+  getUserStats: () => api.get('/user/stats'),
+  addDeliveryAddress: (address) => api.post('/auth/addresses', address),
+  updateDeliveryAddress: (addressId, address) => api.put(`/auth/addresses/${addressId}`, address),
+  deleteDeliveryAddress: (addressId) => api.delete(`/auth/addresses/${addressId}`),
+  getDeliveryAddresses: () => api.get('/auth/addresses')
 };
 
 // Vendor APIs
@@ -146,7 +150,8 @@ export const vendorAPI = {
   updateProduct: (vendorId, productId, product) => api.put(`/vendor/${vendorId}/products/${productId}`, product),
   deleteProduct: (vendorId, productId) => api.delete(`/vendor/${vendorId}/products/${productId}`),
   getOrders: (vendorId) => api.get(`/vendor/${vendorId}/orders`),
-  updateOrderStatus: (vendorId, orderId, status) => api.put(`/vendor/${vendorId}/orders/${orderId}`, { status })
+  updateOrderStatus: (vendorId, orderId, status) => api.put(`/vendor/${vendorId}/orders/${orderId}`, { status }),
+  updateVendorProfile: (vendorId, profileData) => api.put(`/vendor/${vendorId}/profile`, profileData)
 };
 export const orderAPI = {
   getAll: () => api.get('/orders'),

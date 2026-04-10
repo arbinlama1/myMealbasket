@@ -248,8 +248,22 @@ const SimpleUserDashboard = () => {
           dietaryPreferences: userResponse.data.data.dietaryPreferences || [],
           allergies: userResponse.data.data.allergies || [],
           weeklyBudget: userResponse.data.data.weeklyBudget || 5000,
-          deliveryAddresses: userResponse.data.data.deliveryAddresses || []
+          deliveryAddresses: []
         });
+
+        // Fetch delivery addresses from backend
+        try {
+          const addressesResponse = await userAPI.getDeliveryAddresses();
+          if (addressesResponse.data.success) {
+            setProfileData(prev => ({
+              ...prev,
+              deliveryAddresses: addressesResponse.data.data || []
+            }));
+          }
+        } catch (addressError) {
+          console.error('Failed to fetch delivery addresses:', addressError);
+          // Continue with empty addresses list
+        }
       }
 
       const statsResponse = await userAPI.getUserStats();
@@ -846,11 +860,39 @@ const SimpleUserDashboard = () => {
   };
 
   // Profile Management Handlers
-  const handleSaveProfile = () => {
-    // Save profile data to backend
-    setUserData(prev => ({ ...prev, name: profileData.name, phone: profileData.phone }));
-    setEditMode(false);
-    showSnackbar('Profile updated successfully', 'success');
+  const handleSaveProfile = async () => {
+    try {
+      // Prepare profile data for backend (only fields that exist in User entity)
+      const profileUpdateData = {
+        name: profileData.name,
+        // Note: phone, dietaryPreferences, allergies, weeklyBudget, deliveryAddresses 
+        // are not currently stored in the User entity backend
+        // These fields are logged by the backend for future implementation
+      };
+
+      // Send profile data to backend
+      const response = await userAPI.updateProfile(profileUpdateData);
+      
+      if (response.data.success) {
+        // Update local state with successful response
+        setUserData(prev => ({ ...prev, ...profileUpdateData }));
+        setEditMode(false);
+        showSnackbar('Profile updated successfully', 'success');
+      } else {
+        showSnackbar('Failed to update profile: ' + (response.data.message || 'Unknown error'), 'error');
+      }
+    } catch (error) {
+      console.error('Error updating profile:', error);
+      showSnackbar('Failed to update profile. Please try again.', 'error');
+      
+      // Handle authentication errors specifically
+      if (error.response?.status === 401) {
+        console.error('Authentication error - redirecting to login');
+        localStorage.removeItem('token');
+        navigate('/login');
+        return;
+      }
+    }
   };
 
   const handleDietaryChange = (diet, checked) => {
@@ -879,34 +921,54 @@ const SimpleUserDashboard = () => {
     }));
   };
 
-  const handleAddAddress = () => {
-    if (newAddress.street && newAddress.city && newAddress.phone) {
-      const addressToAdd = {
-        ...newAddress,
-        isDefault: profileData.deliveryAddresses.length === 0 || newAddress.isDefault
-      };
-      
-      // If setting as default, remove default from other addresses
-      const updatedAddresses = addressToAdd.isDefault
-        ? profileData.deliveryAddresses.map(addr => ({ ...addr, isDefault: false }))
-        : profileData.deliveryAddresses;
-      
-      setProfileData(prev => ({
-        ...prev,
-        deliveryAddresses: [...updatedAddresses, addressToAdd]
-      }));
-      
-      setNewAddress({
-        type: 'Home',
-        street: '',
-        city: '',
-        state: '',
-        postalCode: '',
-        phone: '',
-        isDefault: false
-      });
-      setShowAddAddress(false);
-      showSnackbar('Address added successfully', 'success');
+  const handleAddAddress = async () => {
+    if (newAddress.street && newAddress.city) {
+      try {
+        const addressToAdd = {
+          ...newAddress,
+          isDefault: profileData.deliveryAddresses.length === 0 || newAddress.isDefault
+        };
+        
+        // Send address to backend
+        const response = await userAPI.addDeliveryAddress(addressToAdd);
+        
+        if (response.data.success) {
+          // If setting as default, remove default from other addresses
+          const updatedAddresses = addressToAdd.isDefault
+            ? profileData.deliveryAddresses.map(addr => ({ ...addr, isDefault: false }))
+            : profileData.deliveryAddresses;
+          
+          setProfileData(prev => ({
+            ...prev,
+            deliveryAddresses: [...updatedAddresses, addressToAdd]
+          }));
+          
+          setNewAddress({
+            type: 'Home',
+            street: '',
+            city: '',
+            state: '',
+            postalCode: '',
+            phone: '',
+            isDefault: false
+          });
+          setShowAddAddress(false);
+          showSnackbar('Address added successfully', 'success');
+        } else {
+          showSnackbar('Failed to add address: ' + (response.data.message || 'Unknown error'), 'error');
+        }
+      } catch (error) {
+        console.error('Error adding address:', error);
+        showSnackbar('Failed to add address. Please try again.', 'error');
+        
+        // Handle authentication errors specifically
+        if (error.response?.status === 401) {
+          console.error('Authentication error - redirecting to login');
+          localStorage.removeItem('token');
+          navigate('/login');
+          return;
+        }
+      }
     }
   };
 
@@ -1501,15 +1563,7 @@ const SimpleUserDashboard = () => {
                         />
                       </Grid>
                       <Grid item xs={12} sm={6}>
-                        <TextField
-                          fullWidth
-                          label="Phone Number"
-                          value={profileData.phone}
-                          onChange={(e) => setProfileData(prev => ({ ...prev, phone: e.target.value }))}
-                          disabled={!editMode}
-                          margin="normal"
-                        />
-                      </Grid>
+                                              </Grid>
                       <Grid item xs={12}>
                         <TextField
                           fullWidth
@@ -1636,7 +1690,7 @@ const SimpleUserDashboard = () => {
                               <Star />
                             </IconButton>
                             <IconButton size="small" onClick={() => handleRemoveAddress(index)}>
-                              <Delete />
+                              <DeleteIcon />
                             </IconButton>
                           </Box>
                         </Box>

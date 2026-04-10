@@ -7,13 +7,13 @@ import {
   CircularProgress, Dialog, DialogTitle, DialogContent, DialogActions,
   TextField, FormControl, InputLabel, Select, Tabs, Tab, Table, TableBody,
   TableCell, TableContainer, TableHead, TableRow, Chip, IconButton, Menu,
-  MenuItem, LinearProgress, Badge, Drawer, useTheme, useMediaQuery,
+  MenuItem, LinearProgress, Badge, Drawer, useTheme, useMediaQuery, Snackbar,
 } from '@mui/material';
 import {
   Person, ShoppingCart, Restaurant, Assessment, TrendingUp, AttachMoney,
   Logout, Add, Edit, Delete, Visibility, CheckCircle, Pending, Cancel,
   ArrowBack, AccountCircle, Store, Menu as MenuIcon, Close as CloseIcon,
-  Inventory, LocalOffer, BarChart, Dashboard, Storefront, Warning,
+  Inventory, LocalOffer, BarChart, Dashboard, Storefront, Warning, Save,
 } from '@mui/icons-material';
 
 // ── Stat Card ─────────────────────────────────────────────────────────────────
@@ -98,6 +98,16 @@ const SimpleVendorDashboard = () => {
     { id: 1231, customer: 'Alice Brown', items: 'Product G, Product H', total: 1825, status: 'Delivered', time: '12 mins ago' },
   ]);
 
+  // Business Information Edit State
+  const [editBusinessInfo, setEditBusinessInfo] = useState(false);
+  const [businessInfoData, setBusinessInfoData] = useState({
+    name: '',
+    email: '',
+    phone: '',
+    address: '',
+    businessType: ''
+  });
+
   // Dialog / form state
   const [showAddProductForm, setShowAddProductForm] = useState(false);
   const [editingProduct, setEditingProduct] = useState(null);
@@ -111,6 +121,9 @@ const SimpleVendorDashboard = () => {
   ]);
   const [promotionDialogOpen, setPromotionDialogOpen] = useState(false);
   const [newPromotion, setNewPromotion] = useState({ name: '', code: '', discount: '', duration: '' });
+
+  // Toast state
+  const [toast, setToast] = useState({ open: false, message: '', severity: 'success' });
 
   // ── Auth & Load ───────────────────────────────
   useEffect(() => {
@@ -280,6 +293,53 @@ const SimpleVendorDashboard = () => {
       console.error('Failed to update order status:', err);
       alert(`Failed to update order status: ${err.message}`);
     }
+  };
+
+  // ── Business Information Handlers ────────────────────────────────
+  const handleEditBusinessInfo = () => {
+    setBusinessInfoData({
+      name: vendorData.name || '',
+      email: vendorData.email || '',
+      phone: vendorData.phone || '',
+      address: vendorData.address || '',
+      businessType: vendorData.businessType || ''
+    });
+    setEditBusinessInfo(true);
+  };
+
+  const handleSaveBusinessInfo = async () => {
+    try {
+      // Update vendor profile via API
+      const response = await vendorAPI.updateVendorProfile(vendorData.id, businessInfoData);
+      
+      if (response.data.success) {
+        // Update local state
+        setVendorData(prev => ({ ...prev, ...businessInfoData }));
+        setEditBusinessInfo(false);
+        showToast('Business information updated successfully!', 'success');
+      } else {
+        showToast('Failed to update business information: ' + (response.data.message || 'Unknown error'), 'error');
+      }
+    } catch (error) {
+      console.error('Error updating business information:', error);
+      showToast('Failed to update business information. Please try again.', 'error');
+    }
+  };
+
+  const handleCancelBusinessInfoEdit = () => {
+    setEditBusinessInfo(false);
+  };
+
+  const handleBusinessInfoChange = (field, value) => {
+    setBusinessInfoData(prev => ({ ...prev, [field]: value }));
+  };
+
+  const showToast = (message, severity = 'success') => {
+    setToast({ open: true, message, severity });
+  };
+
+  const handleCloseToast = () => {
+    setToast(prev => ({ ...prev, open: false }));
   };
 
   // ── Promotions ────────────────────────────────
@@ -900,24 +960,100 @@ const SimpleVendorDashboard = () => {
                 </Grid>
                 <Grid item xs={12} md={8}>
                   <Paper sx={{ p: 4 }}>
-                    <Typography variant="h6" fontWeight={700} gutterBottom>Business Information</Typography>
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+                      <Typography variant="h6" fontWeight={700}>Business Information</Typography>
+                      <IconButton onClick={editBusinessInfo ? handleSaveBusinessInfo : handleEditBusinessInfo} color="primary">
+                        {editBusinessInfo ? <Save /> : <Edit />}
+                      </IconButton>
+                    </Box>
                     <Divider sx={{ mb: 3 }} />
-                    {[
-                      ['Shop Name', vendorData.name || 'N/A'],
-                      ['Email', vendorData.email || 'N/A'],
-                      ['Phone', vendorData.phone || 'N/A'],
-                      ['Address', vendorData.address || 'N/A'],
-                      ['Business Type', vendorData.businessType || 'N/A'],
-                      ['Registration Date', vendorData.registrationDate || 'N/A'],
-                      ['Total Products', products.length],
-                      ['Total Revenue', `NPR ${totalRevenue.toFixed(2)}`],
-                      ['Active Orders', pendingOrders || 0],
-                    ].map(([label, value]) => (
-                      <Box key={label} sx={{ display: 'flex', justifyContent: 'space-between', py: 1.5, borderBottom: '1px solid', borderColor: 'divider' }}>
-                        <Typography color="text.secondary">{label}</Typography>
-                        <Typography fontWeight={600}>{value}</Typography>
-                      </Box>
-                    ))}
+                    
+                    {editBusinessInfo ? (
+                      // Edit Mode
+                      <Grid container spacing={2}>
+                        <Grid item xs={12} sm={6}>
+                          <TextField
+                            fullWidth
+                            label="Shop Name"
+                            value={businessInfoData.name}
+                            onChange={(e) => handleBusinessInfoChange('name', e.target.value)}
+                            margin="normal"
+                          />
+                        </Grid>
+                        <Grid item xs={12} sm={6}>
+                          <TextField
+                            fullWidth
+                            label="Email"
+                            value={businessInfoData.email}
+                            onChange={(e) => handleBusinessInfoChange('email', e.target.value)}
+                            margin="normal"
+                            type="email"
+                          />
+                        </Grid>
+                        <Grid item xs={12} sm={6}>
+                          <TextField
+                            fullWidth
+                            label="Phone"
+                            value={businessInfoData.phone}
+                            onChange={(e) => handleBusinessInfoChange('phone', e.target.value)}
+                            margin="normal"
+                          />
+                        </Grid>
+                        <Grid item xs={12} sm={6}>
+                          <FormControl fullWidth margin="normal">
+                            <InputLabel>Business Type</InputLabel>
+                            <Select
+                              value={businessInfoData.businessType}
+                              label="Business Type"
+                              onChange={(e) => handleBusinessInfoChange('businessType', e.target.value)}
+                            >
+                              <MenuItem value="Restaurant">Restaurant</MenuItem>
+                              <MenuItem value="Cafe">Cafe</MenuItem>
+                              <MenuItem value="Bakery">Bakery</MenuItem>
+                              <MenuItem value="Grocery">Grocery</MenuItem>
+                              <MenuItem value="Other">Other</MenuItem>
+                            </Select>
+                          </FormControl>
+                        </Grid>
+                        <Grid item xs={12}>
+                          <TextField
+                            fullWidth
+                            label="Address"
+                            value={businessInfoData.address}
+                            onChange={(e) => handleBusinessInfoChange('address', e.target.value)}
+                            margin="normal"
+                            multiline
+                            rows={2}
+                          />
+                        </Grid>
+                        <Grid item xs={12}>
+                          <Box sx={{ mt: 2, display: 'flex', gap: 2, justifyContent: 'flex-end' }}>
+                            <Button variant="outlined" onClick={handleCancelBusinessInfoEdit}>Cancel</Button>
+                            <Button variant="contained" onClick={handleSaveBusinessInfo}>Save Changes</Button>
+                          </Box>
+                        </Grid>
+                      </Grid>
+                    ) : (
+                      // View Mode
+                      <>
+                        {[
+                          ['Shop Name', vendorData.name || 'N/A'],
+                          ['Email', vendorData.email || 'N/A'],
+                          ['Phone', vendorData.phone || 'N/A'],
+                          ['Address', vendorData.address || 'N/A'],
+                          ['Business Type', vendorData.businessType || 'N/A'],
+                          ['Registration Date', vendorData.registrationDate || 'N/A'],
+                          ['Total Products', products.length],
+                          ['Total Revenue', `NPR ${totalRevenue.toFixed(2)}`],
+                          ['Active Orders', pendingOrders || 0],
+                        ].map(([label, value]) => (
+                          <Box key={label} sx={{ display: 'flex', justifyContent: 'space-between', py: 1.5, borderBottom: '1px solid', borderColor: 'divider' }}>
+                            <Typography color="text.secondary">{label}</Typography>
+                            <Typography fontWeight={600}>{value}</Typography>
+                          </Box>
+                        ))}
+                      </>
+                    )}
                   </Paper>
                 </Grid>
               </Grid>
@@ -1001,6 +1137,18 @@ const SimpleVendorDashboard = () => {
           <Button variant="contained" onClick={handleCreatePromotion}>Create</Button>
         </DialogActions>
       </Dialog>
+
+      {/* Toast Notifications */}
+      <Snackbar
+        open={toast.open}
+        autoHideDuration={6000}
+        onClose={handleCloseToast}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+      >
+        <Alert onClose={handleCloseToast} severity={toast.severity} sx={{ width: '100%' }}>
+          {toast.message}
+        </Alert>
+      </Snackbar>
 
     </Box>
   );

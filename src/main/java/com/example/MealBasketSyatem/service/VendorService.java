@@ -45,4 +45,8 @@ public class VendorService {
     public void deleteProduct(Long productId) {
         productRepo.deleteById(productId);
     }
+
+    public Vendor updateVendor(Vendor vendor) {
+        return vendorRepo.save(vendor);
+    }
 }

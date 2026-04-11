@@ -305,6 +305,7 @@ public class AuthController {
             userWithRole.put("id", user.getId());
             userWithRole.put("name", user.getName());
             userWithRole.put("email", user.getEmail());
+            userWithRole.put("weeklyBudget", user.getWeeklyBudget());
             userWithRole.put("role", "USER");
             
             return ResponseEntity.ok(ApiResponse.success("Profile retrieved successfully", userWithRole));
@@ -318,6 +319,8 @@ public class AuthController {
     @PutMapping("/profile")
     public ResponseEntity<ApiResponse<?>> updateUserProfile(@RequestBody Map<String, Object> updates) {
         try {
+            System.out.println("=== PROFILE UPDATE DEBUG ===");
+            System.out.println("Received updates: " + updates);
             // Get current user from security context
             Authentication auth = SecurityContextHolder.getContext().getAuthentication();
             if (auth == null || !(auth instanceof UsernamePasswordAuthenticationToken)) {
@@ -345,6 +348,19 @@ public class AuthController {
             if (updates.containsKey("password")) {
                 user.setPassword(passwordEncoder.encode((String) updates.get("password")));
             }
+            if (updates.containsKey("weeklyBudget")) {
+                Object weeklyBudgetObj = updates.get("weeklyBudget");
+                System.out.println("Processing weeklyBudget: " + weeklyBudgetObj);
+                if (weeklyBudgetObj != null) {
+                    try {
+                        Double weeklyBudget = Double.valueOf(weeklyBudgetObj.toString());
+                        user.setWeeklyBudget(weeklyBudget);
+                        System.out.println("Set weeklyBudget to: " + weeklyBudget);
+                    } catch (NumberFormatException e) {
+                        System.err.println("Invalid weeklyBudget format: " + weeklyBudgetObj);
+                    }
+                }
+            }
 
             userService.updateUser(user);
 
@@ -353,6 +369,7 @@ public class AuthController {
             userResponse.put("id", user.getId());
             userResponse.put("name", user.getName());
             userResponse.put("email", user.getEmail());
+            userResponse.put("weeklyBudget", user.getWeeklyBudget());
             userResponse.put("role", "USER");
 
             return ResponseEntity.ok(ApiResponse.success("Profile updated successfully", userResponse));

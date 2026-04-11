@@ -192,6 +192,7 @@ const SimpleUserDashboard = () => {
 
   // Profile Management States
   const [editMode, setEditMode] = useState(false);
+  const [budgetEditMode, setBudgetEditMode] = useState(false);
   const [profileData, setProfileData] = useState({
     name: '',
     phone: '',
@@ -860,22 +861,65 @@ const SimpleUserDashboard = () => {
   };
 
   // Profile Management Handlers
+  const handleSaveBudget = async () => {
+    console.log('=== HANDLE SAVE BUDGET CALLED ===');
+    console.log('Current weeklyBudget:', profileData.weeklyBudget);
+    try {
+      // Prepare budget data for backend
+      const budgetUpdateData = {
+        weeklyBudget: Number(profileData.weeklyBudget),
+      };
+
+      // Send budget data to backend
+      console.log('Sending budget data to backend:', budgetUpdateData);
+      const response = await userAPI.updateProfile(budgetUpdateData);
+      console.log('Backend response:', response.data);
+      
+      if (response.data.success) {
+        console.log('Budget save successful, response data:', response.data.data);
+        // Refresh user data from backend to get updated values
+        await loadUserData();
+        console.log('After loadUserData, current profileData.weeklyBudget:', profileData.weeklyBudget);
+        setBudgetEditMode(false);
+        showSnackbar('Weekly budget updated successfully', 'success');
+      } else {
+        showSnackbar('Failed to update weekly budget: ' + (response.data.message || 'Unknown error'), 'error');
+      }
+    } catch (error) {
+      console.error('Error updating weekly budget:', error);
+      showSnackbar('Failed to update weekly budget. Please try again.', 'error');
+      
+      // Handle authentication errors specifically
+      if (error.response?.status === 401) {
+        console.error('Authentication error - redirecting to login');
+        localStorage.removeItem('token');
+        navigate('/login');
+        return;
+      }
+    }
+  };
+
   const handleSaveProfile = async () => {
+    console.log('=== HANDLE SAVE PROFILE CALLED ===');
+    console.log('Current profileData:', profileData);
     try {
       // Prepare profile data for backend (only fields that exist in User entity)
       const profileUpdateData = {
         name: profileData.name,
-        // Note: phone, dietaryPreferences, allergies, weeklyBudget, deliveryAddresses 
+        weeklyBudget: Number(profileData.weeklyBudget),
+        // Note: phone, dietaryPreferences, allergies, deliveryAddresses 
         // are not currently stored in the User entity backend
         // These fields are logged by the backend for future implementation
       };
 
       // Send profile data to backend
+      console.log('Sending profile data to backend:', profileUpdateData);
       const response = await userAPI.updateProfile(profileUpdateData);
+      console.log('Backend response:', response.data);
       
       if (response.data.success) {
-        // Update local state with successful response
-        setUserData(prev => ({ ...prev, ...profileUpdateData }));
+        // Refresh user data from backend to get updated values
+        await loadUserData();
         setEditMode(false);
         showSnackbar('Profile updated successfully', 'success');
       } else {
@@ -1642,7 +1686,12 @@ const SimpleUserDashboard = () => {
 
                   {/* Weekly Budget */}
                   <Paper sx={{ p: 4 }}>
-                    <Typography variant="h6" fontWeight={700} gutterBottom>Weekly Budget</Typography>
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+                      <Typography variant="h6" fontWeight={700}>Weekly Budget</Typography>
+                      <IconButton onClick={() => setBudgetEditMode(!budgetEditMode)} color="primary">
+                        {budgetEditMode ? <Save /> : <Edit />}
+                      </IconButton>
+                    </Box>
                     <Divider sx={{ mb: 3 }} />
                     <TextField
                       fullWidth
@@ -1650,6 +1699,7 @@ const SimpleUserDashboard = () => {
                       label="Weekly Budget (NPR)"
                       value={profileData.weeklyBudget}
                       onChange={(e) => setProfileData(prev => ({ ...prev, weeklyBudget: e.target.value }))}
+                      disabled={!budgetEditMode}
                       InputProps={{
                         startAdornment: <InputAdornment position="start">NPR</InputAdornment>,
                       }}
@@ -1666,6 +1716,12 @@ const SimpleUserDashboard = () => {
                         color={getBudgetProgress() > 80 ? 'error' : 'primary'}
                       />
                     </Box>
+                    {budgetEditMode && (
+                      <Box sx={{ mt: 3, display: 'flex', gap: 2 }}>
+                        <Button variant="contained" onClick={handleSaveBudget}>Save Budget</Button>
+                        <Button variant="outlined" onClick={() => setBudgetEditMode(false)}>Cancel</Button>
+                      </Box>
+                    )}
                   </Paper>
 
                   {/* Delivery Address */}

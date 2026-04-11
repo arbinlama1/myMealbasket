@@ -26,6 +26,8 @@ public class User {
 
     private String password;
 
+    private Double weeklyBudget;
+
     @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<Order> orders;
 
@@ -60,6 +62,14 @@ public class User {
 
     public void setPassword(String password) {
         this.password = password;
+    }
+
+    public Double getWeeklyBudget() {
+        return weeklyBudget;
+    }
+
+    public void setWeeklyBudget(Double weeklyBudget) {
+        this.weeklyBudget = weeklyBudget;
     }
 
     public List<Order> getOrders() {

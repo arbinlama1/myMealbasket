@@ -1,19 +1,22 @@
+import RecipeManagement from '../components/RecipeManagement';
 import React, { useState, useEffect } from 'react';
-import vendorService from '../services/vendorService';
-import { vendorAPI, productAPI, authAPI } from '../services/api';
+import { vendorAPI, authAPI } from '../services/api';
+import promotionAPI from '../services/promotionAPI';
 import {
   Container, Paper, Typography, Box, Grid, Card, CardContent, Button,
   Avatar, List, ListItem, ListItemText, ListItemIcon, Divider, Alert,
   CircularProgress, Dialog, DialogTitle, DialogContent, DialogActions,
-  TextField, FormControl, InputLabel, Select, Tabs, Tab, Table, TableBody,
-  TableCell, TableContainer, TableHead, TableRow, Chip, IconButton, Menu,
+  TextField, FormControl, InputLabel, Select, Table, TableBody,
+  TableCell, TableContainer, TableHead, TableRow, Chip, IconButton,
   MenuItem, LinearProgress, Badge, Drawer, useTheme, useMediaQuery, Snackbar,
+  FormControlLabel, Checkbox,
 } from '@mui/material';
 import {
-  Person, ShoppingCart, Restaurant, Assessment, TrendingUp, AttachMoney,
-  Logout, Add, Edit, Delete, Visibility, CheckCircle, Pending, Cancel,
-  ArrowBack, AccountCircle, Store, Menu as MenuIcon, Close as CloseIcon,
-  Inventory, LocalOffer, BarChart, Dashboard, Storefront, Warning, Save,
+  Person, ShoppingCart, Assessment, TrendingUp, AttachMoney,
+  Logout, Add, Edit, Delete, CheckCircle,
+  Store, Menu as MenuIcon, Close as CloseIcon,
+  Inventory, LocalOffer, BarChart, Dashboard, Warning, Save,
+  MenuBook,
 } from '@mui/icons-material';
 
 // ── Stat Card ─────────────────────────────────────────────────────────────────
@@ -91,6 +94,9 @@ const SimpleVendorDashboard = () => {
   const [products, setProducts] = useState([]);
   const [selectedCategory, setSelectedCategory] = useState('All');
 
+  // Recipe Management State
+  const [recipes, setRecipes] = useState([]);
+
   const [orders, setOrders] = useState([
     { id: 1234, customer: 'John Doe', items: 'Product A, Product B', total: 1599, status: 'Pending', time: '2 mins ago' },
     { id: 1233, customer: 'Jane Smith', items: 'Product C, Product D', total: 2250, status: 'Preparing', time: '5 mins ago' },
@@ -98,6 +104,23 @@ const SimpleVendorDashboard = () => {
     { id: 1231, customer: 'Alice Brown', items: 'Product G, Product H', total: 1825, status: 'Delivered', time: '12 mins ago' },
   ]);
 
+  // Recipe Management Functions
+  const fetchRecipes = async () => {
+    try {
+      console.log('Fetching recipes from API...');
+      const response = await fetch(`http://localhost:8081/api/recipes/vendor/8`);
+      const data = await response.json();
+      console.log('Recipes fetched:', data);
+      const list = Array.isArray(data) ? data : (Array.isArray(data?.data) ? data.data : []);
+      setRecipes(list);
+    } catch (error) {
+      console.error('Error fetching recipes:', error);
+      setError('Failed to fetch recipes');
+    }
+  };
+
+  
+  
   // Business Information Edit State
   const [editBusinessInfo, setEditBusinessInfo] = useState(false);
   const [businessInfoData, setBusinessInfoData] = useState({
@@ -116,11 +139,21 @@ const SimpleVendorDashboard = () => {
   });
 
   // Promotion state
-  const [promotions, setPromotions] = useState([
-    { id: 1, name: 'Weekend Special', code: 'WEEKEND20', discount: 20, duration: 7, active: true },
-  ]);
+  const [promotions, setPromotions] = useState([]);
+  const [promotionLoading, setPromotionLoading] = useState(false);
+  const [promotionError, setPromotionError] = useState('');
   const [promotionDialogOpen, setPromotionDialogOpen] = useState(false);
-  const [newPromotion, setNewPromotion] = useState({ name: '', code: '', discount: '', duration: '' });
+  const [newPromotion, setNewPromotion] = useState({ 
+    title: '', 
+    description: '', 
+    couponCode: '', 
+    discountType: 'PERCENT', 
+    discountValue: '', 
+    minOrderAmount: '', 
+    startDate: '', 
+    expiryDate: '', 
+    isActive: true 
+  });
 
   // Toast state
   const [toast, setToast] = useState({ open: false, message: '', severity: 'success' });
@@ -171,6 +204,13 @@ const SimpleVendorDashboard = () => {
           } catch (orderErr) {
             console.error('Failed to load vendor orders:', orderErr);
           }
+
+          // Load vendor recipes
+          try {
+            await fetchRecipes();
+          } catch (recipeErr) {
+            console.error('Failed to load vendor recipes:', recipeErr);
+          }
         } else {
           setError('Failed to load vendor profile. Please login again.');
           setLoading(false);
@@ -194,6 +234,19 @@ const SimpleVendorDashboard = () => {
     window.addEventListener('message', handleMessage);
     return () => window.removeEventListener('message', handleMessage);
   }, []);
+
+  // Load promotions when vendor data is available and when switching to promotions view
+  useEffect(() => {
+    if (vendorData?.id) {
+      loadPromotions();
+    }
+  }, [vendorData?.id]);
+
+  useEffect(() => {
+    if (currentView === 'promotions' && vendorData?.id) {
+      loadPromotions();
+    }
+  }, [currentView, vendorData?.id]);
 
   // ── Product CRUD ──────────────────────────────
   const handlePhotoUpload = (file) => new Promise((resolve, reject) => {
@@ -219,12 +272,13 @@ const SimpleVendorDashboard = () => {
   };
 
   const handleSaveProduct = async () => {
-    const { name, price, category, description } = newProduct;
+    const { name, price, category, description, stock } = newProduct;
     if (!name || !price || !category || !description) { alert('Please fill in all required fields'); return; }
+    if (stock < 0) { alert('Stock cannot be negative'); return; }
     try {
       let productImage = newProduct.image;
       if (newProduct.photoFile) productImage = await handlePhotoUpload(newProduct.photoFile);
-      const productData = { name, price: parseFloat(price), description, category, image: productImage };
+      const productData = { name, price: parseFloat(price), description, category, image: productImage, stock: parseInt(newProduct.stock) || 0 };
 
       if (editingProduct) {
         const updated = await vendorAPI.updateProduct(vendorData.id, editingProduct.id, productData);
@@ -343,20 +397,106 @@ const SimpleVendorDashboard = () => {
   };
 
   // ── Promotions ────────────────────────────────
-  const handleCreatePromotion = () => {
-    const { name, code, discount, duration } = newPromotion;
-    if (!name || !code || !discount || !duration) { alert('Fill all fields'); return; }
-    setPromotions(prev => [...prev, { id: Date.now(), name, code, discount: parseInt(discount), duration: parseInt(duration), active: true }]);
-    setNewPromotion({ name: '', code: '', discount: '', duration: '' });
-    setPromotionDialogOpen(false);
+  const loadPromotions = async () => {
+    if (!vendorData?.id) return;
+    
+    setPromotionLoading(true);
+    setPromotionError('');
+    try {
+      const response = await promotionAPI.getVendorPromotions(vendorData.id);
+      if (response.data.success) {
+        setPromotions(response.data.data || []);
+      } else {
+        setPromotionError(response.data.message || 'Failed to load promotions');
+      }
+    } catch (error) {
+      console.error('Error loading promotions:', error);
+      setPromotionError(error.response?.data?.message || 'Failed to load promotions');
+    } finally {
+      setPromotionLoading(false);
+    }
   };
 
-  const handleTogglePromotion = (id) => {
-    setPromotions(prev => prev.map(p => p.id === id ? { ...p, active: !p.active } : p));
+  const handleCreatePromotion = async () => {
+    const { title, description, couponCode, discountType, discountValue, minOrderAmount, startDate, expiryDate, isActive } = newPromotion;
+    
+    // Validation
+    if (!title || !couponCode || !discountValue || !startDate || !expiryDate) {
+      showToast('Please fill all required fields', 'error');
+      return;
+    }
+    
+    // Prepare promotion data
+    const promotionData = {
+      title,
+      description,
+      couponCode: couponCode.toUpperCase(),
+      discountType,
+      discountValue: parseFloat(discountValue),
+      minOrderAmount: minOrderAmount ? parseFloat(minOrderAmount) : 0,
+      startDate,
+      expiryDate,
+      isActive
+    };
+    
+    try {
+      const response = await promotionAPI.createPromotion(promotionData);
+      if (response.data.success) {
+        showToast('Promotion created successfully', 'success');
+        setNewPromotion({ 
+          title: '', 
+          description: '', 
+          couponCode: '', 
+          discountType: 'PERCENT', 
+          discountValue: '', 
+          minOrderAmount: '', 
+          startDate: '', 
+          expiryDate: '', 
+          isActive: true 
+        });
+        setPromotionDialogOpen(false);
+        await loadPromotions(); // Refresh the list
+      } else {
+        showToast(response.data.message || 'Failed to create promotion', 'error');
+      }
+    } catch (error) {
+      console.error('Error creating promotion:', error);
+      showToast(error.response?.data?.message || 'Failed to create promotion', 'error');
+    }
   };
 
-  const handleDeletePromotion = (id) => {
-    setPromotions(prev => prev.filter(p => p.id !== id));
+  const handleTogglePromotion = async (id) => {
+    try {
+      const response = await promotionAPI.togglePromotionStatus(id);
+      if (response.data.success) {
+        showToast('Promotion status updated successfully', 'success');
+        await loadPromotions(); // Refresh the list
+      } else {
+        showToast(response.data.message || 'Failed to update promotion status', 'error');
+      }
+    } catch (error) {
+      console.error('Error toggling promotion:', error);
+      showToast(error.response?.data?.message || 'Failed to update promotion status', 'error');
+    }
+  };
+
+  const handleDeletePromotion = async (id) => {
+    if (!window.confirm('Are you sure you want to delete this promotion?')) {
+      return;
+    }
+    
+    try {
+      const response = await promotionAPI.deletePromotion(id);
+      if (response.data.success) {
+        showToast('Promotion deleted successfully', 'success');
+        await loadPromotions(); // Refresh the list
+      } else {
+        showToast(response.data.message || 'Failed to delete promotion', 'error');
+      }
+    } catch (error) {
+      console.error('Error deleting promotion:', error);
+      showToast(error.response?.data?.message || 'Failed to delete promotion', 'error');
+    }
   };
 
   // ── Misc ──────────────────────────────────────
@@ -378,12 +518,15 @@ const SimpleVendorDashboard = () => {
   const totalRevenue = vendorData.revenue || 0;
   const lowStock = products.filter(p => (p.stock || 0) > 0 && (p.stock || 0) <= 5).length;
 
+  const activePromotionsCount = promotions.filter(p => p.isActive && !p.isExpired).length;
+  
   const navItems = [
     { view: 'dashboard', label: 'Dashboard', icon: <Dashboard /> },
     { view: 'products', label: 'Products', icon: <Inventory />, count: products.length },
     { view: 'orders', label: 'Orders', icon: <ShoppingCart />, count: pendingOrders || undefined },
+    { view: 'recipes', label: 'Recipes', icon: <MenuBook />, count: recipes.length },
     { view: 'analytics', label: 'Analytics', icon: <BarChart /> },
-    { view: 'promotions', label: 'Promotions', icon: <LocalOffer /> },
+    { view: 'promotions', label: 'Promotions', icon: <LocalOffer />, count: activePromotionsCount },
     { view: 'profile', label: 'Profile', icon: <Person /> },
   ];
 
@@ -658,13 +801,13 @@ const SimpleVendorDashboard = () => {
                               color={(product.stock || 0) === 0 ? 'error' : (product.stock || 0) <= 5 ? 'warning' : 'success'}
                             />
                           </TableCell>
-                          <TableCell align="center">{product.orders || 0}</TableCell>
-                          <TableCell align="center">⭐ {product.rating || '—'}</TableCell>
+                          <TableCell align="center">{product.orderCount || 0}</TableCell>
+                          <TableCell align="center">?? {product.rating || '??'}</TableCell>
                           <TableCell align="center">
                             <Chip
-                              label={product.inStock ? 'In Stock' : 'Out'}
+                              label={(product.stock || 0) === 0 ? 'Out of Stock' : 'In Stock'}
                               size="small"
-                              color={product.inStock ? 'success' : 'default'}
+                              color={(product.stock || 0) === 0 ? 'error' : 'success'}
                               onClick={() => handleToggleStock(product.id)}
                               sx={{ cursor: 'pointer' }}
                             />
@@ -768,6 +911,9 @@ const SimpleVendorDashboard = () => {
               </TableContainer>
             </>
           )}
+
+          {/* Recipe VIEW */}
+          {currentView === 'recipes' && <RecipeManagement recipes={recipes} setRecipes={setRecipes} />}
 
           {/* ════════════════ ANALYTICS VIEW ════════════════ */}
           {currentView === 'analytics' && (
@@ -874,7 +1020,7 @@ const SimpleVendorDashboard = () => {
             </>
           )}
 
-          {/* ════════════════ PROMOTIONS VIEW ════════════════ */}
+          {/* ════════════════ PROMOTIONS VIEW */}
           {currentView === 'promotions' && (
             <>
               <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
@@ -884,62 +1030,117 @@ const SimpleVendorDashboard = () => {
                 </Button>
               </Box>
 
-              {promotions.length === 0 ? (
+              {promotionLoading && (
+                <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
+                  <CircularProgress />
+                </Box>
+              )}
+
+              {promotionError && (
+                <Alert severity="error" sx={{ mb: 2 }} onClose={() => setPromotionError('')}>
+                  {promotionError}
+                </Alert>
+              )}
+
+              {!promotionLoading && promotions.length === 0 ? (
                 <Paper sx={{ p: 5, textAlign: 'center' }}>
                   <LocalOffer sx={{ fontSize: 64, color: 'grey.300', mb: 2 }} />
                   <Typography variant="h6" color="text.secondary" gutterBottom>No promotions yet</Typography>
+                  <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                    Create your first promotion to attract customers with special discounts
+                  </Typography>
                   <Button variant="contained" onClick={() => setPromotionDialogOpen(true)}>Create First Promotion</Button>
                 </Paper>
               ) : (
                 <Grid container spacing={3}>
-                  {promotions.map(promo => (
-                    <Grid item xs={12} sm={6} md={4} key={promo.id}>
-                      <Card sx={{
-                        border: '2px solid',
-                        borderColor: promo.active ? 'success.light' : 'grey.200',
-                        transition: 'all 0.2s',
-                        '&:hover': { boxShadow: 4 },
-                      }}>
-                        <CardContent>
-                          <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
-                            <Typography variant="h6" fontWeight={700}>{promo.name}</Typography>
-                            <Chip label={promo.active ? 'Active' : 'Inactive'} color={promo.active ? 'success' : 'default'} size="small" />
-                          </Box>
-                          <Typography variant="h3" color="primary.main" fontWeight={800} sx={{ mb: 1 }}>
-                            {promo.discount}%
-                          </Typography>
-                          <Typography variant="body2" color="text.secondary">OFF</Typography>
-                          <Divider sx={{ my: 2 }} />
-                          <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5 }}>
-                            <Typography variant="body2" color="text.secondary">Code</Typography>
-                            <Chip label={promo.code} size="small" variant="outlined" sx={{ fontFamily: 'monospace', fontWeight: 700 }} />
-                          </Box>
-                          <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                            <Typography variant="body2" color="text.secondary">Duration</Typography>
-                            <Typography variant="body2" fontWeight={600}>{promo.duration} days</Typography>
-                          </Box>
-                          <Box sx={{ mt: 2, display: 'flex', gap: 1 }}>
-                            <Button
-                              variant={promo.active ? 'outlined' : 'contained'}
-                              size="small"
-                              fullWidth
-                              onClick={() => handleTogglePromotion(promo.id)}
-                            >
-                              {promo.active ? 'Deactivate' : 'Activate'}
-                            </Button>
-                            <IconButton size="small" color="error" onClick={() => handleDeletePromotion(promo.id)}>
-                              <Delete fontSize="small" />
-                            </IconButton>
-                          </Box>
-                        </CardContent>
-                      </Card>
-                    </Grid>
-                  ))}
+                  {promotions.map(promo => {
+                    const isExpired = new Date(promo.expiryDate) < new Date();
+                    const isNotStarted = new Date(promo.startDate) > new Date();
+                    const isValid = promo.isActive && !isExpired && !isNotStarted;
+                    
+                    return (
+                      <Grid item xs={12} sm={6} md={4} key={promo.id}>
+                        <Card sx={{
+                          border: '2px solid',
+                          borderColor: isValid ? 'success.light' : isExpired ? 'error.light' : 'grey.200',
+                          transition: 'all 0.2s',
+                          '&:hover': { boxShadow: 4 },
+                          opacity: isExpired ? 0.7 : 1,
+                        }}>
+                          <CardContent>
+                            <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
+                              <Typography variant="h6" fontWeight={700}>{promo.title}</Typography>
+                              <Chip 
+                                label={
+                                  isExpired ? 'Expired' : 
+                                  isNotStarted ? 'Not Started' : 
+                                  (promo.isActive ? 'Active' : 'Inactive')
+                                } 
+                                color={
+                                  isExpired ? 'error' : 
+                                  isNotStarted ? 'warning' : 
+                                  (promo.isActive ? 'success' : 'default')
+                                } 
+                                size="small" 
+                              />
+                            </Box>
+                            
+                            <Typography variant="h3" color="primary.main" fontWeight={800} sx={{ mb: 1 }}>
+                              {promo.discountType === 'PERCENT' ? `${promo.discountValue}%` : `NPR ${promo.discountValue}`}
+                            </Typography>
+                            <Typography variant="body2" color="text.secondary">OFF</Typography>
+                            
+                            {promo.description && (
+                              <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+                                {promo.description}
+                              </Typography>
+                            )}
+                            
+                            <Divider sx={{ my: 2 }} />
+                            <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5 }}>
+                              <Typography variant="body2" color="text.secondary">Code</Typography>
+                              <Chip label={promo.couponCode} size="small" variant="outlined" sx={{ fontFamily: 'monospace', fontWeight: 700 }} />
+                            </Box>
+                            
+                            {promo.minOrderAmount > 0 && (
+                              <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5 }}>
+                                <Typography variant="body2" color="text.secondary">Min Order</Typography>
+                                <Typography variant="body2" fontWeight={600}>NPR {promo.minOrderAmount}</Typography>
+                              </Box>
+                            )}
+                            
+                            <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5 }}>
+                              <Typography variant="body2" color="text.secondary">Valid Until</Typography>
+                              <Typography variant="body2" fontWeight={600}>
+                                {new Date(promo.expiryDate).toLocaleDateString()}
+                              </Typography>
+                            </Box>
+                            
+                            <Box sx={{ mt: 2, display: 'flex', gap: 1 }}>
+                              <Button
+                                variant={promo.isActive ? 'outlined' : 'contained'}
+                                size="small"
+                                fullWidth
+                                onClick={() => handleTogglePromotion(promo.id)}
+                                disabled={isExpired}
+                              >
+                                {promo.isActive ? 'Deactivate' : 'Activate'}
+                              </Button>
+                              <IconButton size="small" color="error" onClick={() => handleDeletePromotion(promo.id)}>
+                                <Delete fontSize="small" />
+                              </IconButton>
+                            </Box>
+                          </CardContent>
+                        </Card>
+                      </Grid>
+                    );
+                  })}
                 </Grid>
               )}
             </>
           )}
 
+          {/* ════════════════ PROFILE VIEW */}
           {/* ════════════════ PROFILE VIEW ════════════════ */}
           {currentView === 'profile' && (
             <>
@@ -1114,27 +1315,112 @@ const SimpleVendorDashboard = () => {
       </Dialog>
 
       {/* ════════════════ CREATE PROMOTION DIALOG ════════════════ */}
-      <Dialog open={promotionDialogOpen} onClose={() => setPromotionDialogOpen(false)} maxWidth="sm" fullWidth>
+      <Dialog open={promotionDialogOpen} onClose={() => setPromotionDialogOpen(false)} maxWidth="md" fullWidth>
         <DialogTitle sx={{ fontWeight: 700 }}>Create Promotion</DialogTitle>
         <DialogContent sx={{ pt: 2 }}>
           <Grid container spacing={2}>
             <Grid item xs={12}>
-              <TextField fullWidth label="Promotion Name" value={newPromotion.name} onChange={e => setNewPromotion(p => ({ ...p, name: e.target.value }))} />
-            </Grid>
-            <Grid item xs={12} sm={6}>
-              <TextField fullWidth label="Promo Code" value={newPromotion.code} onChange={e => setNewPromotion(p => ({ ...p, code: e.target.value.toUpperCase() }))} placeholder="e.g. SAVE20" />
-            </Grid>
-            <Grid item xs={12} sm={6}>
-              <TextField fullWidth label="Discount %" type="number" value={newPromotion.discount} onChange={e => setNewPromotion(p => ({ ...p, discount: e.target.value }))} inputProps={{ min: 1, max: 100 }} />
+              <TextField 
+                fullWidth 
+                label="Promotion Title" 
+                value={newPromotion.title} 
+                onChange={e => setNewPromotion(p => ({ ...p, title: e.target.value }))} 
+                placeholder="e.g. Weekend Special"
+              />
             </Grid>
             <Grid item xs={12}>
-              <TextField fullWidth label="Duration (days)" type="number" value={newPromotion.duration} onChange={e => setNewPromotion(p => ({ ...p, duration: e.target.value }))} inputProps={{ min: 1 }} />
+              <TextField 
+                fullWidth 
+                label="Description" 
+                value={newPromotion.description} 
+                onChange={e => setNewPromotion(p => ({ ...p, description: e.target.value }))} 
+                placeholder="Optional description of the promotion"
+                multiline
+                rows={2}
+              />
+            </Grid>
+            <Grid item xs={12} sm={6}>
+              <TextField 
+                fullWidth 
+                label="Coupon Code" 
+                value={newPromotion.couponCode} 
+                onChange={e => setNewPromotion(p => ({ ...p, couponCode: e.target.value.toUpperCase() }))} 
+                placeholder="e.g. SAVE20"
+                inputProps={{ style: { fontFamily: 'monospace' } }}
+              />
+            </Grid>
+            <Grid item xs={12} sm={6}>
+              <FormControl fullWidth>
+                <InputLabel>Discount Type</InputLabel>
+                <Select
+                  value={newPromotion.discountType}
+                  onChange={e => setNewPromotion(p => ({ ...p, discountType: e.target.value }))}
+                >
+                  <MenuItem value="PERCENT">Percentage (%)</MenuItem>
+                  <MenuItem value="FIXED">Fixed Amount (NPR)</MenuItem>
+                </Select>
+              </FormControl>
+            </Grid>
+            <Grid item xs={12} sm={6}>
+              <TextField 
+                fullWidth 
+                label={newPromotion.discountType === 'PERCENT' ? 'Discount %' : 'Discount Amount (NPR)'} 
+                type="number" 
+                value={newPromotion.discountValue} 
+                onChange={e => setNewPromotion(p => ({ ...p, discountValue: e.target.value }))} 
+                inputProps={{ 
+                  min: 1, 
+                  max: newPromotion.discountType === 'PERCENT' ? 100 : undefined 
+                }} 
+              />
+            </Grid>
+            <Grid item xs={12} sm={6}>
+              <TextField 
+                fullWidth 
+                label="Min Order Amount (NPR)" 
+                type="number" 
+                value={newPromotion.minOrderAmount} 
+                onChange={e => setNewPromotion(p => ({ ...p, minOrderAmount: e.target.value }))} 
+                placeholder="Optional"
+                inputProps={{ min: 0 }} 
+              />
+            </Grid>
+            <Grid item xs={12} sm={6}>
+              <TextField 
+                fullWidth 
+                label="Start Date" 
+                type="date" 
+                value={newPromotion.startDate} 
+                onChange={e => setNewPromotion(p => ({ ...p, startDate: e.target.value }))}
+                inputProps={{ min: new Date().toISOString().split('T')[0] }}
+              />
+            </Grid>
+            <Grid item xs={12} sm={6}>
+              <TextField 
+                fullWidth 
+                label="Expiry Date" 
+                type="date" 
+                value={newPromotion.expiryDate} 
+                onChange={e => setNewPromotion(p => ({ ...p, expiryDate: e.target.value }))}
+                inputProps={{ min: newPromotion.startDate || new Date().toISOString().split('T')[0] }}
+              />
+            </Grid>
+            <Grid item xs={12}>
+              <FormControlLabel
+                control={
+                  <Checkbox
+                    checked={newPromotion.isActive}
+                    onChange={e => setNewPromotion(p => ({ ...p, isActive: e.target.checked }))}
+                  />
+                }
+                label="Active (customers can use this promotion)"
+              />
             </Grid>
           </Grid>
         </DialogContent>
         <DialogActions sx={{ p: 2 }}>
           <Button onClick={() => setPromotionDialogOpen(false)}>Cancel</Button>
-          <Button variant="contained" onClick={handleCreatePromotion}>Create</Button>
+          <Button variant="contained" onClick={handleCreatePromotion}>Create Promotion</Button>
         </DialogActions>
       </Dialog>
 

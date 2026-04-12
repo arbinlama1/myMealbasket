@@ -29,9 +29,14 @@ api.interceptors.request.use(
 
     if (!isPublicAsset) {
       const token = localStorage.getItem('token');
+      console.log(`[Auth Debug] Checking token for: ${config.url}`);
+      console.log(`[Auth Debug] Token exists: ${!!token}`);
+      console.log(`[Auth Debug] Token value: ${token ? token.substring(0, 20) + '...' : 'null'}`);
+      
       if (token) {
         config.headers.Authorization = `Bearer ${token}`;
         console.log(`[Auth] Added Bearer token for: ${config.url}`);
+        console.log(`[Auth Debug] Authorization header: ${config.headers.Authorization}`);
       } else {
         console.warn(`[Auth] No token found in localStorage for: ${config.url}`);
       }
@@ -173,6 +178,31 @@ export const mealPlanAPI = {
   getAIRecommendation: (mealType, date) => 
     api.post(`/meal-plans/ai-recommendation?mealType=${mealType}&date=${date}`),
   getRecommended: () => api.get('/meal-plans/recommended'),
+};
+
+// Recipe APIs
+export const recipeAPI = {
+  getAll: () => api.get('/recipes'),
+  getVendorRecipes: (vendorId) => api.get(`/recipes/vendor/${vendorId}`),
+  getById: (id) => api.get(`/recipes/${id}`),
+  create: (recipe) => api.post('/recipes', recipe),
+  update: (id, recipe) => api.put(`/recipes/${id}`, recipe),
+  delete: (id) => api.delete(`/recipes/${id}`),
+  search: (query) => api.get(`/recipes/search?q=${query}`),
+  getByCategory: (category) => api.get(`/recipes/category/${category}`),
+};
+
+/** Merge ingredients from multiple recipes into one shopping list */
+export const shoppingListAPI = {
+  generate: (recipeIds) =>
+    api.post('/shopping-list/generate', { recipeIds }),
+};
+
+/** Discount coupons at checkout */
+export const couponAPI = {
+  apply: ({ couponCode, cartTotal }) =>
+    api.post('/coupons/apply', { couponCode, cartTotal }),
+  getActive: () => api.get('/coupons/active'),
 };
 
 // Stock Alert APIs

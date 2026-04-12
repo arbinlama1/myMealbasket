@@ -1,11 +1,11 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Container, Paper, Typography, Box, Grid, Card, CardContent, Button,
   Avatar, List, ListItem, ListItemText, ListItemIcon, Divider, Alert,
   CircularProgress, Dialog, DialogTitle, DialogContent, DialogActions,
-  TextField, FormControl, InputLabel, Select, Tabs, Tab, Table, TableBody,
-  TableCell, TableContainer, TableHead, TableRow, Chip, IconButton, Menu,
+  TextField, FormControl, InputLabel, Select, Table, TableBody,
+  TableCell, TableContainer, TableHead, TableRow, Chip, IconButton,
   MenuItem, LinearProgress, Badge, Drawer, useTheme, useMediaQuery,
   InputAdornment, ListItemButton, Rating, Snackbar, Stack, FormGroup,
   FormControlLabel, Checkbox,
@@ -31,9 +31,12 @@ import {
   MicOff,
   Edit,
   Save,
+  MenuBook,
+  Timer,
 } from '@mui/icons-material';
-import { cartAPI, favoritesAPI, productAPI, userAPI } from '../services/api';
+import { cartAPI, favoritesAPI, productAPI, userAPI, couponAPI } from '../services/api';
 import useVoiceSearch from '../hooks/useVoiceSearch';
+import ShoppingListGeneratorPanel from '../components/ShoppingListGenerator';
 
 // ── Styled Nav Card ────────────────────────────────────────────────────────────
 const NavCard = ({ icon, label, count, active, onClick, color = '#1976d2' }) => (
@@ -174,6 +177,13 @@ const SimpleUserDashboard = () => {
   const [showProductDetail, setShowProductDetail] = useState(false);
 
   const [cartItems, setCartItems] = useState([]);
+  const [couponCodeInput, setCouponCodeInput] = useState('');
+  const [appliedCouponCode, setAppliedCouponCode] = useState(null);
+  const [couponDiscountAmount, setCouponDiscountAmount] = useState(0);
+  const [couponFinalTotal, setCouponFinalTotal] = useState(null);
+  const [couponError, setCouponError] = useState('');
+  const [couponApplyLoading, setCouponApplyLoading] = useState(false);
+  const [activeCoupons, setActiveCoupons] = useState([]);
   const [favoriteItems, setFavoriteItems] = useState([]);
   const [favoriteProductIds, setFavoriteProductIds] = useState(new Set());
   const [orders, setOrders] = useState([]);
@@ -188,7 +198,14 @@ const SimpleUserDashboard = () => {
 
   const [searchQuery, setSearchQuery] = useState('');
   const [filterCategory, setFilterCategory] = useState('all');
+  const categories = ['all', 'breakfast', 'lunch', 'dinner', 'snacks', 'beverages', 'desserts'];
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
+
+  // Recipe States
+  const [recipes, setRecipes] = useState([]);
+  const [recipeSearchQuery, setRecipeSearchQuery] = useState('');
+  const [recipeFilterCategory, setRecipeFilterCategory] = useState('ALL');
+  const [shoppingListSelectedIds, setShoppingListSelectedIds] = useState([]);
 
   // Profile Management States
   const [editMode, setEditMode] = useState(false);
@@ -518,6 +535,55 @@ const SimpleUserDashboard = () => {
     loadProducts();
   }, []);
 
+  // ── Load Recipes ───────────────────────────────
+  useEffect(() => {
+    const loadRecipes = async () => {
+      try {
+        // Try to get all recipes first
+        const response = await fetch(`${API_BASE}/recipes`);
+        const data = await response.json();
+        
+        if (data.success && data.data) {
+          setRecipes(data.data);
+        } else {
+          // If general endpoint fails, try to get recipes by vendor ID
+          // For demo purposes, we'll try vendor ID 8 as shown in the user's data
+          try {
+            const vendorResponse = await fetch(`${API_BASE}/recipes/vendor/8`);
+            const vendorData = await vendorResponse.json();
+            if (vendorData.success && vendorData.data) {
+              setRecipes(vendorData.data);
+            } else if (Array.isArray(vendorData)) {
+              // Fallback for old API format
+              setRecipes(vendorData);
+            } else {
+              setRecipes([]);
+            }
+          } catch (vendorError) {
+            console.error('Failed to load vendor recipes:', vendorError);
+            setRecipes([]);
+          }
+        }
+      } catch (err) {
+        console.error('Failed to load recipes:', err);
+        // Try fallback API call
+        try {
+          const fallbackResponse = await fetch(`${API_BASE}/recipes`);
+          const fallbackData = await fallbackResponse.json();
+          if (Array.isArray(fallbackData)) {
+            setRecipes(fallbackData);
+          } else {
+            setRecipes([]);
+          }
+        } catch (fallbackError) {
+          console.error('Fallback recipe loading failed:', fallbackError);
+          setRecipes([]);
+        }
+      }
+    };
+    loadRecipes();
+  }, []);
+
   // ── Cart Functions ─────────────────────────────
   const handleAddToCart = async (product) => {
     // Optimistic UI update - show immediate feedback
@@ -582,14 +648,21 @@ const SimpleUserDashboard = () => {
     }
 
     try {
-      const total = cartItems.reduce((sum, item) => sum + item.price * item.quantity, 0);
+      const subtotal = cartItems.reduce((sum, item) => sum + item.price * item.quantity, 0);
+      const applied =
+        appliedCouponCode != null &&
+        couponFinalTotal != null &&
+        !Number.isNaN(Number(couponFinalTotal));
+      const total = applied ? Number(couponFinalTotal) : subtotal;
       const orderData = {
         items: cartItems.map(item => ({
           productId: item.productId,
           quantity: item.quantity,
           price: item.price
         })),
-        totalAmount: total
+        totalAmount: total,
+        couponCode: applied ? appliedCouponCode : undefined,
+        discountAmount: applied ? couponDiscountAmount : undefined,
       };
 
       // Show loading message
@@ -633,7 +706,7 @@ const SimpleUserDashboard = () => {
                       background: #4CAF50; color: white; padding: 20px; border-radius: 8px; 
                       box-shadow: 0 4px 20px rgba(0,0,0,0.2); z-index: 9999; text-align: center;">
             <h3>✅ Successfully Placed Order!</h3>
-            <p>Total: NPR ${total.toFixed(2)}</p>
+            <p>Total: NPR ${Number(total).toFixed(2)}</p>
             <p>Your order has been sent to the vendor</p>
             <p style="font-size: 12px; opacity: 0.8;">Cart items preserved - use "Clear Cart" to empty cart</p>
           </div>
@@ -755,6 +828,11 @@ const SimpleUserDashboard = () => {
     try {
       await cartAPI.clearCart();
       setCartItems([]);
+      setAppliedCouponCode(null);
+      setCouponDiscountAmount(0);
+      setCouponFinalTotal(null);
+      setCouponError('');
+      setCouponCodeInput('');
       
       // Show clear cart message
       const clearMessage = document.createElement('div');
@@ -772,7 +850,52 @@ const SimpleUserDashboard = () => {
       console.error('Failed to clear cart:', error);
       // Force clear locally even if API fails
       setCartItems([]);
+      setAppliedCouponCode(null);
+      setCouponDiscountAmount(0);
+      setCouponFinalTotal(null);
+      setCouponError('');
+      setCouponCodeInput('');
     }
+  };
+
+  const handleApplyCoupon = async () => {
+    const code = couponCodeInput.trim();
+    if (!code) {
+      setCouponError('Enter a coupon code');
+      return;
+    }
+    if (cartItems.length === 0) return;
+    setCouponApplyLoading(true);
+    setCouponError('');
+    try {
+      const res = await couponAPI.apply({
+        couponCode: code,
+        cartTotal: Number(cartTotal.toFixed(2)),
+      });
+      const body = res.data;
+      if (body?.success && body.data?.success) {
+        const upper = code.toUpperCase();
+        setAppliedCouponCode(upper);
+        setCouponCodeInput(upper);
+        setCouponDiscountAmount(Number(body.data.discountAmount));
+        setCouponFinalTotal(Number(body.data.finalTotal));
+        showSnackbar(body.data.message || 'Coupon applied successfully', 'success');
+      } else {
+        setCouponError(body?.message || 'Invalid coupon');
+      }
+    } catch (e) {
+      setCouponError(e.response?.data?.message || e.message || 'Could not apply coupon');
+    } finally {
+      setCouponApplyLoading(false);
+    }
+  };
+
+  const handleRemoveCoupon = () => {
+    setAppliedCouponCode(null);
+    setCouponDiscountAmount(0);
+    setCouponFinalTotal(null);
+    setCouponError('');
+    setCouponCodeInput('');
   };
 
   // ── Favorites Functions ────────────────────────
@@ -842,13 +965,104 @@ const SimpleUserDashboard = () => {
     const matchesCategory = filterCategory === 'all' || product.category === filterCategory;
     return matchesSearch && matchesCategory;
   });
-  const categories = ['all', ...new Set(vendorProducts.map(p => p.category).filter(Boolean))];
+
+  const filteredRecipes = recipes.filter(recipe => {
+    const matchesSearch = recipe.name.toLowerCase().includes(recipeSearchQuery.toLowerCase());
+    const matchesCategory = recipeFilterCategory === 'ALL' || recipe.category === recipeFilterCategory;
+    return matchesSearch && matchesCategory;
+  });
+
+  const shoppingListIdEquals = (a, b) => String(a) === String(b);
+
+  const toggleShoppingListRecipe = useCallback((id) => {
+    if (id == null) return;
+    setShoppingListSelectedIds((prev) =>
+      prev.some((x) => shoppingListIdEquals(x, id))
+        ? prev.filter((x) => !shoppingListIdEquals(x, id))
+        : [...prev, id]
+    );
+  }, []);
+
+  const selectAllVisibleRecipesForShopping = useCallback(() => {
+    setShoppingListSelectedIds(filteredRecipes.map((r) => r.id).filter((x) => x != null));
+  }, [filteredRecipes]);
+
+  const clearShoppingListSelection = useCallback(() => setShoppingListSelectedIds([]), []);
+
   const cartTotal = cartItems.reduce((sum, item) => sum + item.price * item.quantity, 0);
 
-  // ── Navigation Items ───────────────────────────
+  const hasAppliedCoupon =
+    appliedCouponCode != null &&
+    couponFinalTotal != null &&
+    !Number.isNaN(Number(couponFinalTotal));
+  const displayOrderTotal = hasAppliedCoupon ? Number(couponFinalTotal) : cartTotal;
+
+  useEffect(() => {
+    if (cartItems.length === 0) {
+      setAppliedCouponCode(null);
+      setCouponDiscountAmount(0);
+      setCouponFinalTotal(null);
+      setCouponError('');
+      setCouponCodeInput('');
+    }
+  }, [cartItems.length]);
+
+  useEffect(() => {
+    if (currentView !== 'cart') return;
+    let cancelled = false;
+    couponAPI
+      .getActive()
+      .then((res) => {
+        if (cancelled || !res.data?.success || !Array.isArray(res.data.data)) return;
+        setActiveCoupons(res.data.data);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [currentView]);
+
+  useEffect(() => {
+    if (!appliedCouponCode || cartItems.length === 0) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await couponAPI.apply({
+          couponCode: appliedCouponCode,
+          cartTotal: Number(cartTotal.toFixed(2)),
+        });
+        const body = res.data;
+        if (cancelled) return;
+        if (body?.success && body.data?.success) {
+          setCouponDiscountAmount(Number(body.data.discountAmount));
+          setCouponFinalTotal(Number(body.data.finalTotal));
+          setCouponError('');
+        } else {
+          setAppliedCouponCode(null);
+          setCouponDiscountAmount(0);
+          setCouponFinalTotal(null);
+          setCouponError(body?.message || 'Coupon no longer applies to this cart.');
+        }
+      } catch (e) {
+        if (cancelled) return;
+        setAppliedCouponCode(null);
+        setCouponDiscountAmount(0);
+        setCouponFinalTotal(null);
+        setCouponError(e.response?.data?.message || 'Coupon no longer applies.');
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+    // Re-run when cart total changes; appliedCouponCode read from latest render.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cartTotal, cartItems.length]);
+
+  // Navigation Items
   const navItems = [
     { view: 'dashboard', label: 'Dashboard', icon: <Dashboard /> },
     { view: 'meals', label: 'Browse', icon: <Restaurant /> },
+    { view: 'recipes', label: 'Recipes', icon: <MenuBook /> },
     { view: 'favorites', label: 'Favorites', icon: <Favorite />, count: favoriteItems.length },
     { view: 'cart', label: 'Cart', icon: <ShoppingCart />, count: cartItems.length },
     { view: 'orders', label: 'My Orders', icon: <Receipt /> },
@@ -899,52 +1113,10 @@ const SimpleUserDashboard = () => {
     }
   };
 
-  const handleSaveProfile = async () => {
-    console.log('=== HANDLE SAVE PROFILE CALLED ===');
-    console.log('Current profileData:', profileData);
-    try {
-      // Prepare profile data for backend (only fields that exist in User entity)
-      const profileUpdateData = {
-        name: profileData.name,
-        weeklyBudget: Number(profileData.weeklyBudget),
-        // Note: phone, dietaryPreferences, allergies, deliveryAddresses 
-        // are not currently stored in the User entity backend
-        // These fields are logged by the backend for future implementation
-      };
-
-      // Send profile data to backend
-      console.log('Sending profile data to backend:', profileUpdateData);
-      const response = await userAPI.updateProfile(profileUpdateData);
-      console.log('Backend response:', response.data);
-      
-      if (response.data.success) {
-        // Refresh user data from backend to get updated values
-        await loadUserData();
-        setEditMode(false);
-        showSnackbar('Profile updated successfully', 'success');
-      } else {
-        showSnackbar('Failed to update profile: ' + (response.data.message || 'Unknown error'), 'error');
-      }
-    } catch (error) {
-      console.error('Error updating profile:', error);
-      showSnackbar('Failed to update profile. Please try again.', 'error');
-      
-      // Handle authentication errors specifically
-      if (error.response?.status === 401) {
-        console.error('Authentication error - redirecting to login');
-        localStorage.removeItem('token');
-        navigate('/login');
-        return;
-      }
-    }
-  };
-
-  const handleDietaryChange = (diet, checked) => {
+  const handleRemoveAllergy = (index) => {
     setProfileData(prev => ({
       ...prev,
-      dietaryPreferences: checked
-        ? [...prev.dietaryPreferences, diet]
-        : prev.dietaryPreferences.filter(d => d !== diet)
+      allergies: prev.allergies.filter((_, i) => i !== index)
     }));
   };
 
@@ -958,11 +1130,31 @@ const SimpleUserDashboard = () => {
     }
   };
 
-  const handleRemoveAllergy = (index) => {
-    setProfileData(prev => ({
-      ...prev,
-      allergies: prev.allergies.filter((_, i) => i !== index)
-    }));
+  const handleSaveProfile = async () => {
+    try {
+      // Prepare profile data for backend
+      const profileUpdateData = {
+        name: profileData.name,
+        phone: profileData.phone,
+        dietaryPreferences: profileData.dietaryPreferences,
+        allergies: profileData.allergies,
+      };
+
+      // Send profile data to backend
+      const response = await userAPI.updateProfile(profileUpdateData);
+      
+      if (response.data.success) {
+        // Refresh user data from backend
+        await loadUserData();
+        setEditMode(false);
+        showSnackbar('Profile updated successfully', 'success');
+      } else {
+        showSnackbar('Failed to update profile: ' + (response.data.message || 'Unknown error'), 'error');
+      }
+    } catch (error) {
+      console.error('Error updating profile:', error);
+      showSnackbar('Error updating profile', 'error');
+    }
   };
 
   const handleAddAddress = async () => {
@@ -1030,6 +1222,15 @@ const SimpleUserDashboard = () => {
         ...addr,
         isDefault: i === index
       }))
+    }));
+  };
+
+  const handleDietaryChange = (value, checked) => {
+    setProfileData(prev => ({
+      ...prev,
+      dietaryPreferences: checked
+        ? [...prev.dietaryPreferences, value]
+        : prev.dietaryPreferences.filter(pref => pref !== value)
     }));
   };
 
@@ -1225,7 +1426,7 @@ const SimpleUserDashboard = () => {
                       <Typography variant="h6" fontWeight={700}>
                         🛒 {cartItems.length} item{cartItems.length > 1 ? 's' : ''} in cart
                       </Typography>
-                      <Typography color="text.secondary">Total: NPR {cartTotal.toFixed(2)}</Typography>
+                      <Typography color="text.secondary">Total: NPR {displayOrderTotal.toFixed(2)}</Typography>
                     </Box>
                     <Button variant="contained" color="warning" onClick={() => switchView('cart')}>
                       View Cart
@@ -1327,7 +1528,261 @@ const SimpleUserDashboard = () => {
             </>
           )}
 
-          {/* ── Favorites View ── */}
+          {/* ── Recipes View ── */}
+          {currentView === 'recipes' && (
+            <>
+              <Typography variant="h4" fontWeight={700} gutterBottom>Recipes</Typography>
+              <Box sx={{ display: 'flex', gap: 2, mb: 3, flexWrap: 'wrap' }}>
+                <TextField
+                  sx={{ flexGrow: 1, minWidth: 200 }}
+                  variant="outlined"
+                  placeholder="Search recipes..."
+                  value={recipeSearchQuery}
+                  onChange={e => setRecipeSearchQuery(e.target.value)}
+                  InputProps={{
+                    startAdornment: <InputAdornment position="start"><SearchIcon /></InputAdornment>,
+                  }}
+                />
+                <FormControl sx={{ minWidth: 140 }}>
+                  <InputLabel>Category</InputLabel>
+                  <Select value={recipeFilterCategory} label="Category" onChange={e => setRecipeFilterCategory(e.target.value)}>
+                    <MenuItem value="ALL">All Categories</MenuItem>
+                    <MenuItem value="APPETIZER">Appetizer</MenuItem>
+                    <MenuItem value="MAIN_COURSE">Main Course</MenuItem>
+                    <MenuItem value="DESSERT">Dessert</MenuItem>
+                    <MenuItem value="BEVERAGE">Beverage</MenuItem>
+                    <MenuItem value="SNACK">Snack</MenuItem>
+                    <MenuItem value="SALAD">Salad</MenuItem>
+                    <MenuItem value="SOUP">Soup</MenuItem>
+                  </Select>
+                </FormControl>
+              </Box>
+
+              <ShoppingListGeneratorPanel
+                visibleRecipes={filteredRecipes}
+                selectedIds={shoppingListSelectedIds}
+                onSelectAllVisible={selectAllVisibleRecipesForShopping}
+                onClearSelection={clearShoppingListSelection}
+              />
+
+              {filteredRecipes.length === 0 ? (
+                <Paper sx={{ p: 5, textAlign: 'center' }}>
+                  <MenuBook sx={{ fontSize: 64, color: 'grey.300', mb: 2 }} />
+                  <Typography variant="h6" color="text.secondary" gutterBottom>No recipes found</Typography>
+                  <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
+                    {recipes.length === 0 ? 'No recipes available yet.' : 'Try adjusting your search or filters.'}
+                  </Typography>
+                  {(recipeSearchQuery || recipeFilterCategory !== 'ALL') && (
+                    <Button variant="outlined" onClick={() => { setRecipeSearchQuery(''); setRecipeFilterCategory('ALL'); }}>
+                      Reset Filters
+                    </Button>
+                  )}
+                </Paper>
+              ) : (
+                <Grid container spacing={3}>
+                  {filteredRecipes.map((recipe) => (
+                    <Grid item xs={12} sm={6} md={4} key={recipe.id}>
+                      <Card 
+                        sx={{ 
+                          height: '100%', 
+                          display: 'flex', 
+                          flexDirection: 'column',
+                          borderRadius: 3,
+                          boxShadow: '0 4px 20px rgba(0,0,0,0.08)',
+                          transition: 'all 0.3s ease-in-out',
+                          '&:hover': {
+                            transform: 'translateY(-4px)',
+                            boxShadow: '0 8px 30px rgba(0,0,0,0.15)',
+                          },
+                          position: 'relative',
+                          overflow: 'hidden'
+                        }}
+                      >
+                        <Box
+                          sx={{
+                            position: 'absolute',
+                            top: 8,
+                            left: 8,
+                            zIndex: 2,
+                            bgcolor: 'rgba(255,255,255,0.92)',
+                            borderRadius: 1,
+                            boxShadow: 1,
+                          }}
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <Checkbox
+                            size="small"
+                            checked={shoppingListSelectedIds.some((x) => shoppingListIdEquals(x, recipe.id))}
+                            onChange={() => toggleShoppingListRecipe(recipe.id)}
+                            inputProps={{ 'aria-label': `Add ${recipe.name} to shopping list` }}
+                          />
+                        </Box>
+                        {/* Category Badge */}
+                        <Box 
+                          sx={{ 
+                            position: 'absolute', 
+                            top: 16, 
+                            right: 16, 
+                            zIndex: 1 
+                          }}
+                        >
+                          <Chip 
+                            label={recipe.category?.replace('_', ' ') || 'MAIN COURSE'} 
+                            size="small" 
+                            sx={{ 
+                              backgroundColor: 'rgba(255,255,255,0.9)',
+                              backdropFilter: 'blur(10px)',
+                              fontWeight: 600,
+                              textTransform: 'uppercase',
+                              fontSize: '0.7rem',
+                              color: 'primary.main'
+                            }}
+                          />
+                        </Box>
+
+                        <CardContent sx={{ flexGrow: 1, p: 3 }}>
+                          {/* Recipe Title */}
+                          <Typography 
+                            variant="h6" 
+                            component="h3" 
+                            sx={{ 
+                              fontWeight: 700,
+                              mb: 2,
+                              color: 'text.primary',
+                              lineHeight: 1.3,
+                              pr: 8 // Make room for the category badge
+                            }}
+                          >
+                            {recipe.name}
+                          </Typography>
+                          
+                          {/* Cooking Time */}
+                          <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
+                            <Box sx={{ 
+                              display: 'flex', 
+                              alignItems: 'center',
+                              backgroundColor: 'primary.light',
+                              borderRadius: 2,
+                              px: 1.5,
+                              py: 0.5
+                            }}>
+                              <Timer sx={{ fontSize: 16, mr: 0.5, color: 'primary.main' }} />
+                              <Typography variant="body2" sx={{ fontWeight: 600, color: 'primary.main' }}>
+                                {recipe.cookingTime || 30} min
+                              </Typography>
+                            </Box>
+                          </Box>
+
+                          {/* Ingredients Section */}
+                          <Box sx={{ mb: 2 }}>
+                            <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
+                              <Restaurant sx={{ fontSize: 18, mr: 1, color: 'text.secondary' }} />
+                              <Typography variant="subtitle2" sx={{ fontWeight: 600, color: 'text.primary' }}>
+                                Ingredients ({recipe.ingredients?.length || 0})
+                              </Typography>
+                            </Box>
+                            <Box sx={{ pl: 2.5 }}>
+                              {recipe.ingredients?.slice(0, 3).map((ing, idx) => (
+                                <Box key={idx} sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5 }}>
+                                  <Typography variant="body2" color="text.secondary" sx={{ flex: 1 }}>
+                                    {ing.name}
+                                  </Typography>
+                                  <Typography variant="body2" color="text.secondary" sx={{ fontWeight: 500 }}>
+                                    {ing.quantity} {ing.unit}
+                                  </Typography>
+                                </Box>
+                              ))}
+                              {recipe.ingredients?.length > 3 && (
+                                <Typography variant="body2" color="primary.main" sx={{ fontWeight: 600, mt: 0.5 }}>
+                                  +{recipe.ingredients.length - 3} more ingredients
+                                </Typography>
+                              )}
+                            </Box>
+                          </Box>
+
+                          {/* Cooking Instructions */}
+                          <Box sx={{ mb: 2 }}>
+                            <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
+                              <MenuBook sx={{ fontSize: 18, mr: 1, color: 'text.secondary' }} />
+                              <Typography variant="subtitle2" sx={{ fontWeight: 600, color: 'text.primary' }}>
+                                Instructions
+                              </Typography>
+                            </Box>
+                            <Box sx={{ pl: 2.5 }}>
+                              <Typography 
+                                variant="body2" 
+                                color="text.secondary" 
+                                sx={{ 
+                                  lineHeight: 1.5,
+                                  display: '-webkit-box',
+                                  WebkitLineClamp: 3,
+                                  WebkitBoxOrient: 'vertical',
+                                  overflow: 'hidden',
+                                  textOverflow: 'ellipsis'
+                                }}
+                              >
+                                {recipe.cookingInstructions || 'No instructions provided'}
+                              </Typography>
+                            </Box>
+                          </Box>
+
+                          {/* Nutritional Information */}
+                          {recipe.nutritionalValue && (
+                            <Box sx={{ mb: 2 }}>
+                              <Typography variant="subtitle2" sx={{ fontWeight: 600, color: 'text.primary', mb: 1 }}>
+                                Nutrition Facts (per serving)
+                              </Typography>
+                              <Box sx={{ pl: 2 }}>
+                                <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5 }}>
+                                  <Typography variant="body2" color="text.secondary">Calories:</Typography>
+                                  <Typography variant="body2" fontWeight={500}>{recipe.nutritionalValue.calories || 0}</Typography>
+                                </Box>
+                                <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5 }}>
+                                  <Typography variant="body2" color="text.secondary">Protein:</Typography>
+                                  <Typography variant="body2" fontWeight={500}>{recipe.nutritionalValue.protein || 0}g</Typography>
+                                </Box>
+                                <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5 }}>
+                                  <Typography variant="body2" color="text.secondary">Carbs:</Typography>
+                                  <Typography variant="body2" fontWeight={500}>{recipe.nutritionalValue.carbs || 0}g</Typography>
+                                </Box>
+                                <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5 }}>
+                                  <Typography variant="body2" color="text.secondary">Fat:</Typography>
+                                  <Typography variant="body2" fontWeight={500}>{recipe.nutritionalValue.fat || 0}g</Typography>
+                                </Box>
+                                <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5 }}>
+                                  <Typography variant="body2" color="text.secondary">Fiber:</Typography>
+                                  <Typography variant="body2" fontWeight={500}>{recipe.nutritionalValue.fiber || 0}g</Typography>
+                                </Box>
+                                <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5 }}>
+                                  <Typography variant="body2" color="text.secondary">Sugar:</Typography>
+                                  <Typography variant="body2" fontWeight={500}>{recipe.nutritionalValue.sugar || 0}g</Typography>
+                                </Box>
+                                <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5 }}>
+                                  <Typography variant="body2" color="text.secondary">Sodium:</Typography>
+                                  <Typography variant="body2" fontWeight={500}>{recipe.nutritionalValue.sodium || 0}mg</Typography>
+                                </Box>
+                              </Box>
+                            </Box>
+                          )}
+
+                          {/* Vendor Info */}
+                          {recipe.vendorId && (
+                            <Box sx={{ mb: 2 }}>
+                              <Typography variant="caption" color="text.secondary">
+                                Vendor Name: {recipe.vendorName || 'Unknown Vendor'}
+                              </Typography>
+                            </Box>
+                          )}
+                        </CardContent>
+                      </Card>
+                    </Grid>
+                  ))}
+                </Grid>
+              )}
+            </>
+          )}
+
+          {/* Favorites View */}
           {currentView === 'favorites' && (
             <>
               <Typography variant="h4" fontWeight={700} gutterBottom>My Favorites</Typography>
@@ -1434,10 +1889,75 @@ const SimpleUserDashboard = () => {
                     <Paper sx={{ p: 3, position: 'sticky', top: 16 }}>
                       <Typography variant="h6" fontWeight={700} gutterBottom>Order Summary</Typography>
                       <Divider sx={{ mb: 2 }} />
+                      <Typography variant="subtitle2" color="text.secondary" gutterBottom>
+                        Discount coupon
+                      </Typography>
+                      <Box sx={{ display: 'flex', gap: 1, mb: 1, alignItems: 'flex-start' }}>
+                        <TextField
+                          size="small"
+                          fullWidth
+                          label="Enter coupon code"
+                          value={couponCodeInput}
+                          onChange={(e) => {
+                            setCouponCodeInput(e.target.value.toUpperCase());
+                            setCouponError('');
+                          }}
+                          disabled={appliedCouponCode != null}
+                          placeholder="e.g. SAVE20"
+                        />
+                        <Button
+                          variant="contained"
+                          size="medium"
+                          onClick={handleApplyCoupon}
+                          disabled={appliedCouponCode != null || couponApplyLoading || cartItems.length === 0}
+                          sx={{ mt: 0.5, flexShrink: 0 }}
+                        >
+                          {couponApplyLoading ? '…' : 'Apply'}
+                        </Button>
+                      </Box>
+                      {appliedCouponCode != null && (
+                        <Button size="small" color="secondary" onClick={handleRemoveCoupon} sx={{ mb: 1 }}>
+                          Remove coupon
+                        </Button>
+                      )}
+                      {couponError && (
+                        <Alert severity="error" sx={{ mb: 1 }} onClose={() => setCouponError('')}>
+                          {couponError}
+                        </Alert>
+                      )}
+                      {activeCoupons.length > 0 && appliedCouponCode == null && (
+                        <Box sx={{ mb: 2 }}>
+                          <Typography variant="caption" color="text.secondary" display="block">
+                            Available offers — tap to autofill
+                          </Typography>
+                          <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5, mt: 0.75 }}>
+                            {activeCoupons.map((c) => (
+                              <Chip
+                                key={c.code}
+                                size="small"
+                                icon={<LocalOffer fontSize="small" />}
+                                label={c.code}
+                                onClick={() => {
+                                  setCouponCodeInput(String(c.code).toUpperCase());
+                                  setCouponError('');
+                                }}
+                                variant="outlined"
+                                sx={{ cursor: 'pointer' }}
+                              />
+                            ))}
+                          </Box>
+                        </Box>
+                      )}
                       <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
                         <Typography color="text.secondary">Items ({cartItems.length})</Typography>
                         <Typography>NPR {cartTotal.toFixed(2)}</Typography>
                       </Box>
+                      {hasAppliedCoupon && couponDiscountAmount > 0 && (
+                        <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
+                          <Typography color="success.main">Discount ({appliedCouponCode})</Typography>
+                          <Typography color="success.main">− NPR {Number(couponDiscountAmount).toFixed(2)}</Typography>
+                        </Box>
+                      )}
                       <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
                         <Typography color="text.secondary">Delivery</Typography>
                         <Typography color="success.main">Free</Typography>
@@ -1446,7 +1966,7 @@ const SimpleUserDashboard = () => {
                       <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 3 }}>
                         <Typography variant="h6" fontWeight={700}>Total</Typography>
                         <Typography variant="h6" fontWeight={700} color="primary.main">
-                          NPR {cartTotal.toFixed(2)}
+                          NPR {displayOrderTotal.toFixed(2)}
                         </Typography>
                       </Box>
                       <Button variant="contained" color="primary" size="large" fullWidth onClick={handleCheckout}>
@@ -1928,7 +2448,8 @@ const SimpleUserDashboard = () => {
           {snackbar.message}
         </Alert>
       </Snackbar>
-    </Box>
+
+          </Box>
   );
 };
 

@@ -52,7 +52,8 @@ class VendorService {
     try {
       console.log(`VendorService: Loading products for vendor ${vendorId}`);
 
-      const response = await fetch(`${this.baseURL}/api/vendor/${vendorId}/products`, {
+      // Use the general products endpoint and filter by vendor ID on client side
+      const response = await fetch(`${this.baseURL}/api/products`, {
         method: 'GET',
         headers: this.getAuthHeaders()
       });
@@ -62,17 +63,27 @@ class VendorService {
       }
 
       const data = await response.json();
-      const products = data?.data || data || [];
-      const safeProducts = Array.isArray(products) ? products : [];
+      const allProducts = data?.data || data || [];
+      const safeProducts = Array.isArray(allProducts) ? allProducts : [];
+
+      // Filter products by vendor ID
+      const vendorProducts = safeProducts.filter(p => {
+        const productVendorId = p?.vendor?.id || p?.vendorId;
+        return productVendorId === vendorId;
+      });
 
       // Normalize vendor fields for UI
-      const normalized = safeProducts.map(p => {
-        const vendorName = p?.vendor?.shopName || p?.vendor?.name || p?.vendor || p?.vendorName;
+      const normalized = vendorProducts.map(p => {
+        const vendorName = p?.vendor?.shopName || p?.vendor?.name || p?.vendor || 'Unknown Vendor';
         const vendorIdFromObj = p?.vendor?.id || p?.vendorId || vendorId;
+        
         return {
           ...p,
           vendor: vendorName,
-          vendorId: vendorIdFromObj
+          vendorId: vendorIdFromObj,
+          // Add order count if available
+          orderCount: p.orderCount || 0,
+          isOutOfStock: p.isOutOfStock || (p.stock === 0)
         };
       });
 
@@ -101,14 +112,18 @@ class VendorService {
       const headers = this.getAuthHeaders();
       console.log('Request Headers:', headers);
       
-      const url = `${this.baseURL}/api/vendor/${vendorId}/products`;
+      // Use the correct endpoint that exists in the backend
+      const url = `${this.baseURL}/api/products`;
       console.log('Request URL:', url);
       
       console.log('Making API call...');
       const response = await fetch(url, {
         method: 'POST',
         headers: headers,
-        body: JSON.stringify(productData)
+        body: JSON.stringify({
+          ...productData,
+          vendorId: vendorId // Include vendorId in the request
+        })
       });
 
       console.log('Response received');
@@ -184,7 +199,8 @@ class VendorService {
     try {
       console.log(`VendorService: Updating product ${productId} for vendor ${vendorId}:`, productData);
 
-      const response = await fetch(`${this.baseURL}/api/vendor/${vendorId}/products/${productId}`, {
+      // Use the correct endpoint that exists in the backend
+      const response = await fetch(`${this.baseURL}/api/products/${productId}`, {
         method: 'PUT',
         headers: this.getAuthHeaders(),
         body: JSON.stringify(productData)
@@ -237,7 +253,8 @@ class VendorService {
     try {
       console.log(`VendorService: Deleting product ${productId} for vendor ${vendorId}`);
 
-      const response = await fetch(`${this.baseURL}/api/vendor/${vendorId}/products/${productId}`, {
+      // Use the correct endpoint that exists in the backend
+      const response = await fetch(`${this.baseURL}/api/products/${productId}`, {
         method: 'DELETE',
         headers: this.getAuthHeaders()
       });

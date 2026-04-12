@@ -17,6 +17,7 @@ import {
   TextField,
   MenuItem,
   IconButton,
+  Fab,
   useTheme,
   FormControl,
   InputLabel,
@@ -36,6 +37,13 @@ import {
   Divider,
   Avatar,
   Checkbox,
+  List,
+  ListItem,
+  ListItemText,
+  ListItemIcon,
+  Switch,
+  FormControlLabel,
+  Slider,
 } from '@mui/material';
 import {
   Restaurant,
@@ -57,6 +65,7 @@ import {
   Favorite,
   Share,
   Download,
+  Save,
   Upload,
   FilterList,
   Search,
@@ -69,7 +78,7 @@ import {
   ShoppingCart,
 } from '@mui/icons-material';
 import { useAuth } from '../contexts/AuthContext';
-import { mealPlanAPI } from '../services/api';
+import { mealPlanAPI, productAPI } from '../services/api';
 import { format } from 'date-fns';
 
 const MealPlanner = () => {
@@ -80,6 +89,8 @@ const MealPlanner = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [selectedDate, setSelectedDate] = useState(format(new Date(), 'yyyy-MM-dd'));
+  const [availableProducts, setAvailableProducts] = useState([]);
+  const [productsLoading, setProductsLoading] = useState(false);
   const [openDialog, setOpenDialog] = useState(false);
   const [editingPlan, setEditingPlan] = useState(null);
   const [aiRecommendation, setAiRecommendation] = useState(null);
@@ -95,16 +106,9 @@ const MealPlanner = () => {
   const [calendarMeals, setCalendarMeals] = useState({});
 
   // New Enhanced Features States
-  const [favorites, setFavorites] = useState([]);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [filterMealType, setFilterMealType] = useState('ALL');
-  const [showStats, setShowStats] = useState(true);
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
-  const [weeklyStats, setWeeklyStats] = useState({ totalCalories: 0, totalCost: 0, mealsCompleted: 0 });
   const [mealPrepTime, setMealPrepTime] = useState(30); // minutes
   const [dietaryPreferences, setDietaryPreferences] = useState(['balanced']);
-  const [shoppingList, setShoppingList] = useState([]);
-  const [showShoppingList, setShowShoppingList] = useState(false);
 
   const [formData, setFormData] = useState({
     planName: '',
@@ -117,7 +121,7 @@ const MealPlanner = () => {
 
   useEffect(() => {
     fetchMealPlans();
-    calculateWeeklyStats();
+    fetchAvailableProducts();
   }, [selectedDate]);
 
   // Organize meals for calendar view
@@ -125,69 +129,12 @@ const MealPlanner = () => {
     organizeCalendarMeals();
   }, [mealPlans]);
 
-  // Enhanced Features Effects
-  useEffect(() => {
-    generateShoppingList();
-  }, [mealPlans]);
-
-  // Enhanced Functions
-  const calculateWeeklyStats = () => {
-    const today = new Date();
-    const weekStart = new Date(today.setDate(today.getDate() - today.getDay()));
-    const weekEnd = new Date(today.setDate(today.getDate() - today.getDay() + 6));
-    
-    const weekMeals = mealPlans.filter(meal => {
-      if (!meal.planDate) return false;
-      try {
-        const mealDate = new Date(meal.planDate);
-        return mealDate >= weekStart && mealDate <= weekEnd && !isNaN(mealDate.getTime());
-      } catch (error) {
-        return false;
-      }
-    });
-
-    const totalCalories = weekMeals.reduce((sum, meal) => sum + (meal.calories || 0), 0);
-    const totalCost = weekMeals.reduce((sum, meal) => sum + (meal.estimatedCost || 0), 0);
-    const mealsCompleted = weekMeals.filter(meal => meal.completed).length;
-
-    setWeeklyStats({ totalCalories, totalCost, mealsCompleted });
-  };
-
-  const generateShoppingList = () => {
-    const ingredients = {};
-    mealPlans.forEach(meal => {
-      if (meal.ingredients) {
-        const mealIngredients = meal.ingredients.split(',').map(ing => ing.trim());
-        mealIngredients.forEach(ingredient => {
-          if (ingredient) {
-            ingredients[ingredient] = (ingredients[ingredient] || 0) + 1;
-          }
-        });
-      }
-    });
-    
-    const shoppingListItems = Object.entries(ingredients).map(([ingredient, count]) => ({
-      ingredient,
-      quantity: count,
-      checked: false
-    }));
-    
-    setShoppingList(shoppingListItems);
-  };
-
-  const toggleFavorite = (mealId) => {
-    setFavorites(prev => 
-      prev.includes(mealId) 
-        ? prev.filter(id => id !== mealId)
-        : [...prev, mealId]
-    );
-    showSnackbar('Favorite updated successfully!');
-  };
-
+  
   const showSnackbar = (message, severity = 'success') => {
     setSnackbar({ open: true, message, severity });
   };
 
+  
   const shareMealPlan = () => {
     const shareData = {
       title: 'My Meal Plan',
@@ -234,23 +181,6 @@ const MealPlanner = () => {
     }
   };
 
-  const getFilteredMeals = () => {
-    let filtered = mealPlans;
-    
-    if (searchQuery) {
-      filtered = filtered.filter(meal => 
-        (meal.planName && meal.planName.toLowerCase().includes(searchQuery.toLowerCase())) ||
-        (meal.ingredients && meal.ingredients.toLowerCase().includes(searchQuery.toLowerCase()))
-      );
-    }
-    
-    if (filterMealType !== 'ALL') {
-      filtered = filtered.filter(meal => meal.mealType === filterMealType);
-    }
-    
-    return filtered;
-  };
-
   const getDietaryIcon = (preference) => {
     switch (preference) {
       case 'vegetarian': return '🥗';
@@ -261,23 +191,62 @@ const MealPlanner = () => {
     }
   };
 
-  const getProgressPercentage = () => {
-    const targetCalories = dailyCalorieTarget;
-    const currentCalories = mealPlans.reduce((sum, meal) => sum + (meal.calories || 0), 0);
-    return Math.min((currentCalories / targetCalories) * 100, 100);
-  };
-
+  
   const organizeCalendarMeals = () => {
+    console.log('Organizing calendar meals. Current mealPlans:', mealPlans);
     const organized = {};
-    mealPlans.forEach(plan => {
-      const date = plan.planDate;
-      if (!organized[date]) {
-        organized[date] = { breakfast: null, lunch: null, dinner: null, snack: null };
+    
+    // Get meals from local storage (fallback for backend API issues)
+    const localMeals = JSON.parse(localStorage.getItem('userMealPlans') || '[]');
+    console.log('Local meals from storage:', localMeals);
+    
+    // Process local storage meals first
+    localMeals.forEach(meal => {
+      const date = meal.planDate;
+      const mealName = meal.planName || 'Unnamed meal';
+      const mealType = meal.mealType || 'breakfast';
+      
+      console.log(`Processing local meal - Date: ${date}, Name: ${mealName}, Type: ${mealType}`);
+      
+      if (date) {
+        if (!organized[date]) {
+          organized[date] = { breakfast: [], lunch: [], dinner: [], snack: [] };
+        }
+        
+        const mealTypeLower = mealType.toLowerCase();
+        console.log(`Adding local meal to ${date} - ${mealTypeLower}: ${mealName}`);
+        organized[date][mealTypeLower].push(meal);
       }
-      // Add null check for mealType
-      const mealType = plan.mealType ? plan.mealType.toLowerCase() : 'breakfast';
-      organized[date][mealType] = plan;
     });
+    
+    // Process API data if it's correct (but skip user order data)
+    mealPlans.forEach(plan => {
+      console.log('Processing API meal plan:', plan);
+      
+      // Check if this looks like meal plan data (has meal plan fields)
+      if (plan.planName || plan.name || plan.planDate || plan.mealType) {
+        const mealData = plan.data || plan;
+        const date = mealData.planDate || mealData.date;
+        const mealName = mealData.planName || mealData.name || 'Unnamed meal';
+        const mealType = mealData.mealType || mealData.type || 'breakfast';
+        
+        console.log(`Found meal plan data - Date: ${date}, Name: ${mealName}, Type: ${mealType}`);
+        
+        if (date) {
+          if (!organized[date]) {
+            organized[date] = { breakfast: [], lunch: [], dinner: [], snack: [] };
+          }
+          
+          const mealTypeLower = mealType.toLowerCase();
+          console.log(`Adding API meal to ${date} - ${mealTypeLower}: ${mealName}`);
+          organized[date][mealTypeLower].push(mealData);
+        }
+      } else {
+        console.log('Skipping user/order data, not meal plan data:', plan);
+      }
+    });
+    
+    console.log('Final organized calendarMeals:', organized);
     setCalendarMeals(organized);
   };
 
@@ -356,32 +325,29 @@ const MealPlanner = () => {
         [mealType]: updatedMeal
       }
     }));
-
-    setDraggedMeal(null);
   };
 
-  // Utility Functions
   const estimateCalories = (mealType) => {
     // Add null check for mealType
     const type = mealType ? mealType.toLowerCase() : 'breakfast';
     switch (type) {
-      case 'breakfast': return 350;
-      case 'lunch': return 550;
-      case 'dinner': return 650;
+      case 'breakfast': return 400;
+      case 'lunch': return 600;
+      case 'dinner': return 700;
       case 'snack': return 200;
-      default: return 450;
+      default: return 500;
     }
   };
 
   const estimateCost = (mealType) => {
-    // Add null check for mealType
+    // Direct rupee prices
     const type = mealType ? mealType.toLowerCase() : 'breakfast';
     switch (type) {
-      case 'breakfast': return 8.50;
-      case 'lunch': return 12.75;
-      case 'dinner': return 15.25;
-      case 'snack': return 4.25;
-      default: return 10.50;
+      case 'breakfast': return 850;   // Rs 850
+      case 'lunch': return 1275;      // Rs 1,275
+      case 'dinner': return 1525;     // Rs 1,525
+      case 'snack': return 425;       // Rs 425
+      default: return 1050;          // Rs 1,050
     }
   };
 
@@ -413,7 +379,23 @@ const MealPlanner = () => {
     }
   };
 
- const fetchMealPlans = async () => {
+  // Fetch available products for meal selection
+  const fetchAvailableProducts = async () => {
+    try {
+      setProductsLoading(true);
+      const response = await productAPI.getAll();
+      if (response.data?.success) {
+        setAvailableProducts(response.data.data || []);
+      }
+    } catch (error) {
+      console.error('Error fetching products:', error);
+    } finally {
+      setProductsLoading(false);
+    }
+  };
+
+  // Fetch meal plans from API
+  const fetchMealPlans = async () => {
   if (!user) {
     setError("Please log in to view meal plans");
     setLoading(false);
@@ -434,6 +416,14 @@ const MealPlanner = () => {
     if (response.data?.success) {
       console.log("Plans received:", response.data.data);
       console.log("Number of plans:", response.data.data?.length || 0);
+      
+      // Log detailed structure of first plan
+      if (response.data.data && response.data.data.length > 0) {
+        console.log("First plan structure:", JSON.stringify(response.data.data[0], null, 2));
+        console.log("First plan keys:", Object.keys(response.data.data[0]));
+        console.log("First plan user keys:", response.data.data[0].user ? Object.keys(response.data.data[0].user) : 'No user field');
+      }
+      
       setMealPlans(response.data.data || []);
       
       // Log the updated meal plans state
@@ -470,32 +460,22 @@ const MealPlanner = () => {
 
   // Render Functions
   const renderCalendarView = () => {
-    // Simple calendar view
-    const today = new Date();
-    const currentMonth = today.getMonth();
-    const currentYear = today.getFullYear();
-    const daysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
-    
-    const days = [];
-    for (let day = 1; day <= daysInMonth; day++) {
-      const date = new Date(currentYear, currentMonth, day);
-      const dateStr = date.toISOString().split('T')[0];
-      days.push(dateStr);
-    }
-
-    // Check if there are any meals in the current month
-    const hasAnyMeals = days.some(dateStr => {
-      const dayMeals = calendarMeals[dateStr] || {};
+    // Get all unique dates that have meals
+    const allMealDates = Object.keys(calendarMeals).filter(date => {
+      const dayMeals = calendarMeals[date] || {};
       return Object.values(dayMeals).some(meal => meal !== null);
     });
 
+    // Sort dates chronologically
+    allMealDates.sort((a, b) => new Date(a) - new Date(b));
+
     return (
       <Box>
-        {!hasAnyMeals ? (
+        {allMealDates.length === 0 ? (
           <Paper sx={{ p: 4, textAlign: 'center', bgcolor: 'grey.50' }}>
             <CalendarToday sx={{ fontSize: 64, color: 'grey.400', mb: 2 }} />
             <Typography variant="h6" color="text.secondary" gutterBottom>
-              No meals planned this month
+              No meals planned yet
             </Typography>
             <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
               Start planning your meals by adding your first meal plan
@@ -509,268 +489,135 @@ const MealPlanner = () => {
             </Button>
           </Paper>
         ) : (
-          <Grid container spacing={2}>
-            {days.map((dateStr) => {
-              const dayMeals = calendarMeals[dateStr] || {};
-              const isSelected = dateStr === selectedDate;
-              
-              return (
-                <Grid item xs={12} sm={6} md={4} lg={3} key={dateStr}>
-                  <Card 
-                    sx={{ 
-                      height: 200, 
-                      cursor: 'pointer',
-                      border: isSelected ? '2px solid primary.main' : '1px solid grey.300'
-                    }}
-                    onClick={() => setSelectedDate(dateStr)}
-                  >
-                    <CardContent sx={{ p: 1 }}>
-                      <Typography variant="subtitle2" gutterBottom>
-                        {new Date(dateStr).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
-                      </Typography>
-                      
-                      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-                        {['breakfast', 'lunch', 'dinner'].map((mealType) => (
-                          <Box
-                            key={mealType}
-                            sx={{
-                              border: '1px dashed grey.300',
-                              borderRadius: 1,
-                              p: 0.5,
-                              minHeight: 40,
-                              display: 'flex',
-                              alignItems: 'center',
-                              bgcolor: dayMeals[mealType] ? 'primary.light' : 'transparent'
-                            }}
-                            onDragOver={handleDragOver}
-                            onDrop={(e) => handleDrop(e, dateStr, mealType)}
-                          >
-                            {dayMeals[mealType] ? (
-                              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                                {getMealIcon(mealType)}
-                                <Typography variant="caption" sx={{ fontSize: 10 }}>
-                                  {dayMeals[mealType].planName || 'Unnamed meal'}
+          <Box>
+            <Typography variant="h6" gutterBottom sx={{ mb: 3 }}>
+              All Your Planned Meals ({allMealDates.length} {allMealDates.length === 1 ? 'day' : 'days'})
+            </Typography>
+            
+            <Grid container spacing={3}>
+              {allMealDates.map((dateStr) => {
+                const dayMeals = calendarMeals[dateStr] || {};
+                const isSelected = dateStr === selectedDate;
+                const dateObj = new Date(dateStr);
+                
+                return (
+                  <Grid item xs={12} sm={6} md={4} key={dateStr}>
+                    <Card 
+                      sx={{ 
+                        cursor: 'pointer',
+                        border: isSelected ? '3px solid primary.main' : '1px solid grey.300',
+                        '&:hover': { 
+                          boxShadow: 4,
+                          transform: 'translateY(-2px)'
+                        },
+                        transition: 'all 0.2s ease-in-out'
+                      }}
+                      onClick={() => setSelectedDate(dateStr)}
+                    >
+                      <CardContent sx={{ p: 2 }}>
+                        {/* Date Header */}
+                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+                          <Typography variant="h6" fontWeight={600} color="primary.main">
+                            {dateObj.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                          </Typography>
+                          <Typography variant="body2" color="text.secondary">
+                            {dateObj.toLocaleDateString('en-US', { weekday: 'short' })}
+                          </Typography>
+                        </Box>
+                        
+                        {/* Year for different years */}
+                        {dateObj.getFullYear() !== new Date().getFullYear() && (
+                          <Typography variant="caption" color="text.secondary" sx={{ mb: 1, display: 'block' }}>
+                            {dateObj.getFullYear()}
+                          </Typography>
+                        )}
+                        
+                        {/* Meals for this day */}
+                        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+                          {['breakfast', 'lunch', 'dinner', 'snack'].map((mealType) => {
+                            const meals = dayMeals[mealType] || [];
+                            console.log(`Rendering ${dateStr} ${mealType}:`, meals);
+                            
+                            if (meals.length === 0) return null;
+                            
+                            return (
+                              <Box key={mealType}>
+                                <Typography variant="caption" color="text.secondary" sx={{ mb: 0.5, textTransform: 'uppercase' }}>
+                                  {mealType.charAt(0).toUpperCase() + mealType.slice(1)} ({meals.length})
                                 </Typography>
+                                {meals.map((meal, mealIndex) => (
+                                  <Box
+                                    key={`${mealType}-${mealIndex}`}
+                                    sx={{
+                                      border: '1px solid',
+                                      borderColor: 'primary.light',
+                                      borderRadius: 2,
+                                      p: 1.5,
+                                      bgcolor: 'primary.50',
+                                      display: 'flex',
+                                      alignItems: 'center',
+                                      gap: 1,
+                                      mb: 0.5,
+                                      position: 'relative'
+                                    }}
+                                  >
+                                    {getMealIcon(mealType)}
+                                    <Box sx={{ flex: 1, minWidth: 0 }}>
+                                      <Typography variant="subtitle2" fontWeight={500} noWrap>
+                                        {meal.planName || 'Unnamed meal'}
+                                      </Typography>
+                                      <Typography variant="caption" color="text.secondary">
+                                        {meal.calories || 0} cal · Rs {meal.estimatedCost || 0}
+                                      </Typography>
+                                    </Box>
+                                    <Box sx={{ display: 'flex', gap: 0.5 }}>
+                                      <IconButton
+                                        size="small"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          handleEditMeal(meal);
+                                        }}
+                                        sx={{ 
+                                          color: 'primary.main',
+                                          '&:hover': { bgcolor: 'primary.light' }
+                                        }}
+                                      >
+                                        <Edit fontSize="small" />
+                                      </IconButton>
+                                      <IconButton
+                                        size="small"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          handleDeleteMeal(meal, dateStr, mealType);
+                                        }}
+                                        sx={{ 
+                                          color: 'error.main',
+                                          '&:hover': { bgcolor: 'error.light' }
+                                        }}
+                                      >
+                                        <Delete fontSize="small" />
+                                      </IconButton>
+                                    </Box>
+                                  </Box>
+                                ))}
                               </Box>
-                            ) : (
-                              <Typography variant="caption" color="text.secondary">
-                                {mealType}
-                              </Typography>
-                            )}
-                          </Box>
-                        ))}
-                      </Box>
-                    </CardContent>
-                  </Card>
-                </Grid>
-              );
-            })}
-          </Grid>
-        )}
-      </Box>
-    );
-  };
-
-  const renderMealCards = () => {
-    const filteredMeals = getFilteredMeals();
-    
-    return (
-      <Box>
-        {/* Search and Filter Bar */}
-        <Paper sx={{ p: 2, mb: 3 }}>
-          <Box sx={{ display: 'flex', gap: 2, alignItems: 'center', flexWrap: 'wrap' }}>
-            <TextField
-              size="small"
-              placeholder="Search meals..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              InputProps={{
-                startAdornment: <Search sx={{ mr: 1, color: 'action.active' }} />,
-              }}
-              sx={{ minWidth: 200 }}
-            />
-            
-            <FormControl size="small" sx={{ minWidth: 120 }}>
-              <InputLabel>Filter</InputLabel>
-              <Select
-                value={filterMealType}
-                onChange={(e) => setFilterMealType(e.target.value)}
-              >
-                <MenuItem value="ALL">All Meals</MenuItem>
-                {mealTypes.map(type => (
-                  <MenuItem key={type} value={type}>{type}</MenuItem>
-                ))}
-              </Select>
-            </FormControl>
-            
-            <Box sx={{ ml: 'auto', display: 'flex', gap: 1 }}>
-              <Tooltip title="Export Meal Plan">
-                <IconButton size="small" onClick={exportMealPlan}>
-                  <Download />
-                </IconButton>
-              </Tooltip>
-              
-              <Tooltip title="Import Meal Plan">
-                <IconButton size="small" component="label">
-                  <Upload />
-                  <input type="file" hidden accept=".json" onChange={importMealPlan} />
-                </IconButton>
-              </Tooltip>
-              
-              <Tooltip title="Share Meal Plan">
-                <IconButton size="small" onClick={shareMealPlan}>
-                  <Share />
-                </IconButton>
-              </Tooltip>
-            </Box>
-          </Box>
-        </Paper>
-
-        {/* Empty State */}
-        {filteredMeals.length === 0 ? (
-          <Paper sx={{ p: 4, textAlign: 'center', bgcolor: 'grey.50' }}>
-            <Restaurant sx={{ fontSize: 64, color: 'grey.400', mb: 2 }} />
-            <Typography variant="h6" color="text.secondary" gutterBottom>
-              No meals found
-            </Typography>
-            <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-              {searchQuery || filterMealType !== 'ALL' 
-                ? 'Try adjusting your search or filters'
-                : 'Start by adding your first meal plan'
-              }
-            </Typography>
-            {!searchQuery && filterMealType === 'ALL' && (
-              <Button
-                variant="contained"
-                startIcon={<Add />}
-                onClick={() => setOpenDialog(true)}
-              >
-                Add Your First Meal
-              </Button>
-            )}
-          </Paper>
-        ) : (
-          /* Enhanced Meal Cards Grid */
-          <Grid container spacing={3}>
-            {filteredMeals.map((meal) => (
-              <Grid item xs={12} sm={6} md={4} key={`meal-${meal.id || Math.random()}`}>
-                <Card
-                  draggable
-                  onDragStart={() => handleDragStart(meal)}
-                  sx={{ 
-                    cursor: 'grab', 
-                    '&:dragging': { opacity: 0.5 },
-                    position: 'relative',
-                    transition: 'transform 0.2s',
-                    '&:hover': { transform: 'translateY(-4px)' }
-                  }}
-                >
-                  {/* Favorite Badge */}
-                  <IconButton
-                    sx={{ position: 'absolute', top: 8, right: 8, zIndex: 1 }}
-                    onClick={() => toggleFavorite(meal.id)}
-                  >
-                    <Favorite color={favorites.includes(meal.id) ? 'error' : 'action'} />
-                  </IconButton>
-
-                  <CardContent>
-                    <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
-                      <Avatar sx={{ mr: 2, bgcolor: 'primary.main' }}>
-                        {getMealIcon(meal.mealType)}
-                      </Avatar>
-                      <Box sx={{ flexGrow: 1 }}>
-                        <Typography variant="h6" sx={{ fontWeight: 'bold' }}>
-                          {meal.planName}
-                        </Typography>
-                        <Box sx={{ display: 'flex', gap: 1, mt: 0.5 }}>
-                          <Chip 
-                            label={meal.mealType}
-                            size="small"
-                            color="primary"
-                            variant="outlined"
-                          />
-                          {meal.isRecommended && (
-                            <Chip 
-                              icon={<Star />}
-                              label="AI Recommended"
-                              size="small"
-                              color="secondary"
-                            />
+                            );
+                          })}
+                          
+                          {/* If no meals for this day */}
+                          {Object.values(dayMeals).every(meals => meals.length === 0) && (
+                            <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'center', py: 2 }}>
+                              No meals planned
+                            </Typography>
                           )}
                         </Box>
-                      </Box>
-                    </Box>
-                    
-                    <Typography variant="body2" color="text.secondary" gutterBottom>
-                      {meal.planDate ? format(new Date(meal.planDate), 'MMM dd, yyyy') : 'Date not set'}
-                    </Typography>
-                    
-                    {/* Enhanced Stats */}
-                    <Box sx={{ display: 'flex', gap: 1, mb: 2 }}>
-                      <Chip 
-                        icon={<LocalFireDepartment />} 
-                        label={`${meal.calories || 0} cal`} 
-                        size="small" 
-                        color="error" 
-                      />
-                      <Chip 
-                        icon={<AttachMoney />} 
-                        label={`$${meal.estimatedCost || 0}`} 
-                        size="small" 
-                        color="success" 
-                      />
-                      <Chip 
-                        icon={<Timer />} 
-                        label={`${mealPrepTime} min`} 
-                        size="small" 
-                        color="info" 
-                      />
-                    </Box>
-                    
-                    {/* Dietary Preferences */}
-                    {dietaryPreferences.length > 0 && (
-                      <Box sx={{ display: 'flex', gap: 0.5, mb: 2, flexWrap: 'wrap' }}>
-                        {dietaryPreferences.map((pref, index) => (
-                          <Chip
-                            key={`${pref}-${index}`}
-                            label={getDietaryIcon(pref) + ' ' + pref}
-                            size="small"
-                            variant="outlined"
-                          />
-                        ))}
-                      </Box>
-                    )}
-                    
-                    {meal.aiRecommendation && (
-                      <Alert severity="info" sx={{ mb: 2 }}>
-                        <Typography variant="caption">
-                          {meal.aiRecommendation}
-                        </Typography>
-                      </Alert>
-                    )}
-                    
-                    <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-                      <strong>Ingredients:</strong> {meal.ingredients || 'Not specified'}
-                    </Typography>
-                    
-                    <Box sx={{ display: 'flex', gap: 1, justifyContent: 'space-between' }}>
-                      <Box>
-                        <IconButton size="small" color="primary" onClick={() => handleEdit(meal)}>
-                          <Edit />
-                        </IconButton>
-                        <IconButton size="small" color="error" onClick={() => handleDelete(meal.id)}>
-                          <Delete />
-                        </IconButton>
-                      </Box>
-                      <IconButton size="small">
-                        <DragIndicator />
-                      </IconButton>
-                    </Box>
-                  </CardContent>
-                </Card>
-              </Grid>
-            ))}
-          </Grid>
+                      </CardContent>
+                    </Card>
+                  </Grid>
+                );
+              })}
+            </Grid>
+          </Box>
         )}
       </Box>
     );
@@ -824,10 +671,77 @@ const MealPlanner = () => {
       console.log("Refreshing meal plans after save...");
       await fetchMealPlans();
       
+      // Create the new meal object
+      const newMeal = {
+        ...planData,
+        id: Date.now(), // Temporary ID
+        createdAt: new Date().toISOString()
+      };
+      
+      // Save to local storage as backup (for when API returns wrong data)
+      const existingMeals = JSON.parse(localStorage.getItem('userMealPlans') || '[]');
+      const updatedMeals = [...existingMeals, newMeal];
+      localStorage.setItem('userMealPlans', JSON.stringify(updatedMeals));
+      console.log("Saved meal to local storage:", updatedMeals);
+      
+      // Trigger calendar reorganization to show the new meal
+      organizeCalendarMeals();
+      
     } catch (err) {
       showSnackbar('Failed to save meal plan', 'error');
       console.error('Error saving meal plan:', err);
     }
+  };
+
+  const handleEditMeal = (meal) => {
+    console.log('Editing meal:', meal);
+    setEditingPlan(meal);
+    setFormData({
+      planName: meal.planName || '',
+      mealType: meal.mealType || 'BREAKFAST',
+      ingredients: meal.ingredients || '',
+      instructions: meal.instructions || '',
+    });
+    setSelectedDate(meal.planDate);
+    setOpenDialog(true);
+  };
+
+  const handleDeleteMeal = (meal, date, mealType) => {
+    console.log('Deleting meal:', meal, 'from date:', date, 'type:', mealType);
+    
+    // Remove from local storage
+    const existingMeals = JSON.parse(localStorage.getItem('userMealPlans') || '[]');
+    const updatedMeals = existingMeals.filter(m => 
+      !(m.planName === meal.planName && 
+        m.planDate === meal.planDate && 
+        m.mealType === meal.mealType &&
+        m.ingredients === meal.ingredients)
+    );
+    localStorage.setItem('userMealPlans', JSON.stringify(updatedMeals));
+    
+    // Remove from calendar meals state
+    setCalendarMeals(prev => {
+      const updated = { ...prev };
+      if (updated[date] && updated[date][mealType]) {
+        updated[date][mealType] = updated[date][mealType].filter(m => 
+          !(m.planName === meal.planName && 
+            m.planDate === meal.planDate && 
+            m.mealType === meal.mealType &&
+            m.ingredients === meal.ingredients)
+        );
+      }
+      return updated;
+    });
+    
+    // Remove from meal plans state
+    setMealPlans(prev => prev.filter(m => 
+      !(m.planName === meal.planName && 
+        m.planDate === meal.planDate && 
+        m.mealType === meal.mealType &&
+        m.ingredients === meal.ingredients)
+    ));
+    
+    showSnackbar('Meal deleted successfully!', 'success');
   };
 
   const handleEdit = (plan) => {
@@ -910,46 +824,6 @@ const MealPlanner = () => {
           Plan your meals with AI recommendations, drag-and-drop calendar, and advanced analytics
         </Typography>
       </Box>
-
-      {/* Weekly Stats Dashboard */}
-      {showStats && (
-        <Paper sx={{ p: 3, mb: 3, bgcolor: 'primary.50' }}>
-          <Typography variant="h6" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-            <TrendingUp /> Weekly Analytics
-          </Typography>
-          <Grid container spacing={3}>
-            <Grid item xs={12} sm={6} md={3}>
-              <Box sx={{ textAlign: 'center' }}>
-                <Typography variant="h4" color="primary">{weeklyStats.totalCalories}</Typography>
-                <Typography variant="body2" color="text.secondary">Total Calories</Typography>
-              </Box>
-            </Grid>
-            <Grid item xs={12} sm={6} md={3}>
-              <Box sx={{ textAlign: 'center' }}>
-                <Typography variant="h4" color="success.main">${weeklyStats.totalCost.toFixed(2)}</Typography>
-                <Typography variant="body2" color="text.secondary">Total Cost</Typography>
-              </Box>
-            </Grid>
-            <Grid item xs={12} sm={6} md={3}>
-              <Box sx={{ textAlign: 'center' }}>
-                <Typography variant="h4" color="info.main">{weeklyStats.mealsCompleted}</Typography>
-                <Typography variant="body2" color="text.secondary">Meals Completed</Typography>
-              </Box>
-            </Grid>
-            <Grid item xs={12} sm={6} md={3}>
-              <Box sx={{ textAlign: 'center' }}>
-                <Typography variant="h4" color="warning.main">{getProgressPercentage().toFixed(0)}%</Typography>
-                <Typography variant="body2" color="text.secondary">Daily Goal Progress</Typography>
-              </Box>
-            </Grid>
-          </Grid>
-          <LinearProgress 
-            variant="determinate" 
-            value={getProgressPercentage()} 
-            sx={{ mt: 2, height: 8, borderRadius: 4 }}
-          />
-        </Paper>
-      )}
 
       {/* Enhanced Smart Planning Controls */}
       <Paper sx={{ p: 3, mb: 3 }}>
@@ -1051,22 +925,8 @@ const MealPlanner = () => {
             Add Meal Plan
           </Button>
 
-          <Button
-            variant="outlined"
-            startIcon={<ShoppingCart />}
-            onClick={() => setShowShoppingList(true)}
-          >
-            Shopping List ({shoppingList.length})
-          </Button>
-
-          <Button
-            variant="text"
-            startIcon={<TrendingUp />}
-            onClick={() => setShowStats(!showStats)}
-          >
-            {showStats ? 'Hide' : 'Show'} Stats
-          </Button>
-        </Box>
+          
+                  </Box>
       </Paper>
 
       {/* Error */}
@@ -1079,44 +939,10 @@ const MealPlanner = () => {
       {/* Enhanced Tabs */}
       <Tabs value={activeTab} onChange={(e, newValue) => setActiveTab(newValue)} sx={{ mb: 3 }}>
         <Tab label="Calendar View" icon={<CalendarToday />} />
-        <Tab label="Meal Cards" icon={<Restaurant />} />
-        <Tab 
-          label={
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-              Favorites
-              {favorites.length > 0 && (
-                <Chip 
-                  label={favorites.length} 
-                  size="small" 
-                  color="secondary" 
-                  sx={{ height: 20, minWidth: 20 }}
-                />
-              )}
-            </Box>
-          } 
-          icon={<Favorite />} 
-        />
       </Tabs>
 
       {/* Content based on active tab */}
       {activeTab === 0 && renderCalendarView()}
-      {activeTab === 1 && renderMealCards()}
-      {activeTab === 2 && (
-        <Grid container spacing={3}>
-          {mealPlans.filter(meal => favorites.includes(meal.id)).map(meal => (
-            <Grid item xs={12} sm={6} md={4} key={meal.id}>
-              <Card>
-                <CardContent>
-                  <Typography variant="h6">{meal.planName}</Typography>
-                  <Typography variant="body2" color="text.secondary">
-                    {meal.mealType} • {meal.calories} cal
-                  </Typography>
-                </CardContent>
-              </Card>
-            </Grid>
-          ))}
-        </Grid>
-      )}
 
       {/* AI Recommendation Dialog */}
       <Dialog 
@@ -1133,18 +959,10 @@ const MealPlanner = () => {
             {['BREAKFAST', 'LUNCH', 'DINNER'].map((mealType) => (
               <Card key={mealType} sx={{ cursor: 'pointer' }} onClick={() => handleGenerateAIRecommendation(mealType)}>
                 <CardContent>
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                    {getMealIcon(mealType)}
-                    <Box>
-                      <Typography variant="h6">{mealType}</Typography>
-                      <Typography variant="body2" color="text.secondary">
-                        {estimateCalories(mealType)} cal • ${estimateCost(mealType)}
-                      </Typography>
-                    </Box>
-                    <IconButton sx={{ ml: 'auto' }}>
-                      <AutoAwesome />
-                    </IconButton>
-                  </Box>
+                  <Typography variant="h6">{mealType}</Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    {estimateCalories(mealType)} cal · Rs {estimateCost(mealType)}
+                  </Typography>
                 </CardContent>
               </Card>
             ))}
@@ -1175,7 +993,7 @@ const MealPlanner = () => {
                 
                 <Box sx={{ display: 'flex', gap: 1, mb: 2 }}>
                   <Chip icon={<LocalFireDepartment />} label={`${aiRecommendation.calories} cal`} />
-                  <Chip icon={<AttachMoney />} label={`$${aiRecommendation.estimatedCost}`} />
+                  <Chip icon={<AttachMoney />} label={`Rs ${aiRecommendation.estimatedCost}`} />
                 </Box>
                 
                 <Alert severity="info">
@@ -1205,6 +1023,80 @@ const MealPlanner = () => {
         <DialogTitle>{editingPlan ? 'Edit Meal Plan' : 'Add Meal Plan'}</DialogTitle>
         <DialogContent>
           <Box sx={{ pt: 2 }}>
+            {/* Available Products Section */}
+            <Box sx={{ mb: 3 }}>
+              <Typography variant="h6" gutterBottom>
+                Choose from Available Meals
+              </Typography>
+              {productsLoading ? (
+                <Box sx={{ display: 'flex', justifyContent: 'center', p: 2 }}>
+                  <CircularProgress size={24} />
+                </Box>
+              ) : (
+                <Box sx={{ maxHeight: 300, overflowY: 'auto', mb: 2 }}>
+                  {availableProducts.length > 0 ? (
+                    <Grid container spacing={2}>
+                      {availableProducts.map((product) => (
+                        <Grid item xs={12} sm={6} key={product.id}>
+                          <Card 
+                            sx={{ 
+                              cursor: 'pointer',
+                              border: '1px solid',
+                              borderColor: 'divider',
+                              '&:hover': { 
+                                bgcolor: 'primary.50', 
+                                borderColor: 'primary.main',
+                                transform: 'translateY(-2px)'
+                              },
+                              transition: 'all 0.2s ease-in-out'
+                            }}
+                            onClick={() => {
+                              setFormData({
+                                planName: product.name,
+                                mealType: 'BREAKFAST',
+                                ingredients: product.description || 'Available from ' + (product.vendor?.name || product.vendor || 'Unknown vendor'),
+                                instructions: 'Order from ' + (product.vendor?.name || product.vendor || 'Unknown vendor')
+                              });
+                            }}
+                          >
+                            <CardContent sx={{ p: 2, '&:last-child': { pb: 2 } }}>
+                              <Typography variant="subtitle2" fontWeight={600} noWrap>
+                                {product.name}
+                              </Typography>
+                              <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+                                {product.vendor?.name || product.vendor || 'Unknown vendor'}
+                              </Typography>
+                              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                <Typography variant="body1" fontWeight={500} color="primary.main">
+                                  Rs {product.price}
+                                </Typography>
+                                {product.category && (
+                                  <Chip size="small" label={product.category} variant="outlined" />
+                                )}
+                              </Box>
+                            </CardContent>
+                          </Card>
+                        </Grid>
+                      ))}
+                    </Grid>
+                  ) : (
+                    <Paper sx={{ p: 3, textAlign: 'center', bgcolor: 'grey.50' }}>
+                      <Restaurant sx={{ fontSize: 48, color: 'grey.400', mb: 1 }} />
+                      <Typography variant="body2" color="text.secondary">
+                        No available meals found
+                      </Typography>
+                    </Paper>
+                  )}
+                </Box>
+              )}
+              
+              <Divider sx={{ my: 2 }}>
+                <Typography variant="body2" color="text.secondary">
+                  OR create custom meal
+                </Typography>
+              </Divider>
+            </Box>
+
             <TextField
               fullWidth
               label="Meal Name"
@@ -1256,40 +1148,101 @@ const MealPlanner = () => {
         </DialogActions>
       </Dialog>
 
-      {/* Shopping List Dialog */}
+      
+      {/* AI Recommendations Dialog */}
       <Dialog 
-        open={showShoppingList} 
-        onClose={() => setShowShoppingList(false)} 
-        maxWidth="sm" 
+        open={openAiDialog} 
+        onClose={() => setOpenAiDialog(false)} 
+        maxWidth="md" 
         fullWidth
-        disableEnforceFocus
-        disableAutoFocus
       >
-        <DialogTitle>Shopping List</DialogTitle>
+        <DialogTitle>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <AutoAwesome color="primary" />
+            AI Meal Recommendations
+          </Box>
+        </DialogTitle>
         <DialogContent>
-          {shoppingList.length > 0 ? (
-            <Box>
-              {shoppingList.map((item, index) => (
-                <Box key={`shopping-item-${index}`} sx={{ display: 'flex', alignItems: 'center', gap: 2, py: 1 }}>
-                  <Checkbox
-                    checked={item.checked}
-                    onChange={(e) => {
-                      const updatedList = [...shoppingList];
-                      updatedList[index].checked = e.target.checked;
-                      setShoppingList(updatedList);
+          <Box sx={{ pt: 2 }}>
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
+              Get personalized AI-powered meal recommendations based on your preferences and dietary needs
+            </Typography>
+            
+            <Grid container spacing={2} sx={{ mb: 3 }}>
+              {mealTypes.map((mealType) => (
+                <Grid item xs={12} sm={6} key={mealType}>
+                  <Card 
+                    sx={{ 
+                      cursor: 'pointer',
+                      border: '2px solid',
+                      borderColor: 'divider',
+                      '&:hover': { 
+                        bgcolor: 'primary.50', 
+                        borderColor: 'primary.main',
+                        transform: 'translateY(-2px)'
+                      },
+                      transition: 'all 0.2s ease-in-out'
                     }}
-                  />
-                  <Typography sx={{ flexGrow: 1 }}>{item.ingredient}</Typography>
-                  <Chip label={`x${item.quantity}`} size="small" />
-                </Box>
+                    onClick={() => handleGenerateAIRecommendation(mealType)}
+                  >
+                    <CardContent sx={{ textAlign: 'center', py: 2 }}>
+                      <Avatar sx={{ 
+                        bgcolor: 'primary.main', 
+                        mx: 'auto', 
+                        mb: 1,
+                        width: 48,
+                        height: 48
+                      }}>
+                        {getMealIcon(mealType)}
+                      </Avatar>
+                      <Typography variant="h6" gutterBottom>
+                        {mealType}
+                      </Typography>
+                      <Typography variant="body2" color="text.secondary">
+                        {generateRecommendationText(mealType)}
+                      </Typography>
+                      <Box sx={{ mt: 2, display: 'flex', justifyContent: 'center', gap: 1 }}>
+                        <Chip size="small" icon={<LocalFireDepartment />} label={`${estimateCalories(mealType)} cal`} />
+                        <Chip size="small" icon={<AttachMoney />} label={`Rs ${estimateCost(mealType)}`} />
+                      </Box>
+                    </CardContent>
+                  </Card>
+                </Grid>
               ))}
-            </Box>
-          ) : (
-            <Typography color="text.secondary">No items in shopping list</Typography>
-          )}
+            </Grid>
+            
+            {aiRecommendation && (
+              <Paper sx={{ p: 2, bgcolor: 'success.50', border: '1px solid', borderColor: 'success.light' }}>
+                <Typography variant="h6" gutterBottom color="success.main">
+                  AI Recommendation Generated!
+                </Typography>
+                <Typography variant="body1" gutterBottom>
+                  {aiRecommendation.planName}
+                </Typography>
+                <Typography variant="body2" color="text.secondary">
+                  {aiRecommendation.aiRecommendation}
+                </Typography>
+                <Box sx={{ mt: 2, display: 'flex', gap: 2 }}>
+                  <Button 
+                    variant="contained" 
+                    onClick={handleSaveAIRecommendation}
+                    startIcon={<Save />}
+                  >
+                    Save to Meal Plan
+                  </Button>
+                  <Button 
+                    variant="outlined" 
+                    onClick={() => setAiRecommendation(null)}
+                  >
+                    Generate Another
+                  </Button>
+                </Box>
+              </Paper>
+            )}
+          </Box>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setShowShoppingList(false)}>Close</Button>
+          <Button onClick={() => setOpenAiDialog(false)}>Close</Button>
         </DialogActions>
       </Dialog>
 

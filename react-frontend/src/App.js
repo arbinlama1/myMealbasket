@@ -20,6 +20,7 @@ import Orders from './pages/Orders';
 import MealPlanner from './pages/MealPlanner';
 import AboutUs from './pages/AboutUs';
 import Contact from './pages/Contact';
+import PaymentReturnHandler from './components/PaymentReturnHandler';
 import ProtectedRoute from './components/Auth/ProtectedRoute';
 
 const theme = createTheme({
@@ -89,6 +90,12 @@ function AppRoutes() {
           }
         />
 
+        {/* ── Payment Return Route ─────────────────────────────────────────── */}
+        <Route
+          path="/payment/return"
+          element={<PaymentReturnHandler />}
+        />
+
         {/* ── Protected: VENDOR ───────────────────────────────────────────── */}
         {/* FIX: /vendor/* catches /vendor and all sub-paths */}
         <Route
@@ -123,7 +130,7 @@ function App() {
       <CssBaseline />
       {/* FIX: AuthProvider wraps Router so useAuth() works inside Router */}
       <AuthProvider>
-        <Router>
+        <Router future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
           <AppRoutes />
         </Router>
       </AuthProvider>

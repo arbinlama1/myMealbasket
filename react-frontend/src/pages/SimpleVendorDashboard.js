@@ -15,8 +15,8 @@ import {
   Person, ShoppingCart, Assessment, TrendingUp, AttachMoney,
   Logout, Add, Edit, Delete, CheckCircle,
   Store, Menu as MenuIcon, Close as CloseIcon,
-  Inventory, LocalOffer, BarChart, Dashboard, Warning, Save,
-  MenuBook,
+  Inventory, LocalOffer, BarChart, Dashboard, Warning, Refresh,
+  MenuBook, Save,
 } from '@mui/icons-material';
 
 // ── Stat Card ─────────────────────────────────────────────────────────────────
@@ -77,6 +77,10 @@ const StatusChip = ({ status }) => {
   );
 };
 
+// Backend endpoints for recipes/promotions are not implemented in this repo yet.
+const RECIPES_API_AVAILABLE = false;
+const PROMOTIONS_API_AVAILABLE = false;
+
 // ── Main Component ────────────────────────────────────────────────────────────
 const SimpleVendorDashboard = () => {
   const theme = useTheme();
@@ -97,15 +101,64 @@ const SimpleVendorDashboard = () => {
   // Recipe Management State
   const [recipes, setRecipes] = useState([]);
 
-  const [orders, setOrders] = useState([
-    { id: 1234, customer: 'John Doe', items: 'Product A, Product B', total: 1599, status: 'Pending', time: '2 mins ago' },
-    { id: 1233, customer: 'Jane Smith', items: 'Product C, Product D', total: 2250, status: 'Preparing', time: '5 mins ago' },
-    { id: 1232, customer: 'Bob Johnson', items: 'Product E', total: 875, status: 'Ready', time: '8 mins ago' },
-    { id: 1231, customer: 'Alice Brown', items: 'Product G, Product H', total: 1825, status: 'Delivered', time: '12 mins ago' },
-  ]);
+  const [orders, setOrders] = useState([]);
+  const [ordersLoading, setOrdersLoading] = useState(false);
+  const [ordersError, setOrdersError] = useState('');
+
+  // Auto-refresh orders when Orders view is selected
+  useEffect(() => {
+    if (currentView === 'orders' && vendorData?.id) {
+      refreshOrders();
+    }
+  }, [currentView, vendorData?.id]);
+
+  // Orders Management Functions
+  const refreshOrders = async () => {
+    if (!vendorData?.id) return;
+    
+    setOrdersLoading(true);
+    setOrdersError('');
+    
+    try {
+      console.log('Refreshing orders for vendor ID:', vendorData.id);
+      const ordersResponse = await vendorAPI.getOrders(vendorData.id);
+      console.log('Orders response:', ordersResponse);
+      
+      const responseData = ordersResponse?.data;
+      
+      let ordersData = [];
+      
+      if (Array.isArray(responseData)) {
+        ordersData = responseData;
+      } 
+      else if (responseData?.success && Array.isArray(responseData.data)) {
+        ordersData = responseData.data;
+      } 
+      else if (Array.isArray(responseData?.data)) {
+        ordersData = responseData.data;
+      } 
+      else {
+        console.warn('Unexpected orders response format:', ordersResponse);
+        ordersData = [];
+      }
+      
+      console.log('Final orders set:', ordersData);
+      setOrders(ordersData);
+    } catch (orderErr) {
+      console.error('Failed to refresh vendor orders:', orderErr);
+      setOrdersError('Failed to refresh orders. Please try again.');
+    } finally {
+      setOrdersLoading(false);
+    }
+  };
 
   // Recipe Management Functions
   const fetchRecipes = async () => {
+    if (!RECIPES_API_AVAILABLE) {
+      setRecipes([]);
+      return;
+    }
+
     try {
       console.log('Fetching recipes from API...');
       const response = await fetch(`http://localhost:8081/api/recipes/vendor/8`);
@@ -115,7 +168,7 @@ const SimpleVendorDashboard = () => {
       setRecipes(list);
     } catch (error) {
       console.error('Error fetching recipes:', error);
-      setError('Failed to fetch recipes');
+      setRecipes([]);
     }
   };
 
@@ -195,21 +248,49 @@ const SimpleVendorDashboard = () => {
             console.error('Failed to load vendor products:', productErr);
           }
 
-          // Load vendor orders
-          try {
-            const ordersResponse = await vendorAPI.getOrders(userProfile.id);
-            if (ordersResponse.data.success) {
-              setOrders(ordersResponse.data.data || []);
-            }
-          } catch (orderErr) {
-            console.error('Failed to load vendor orders:', orderErr);
-          }
+          // Load vendor orders (fetch all orders for this vendor)
+         try {
+  console.log('Fetching orders for vendor ID:', vendorData.id);
 
-          // Load vendor recipes
-          try {
-            await fetchRecipes();
-          } catch (recipeErr) {
-            console.error('Failed to load vendor recipes:', recipeErr);
+  const ordersResponse = await vendorAPI.getOrders(vendorData.id);
+
+  console.log('Orders response:', ordersResponse);
+
+  const responseData = ordersResponse?.data;
+
+  let ordersData = [];
+
+  if (Array.isArray(responseData)) {
+    // Case 1: backend returns raw array
+    ordersData = responseData;
+  } 
+  else if (responseData?.success && Array.isArray(responseData.data)) {
+    // Case 2: wrapped response { success: true, data: [] }
+    ordersData = responseData.data;
+  } 
+  else if (Array.isArray(responseData?.data)) {
+    // Case 3: double wrapped
+    ordersData = responseData.data;
+  } 
+  else {
+    console.warn('Unexpected orders response format:', ordersResponse);
+    ordersData = [];
+  }
+
+  console.log('Final orders set:', ordersData);
+  setOrders(ordersData);
+
+} catch (orderErr) {
+  console.error('Failed to load vendor orders:', orderErr);
+  setOrders([]);
+}
+
+          if (RECIPES_API_AVAILABLE) {
+            try {
+              await fetchRecipes();
+            } catch (recipeErr) {
+              console.error('Failed to load vendor recipes:', recipeErr);
+            }
           }
         } else {
           setError('Failed to load vendor profile. Please login again.');
@@ -237,13 +318,13 @@ const SimpleVendorDashboard = () => {
 
   // Load promotions when vendor data is available and when switching to promotions view
   useEffect(() => {
-    if (vendorData?.id) {
+    if (PROMOTIONS_API_AVAILABLE && vendorData?.id) {
       loadPromotions();
     }
   }, [vendorData?.id]);
 
   useEffect(() => {
-    if (currentView === 'promotions' && vendorData?.id) {
+    if (PROMOTIONS_API_AVAILABLE && currentView === 'promotions' && vendorData?.id) {
       loadPromotions();
     }
   }, [currentView, vendorData?.id]);
@@ -341,11 +422,33 @@ const SimpleVendorDashboard = () => {
   const handleUpdateOrderStatus = async (orderId, newStatus) => {
     try {
       console.log('Updating order status:', orderId, newStatus);
-      await vendorAPI.updateOrderStatus(vendorData.id, orderId, newStatus);
+      console.log('Vendor ID:', vendorData.id);
+      console.log('API call: vendorAPI.updateOrderStatus');
+      
+      // Show immediate UI feedback
       setOrders(prev => prev.map(o => o.id === orderId ? { ...o, status: newStatus } : o));
+      
+      const response = await vendorAPI.updateOrderStatus(vendorData.id, orderId, newStatus);
+      console.log('API response:', response);
+      
+      if (response.data && response.data.success) {
+        console.log('Order status updated successfully');
+        // Refresh orders to get latest data from backend
+        await refreshOrders();
+        
+        // Show success message
+        alert(`Order #${orderId} status updated to ${newStatus} successfully!`);
+      } else {
+        console.log('Order status update failed:', response);
+        alert(`Failed to update order status: ${response.data?.message || 'Unknown error'}`);
+        // Revert the status change if API failed
+        setOrders(prev => prev.map(o => o.id === orderId ? { ...o, status: o.status } : o));
+      }
     } catch (err) {
       console.error('Failed to update order status:', err);
       alert(`Failed to update order status: ${err.message}`);
+      // Revert the status change if API failed
+      setOrders(prev => prev.map(o => o.id === orderId ? { ...o, status: o.status } : o));
     }
   };
 
@@ -399,6 +502,12 @@ const SimpleVendorDashboard = () => {
   // ── Promotions ────────────────────────────────
   const loadPromotions = async () => {
     if (!vendorData?.id) return;
+
+    if (!PROMOTIONS_API_AVAILABLE) {
+      setPromotions([]);
+      setPromotionError('');
+      return;
+    }
     
     setPromotionLoading(true);
     setPromotionError('');
@@ -834,7 +943,32 @@ const SimpleVendorDashboard = () => {
           {/* ════════════════ ORDERS VIEW ════════════════ */}
           {currentView === 'orders' && (
             <>
-              <Typography variant="h4" fontWeight={700} sx={{ mb: 3 }}>Order Management</Typography>
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+                <Typography variant="h4" fontWeight={700}>Order Management</Typography>
+                <Button
+                  variant="contained"
+                  startIcon={<Refresh />}
+                  onClick={refreshOrders}
+                  disabled={ordersLoading}
+                >
+                  Refresh Orders
+                </Button>
+              </Box>
+
+              {ordersError && (
+                <Alert severity="error" sx={{ mb: 2 }} onClose={() => setOrdersError('')}>
+                  {ordersError}
+                </Alert>
+              )}
+
+              {ordersLoading && (
+                <Box sx={{ display: 'flex', justifyContent: 'center', py: 2 }}>
+                  <CircularProgress size={40} />
+                  <Typography variant="body2" color="text.secondary" sx={{ ml: 2 }}>
+                    Loading orders...
+                  </Typography>
+                </Box>
+              )}
 
               {/* Order Stats */}
               <Grid container spacing={2} sx={{ mb: 3 }}>
@@ -867,19 +1001,29 @@ const SimpleVendorDashboard = () => {
                     </TableRow>
                   </TableHead>
                   <TableBody>
-                    {orders.map(order => (
+                    {orders.map(order => {
+                      // Debug: Log order data structure
+                      console.log('Order data:', order);
+                      
+                      return (
                       <TableRow key={order.id} hover>
                         <TableCell sx={{ fontWeight: 700 }}>#{order.id}</TableCell>
-                        <TableCell>{order.customer || 'Customer'}</TableCell>
+                        <TableCell>
+                          {order.customer || order.customerName || order.user?.name || 'Customer'}
+                        </TableCell>
                         <TableCell>
                           <Typography variant="body2" noWrap sx={{ maxWidth: 160 }}>
-                            {order.items ? order.items.map(item => `${item.quantity}x ${item.productName}`).join(', ') : 'No items'}
+                            {order.items ? order.items.map(item => `${item.quantity}x ${item.productName || item.name}`).join(', ') : 'No items'}
                           </Typography>
                         </TableCell>
-                        <TableCell align="right" sx={{ fontWeight: 600 }}>NPR {order.totalAmount || order.total}</TableCell>
+                        <TableCell align="right" sx={{ fontWeight: 600 }}>
+                          NPR {order.totalAmount || order.total || order.amount || '0.00'}
+                        </TableCell>
                         <TableCell align="center"><StatusChip status={order.status} /></TableCell>
                         <TableCell>
-                          <Typography variant="caption" color="text.secondary">{order.time || new Date(order.createdAt).toLocaleTimeString()}</Typography>
+                          <Typography variant="caption" color="text.secondary">
+                            {order.time || new Date(order.createdAt || order.orderDate).toLocaleTimeString()}
+                          </Typography>
                         </TableCell>
                         <TableCell align="center">
                           <Box sx={{ display: 'flex', gap: 0.5, justifyContent: 'center', flexWrap: 'wrap' }}>
@@ -905,7 +1049,8 @@ const SimpleVendorDashboard = () => {
                           </Box>
                         </TableCell>
                       </TableRow>
-                    ))}
+                      );
+                    })}
                   </TableBody>
                 </Table>
               </TableContainer>
@@ -1039,6 +1184,12 @@ const SimpleVendorDashboard = () => {
               {promotionError && (
                 <Alert severity="error" sx={{ mb: 2 }} onClose={() => setPromotionError('')}>
                   {promotionError}
+                </Alert>
+              )}
+
+              {!PROMOTIONS_API_AVAILABLE && (
+                <Alert severity="info" sx={{ mb: 2 }}>
+                  Promotions backend is not available yet in this project.
                 </Alert>
               )}
 

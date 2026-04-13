@@ -180,16 +180,18 @@ export const mealPlanAPI = {
   getRecommended: () => api.get('/meal-plans/recommended'),
 };
 
-// Recipe APIs
+// Recipe APIs (using dedicated recipe endpoints)
 export const recipeAPI = {
   getAll: () => api.get('/recipes'),
   getVendorRecipes: (vendorId) => api.get(`/recipes/vendor/${vendorId}`),
   getById: (id) => api.get(`/recipes/${id}`),
-  create: (recipe) => api.post('/recipes', recipe),
+  create: (vendorId, recipe) => api.post(`/recipes/vendor/${vendorId}`, recipe),
   update: (id, recipe) => api.put(`/recipes/${id}`, recipe),
   delete: (id) => api.delete(`/recipes/${id}`),
-  search: (query) => api.get(`/recipes/search?q=${query}`),
+  search: (vendorId, query) => api.get(`/recipes/vendor/${vendorId}/search?q=${query}`),
   getByCategory: (category) => api.get(`/recipes/category/${category}`),
+  getVendorRecipesByCategory: (vendorId, category) => api.get(`/recipes/vendor/${vendorId}/category/${category}`),
+  getVendorStats: (vendorId) => api.get(`/recipes/vendor/${vendorId}/stats`),
 };
 
 /** Merge ingredients from multiple recipes into one shopping list */

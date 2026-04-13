@@ -1,74 +1,61 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-  Container, Paper, Typography, Box, Grid, Card, CardContent, Button,
-  Avatar, List, ListItem, ListItemText, ListItemIcon, Divider, Alert,
-  CircularProgress, Dialog, DialogTitle, DialogContent, DialogActions,
-  TextField, FormControl, InputLabel, Select, Table, TableBody,
-  TableCell, TableContainer, TableHead, TableRow, Chip, IconButton,
-  MenuItem, LinearProgress, Badge, Drawer, useTheme, useMediaQuery,
-  InputAdornment, ListItemButton, Rating, Snackbar, Stack, FormGroup,
-  FormControlLabel, Checkbox,
+  Box,
+  Button,
+  Card,
+  CardContent,
+  Container,
+  Grid,
+  IconButton,
+  Paper,
+  Alert,
+  Typography,
+  Avatar,
+  Chip,
+  Rating,
+  TextField,
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem,
+  Checkbox,
+  FormControlLabel,
+  FormGroup,
+  Stack,
+  MenuBook,
+  InputAdornment,
+  Divider,
+  CircularProgress,
+  LinearProgress,
+  TableContainer,
+  Table,
+  TableHead,
+  TableRow,
+  TableCell,
+  TableBody
 } from '@mui/material';
 import {
-  Person,
-  ShoppingCart,
-  Restaurant,
-  Search as SearchIcon,
-  Add,
-  Remove,
-  Delete as DeleteIcon,
-  Favorite, Dashboard,
-  Menu as MenuIcon,
-  Close as CloseIcon,
   Logout as LogoutIcon,
   Star,
   TrendingUp,
   LocalOffer,
-  Receipt,
   Mic,
   MicOff,
   Edit,
   Save,
-  MenuBook,
+  Add,
+  Remove,
+  Delete as DeleteIcon,
+  ShoppingCart,
+  Favorite,
+  Restaurant,
+  Search as SearchIcon,
   Timer,
 } from '@mui/icons-material';
 import { cartAPI, favoritesAPI, productAPI, userAPI, couponAPI } from '../services/api';
 import useVoiceSearch from '../hooks/useVoiceSearch';
-import ShoppingListGeneratorPanel from '../components/ShoppingListGenerator';
-import PaymentModal from '../components/PaymentModal';
-import paymentService from '../services/paymentService';
 
-// ── Styled Nav Card ────────────────────────────────────────────────────────────
-const NavCard = ({ icon, label, count, active, onClick, color = '#1976d2' }) => (
-  <Card
-    onClick={onClick}
-    sx={{
-      cursor: 'pointer',
-      border: active ? `2px solid ${color}` : '2px solid transparent',
-      bgcolor: active ? `${color}15` : 'background.paper',
-      transition: 'all 0.2s ease',
-      '&:hover': {
-        transform: 'translateY(-2px)',
-        boxShadow: 4,
-        border: `2px solid ${color}`,
-      },
-    }}
-  >
-    <CardContent sx={{ textAlign: 'center', py: 2, px: 1.5 }}>
-      <Box sx={{ color: active ? color : 'text.secondary', mb: 0.5 }}>
-        {count !== undefined ? (
-          <Badge badgeContent={count} color="error" max={99}>
-            {icon}
-          </Badge>
-        ) : icon}
-      </Box>
-      <Typography variant="caption" fontWeight={active ? 700 : 400} color={active ? color : 'text.secondary'}>
-        {label}
-      </Typography>
-    </CardContent>
-  </Card>
-);
 
 // ── Stat Card ──────────────────────────────────────────────────────────────────
 const StatCard = ({ label, value, icon, bgcolor, color = 'text.primary' }) => (
@@ -165,13 +152,10 @@ const API_BASE = "http://localhost:8081/api";
 
 const SimpleUserDashboard = () => {
   const navigate = useNavigate();
-  const theme = useTheme();
-  const isMobile = useMediaQuery(theme.breakpoints.down('md'));
 
   const [userData, setUserData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [currentView, setCurrentView] = useState('dashboard');
-  const [mobileDrawerOpen, setMobileDrawerOpen] = useState(false);
 
   const [vendorProducts, setVendorProducts] = useState([]);
   const [selectedProductId, setSelectedProductId] = useState(null);
@@ -199,12 +183,7 @@ const SimpleUserDashboard = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [filterCategory, setFilterCategory] = useState('all');
   const categories = ['all', 'breakfast', 'lunch', 'dinner', 'snacks', 'beverages', 'desserts'];
-  const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
-
-// Payment Modal State
-const [paymentModalOpen, setPaymentModalOpen] = useState(false);
-const [selectedPaymentMethod, setSelectedPaymentMethod] = useState('COD');
-
+  
   // Recipe States
   const [recipes, setRecipes] = useState([]);
   const [recipeSearchQuery, setRecipeSearchQuery] = useState('');
@@ -223,31 +202,15 @@ const [selectedPaymentMethod, setSelectedPaymentMethod] = useState('COD');
     deliveryAddresses: []
   });
   const [newAllergy, setNewAllergy] = useState('');
-  const [showAddAddress, setShowAddAddress] = useState(false);
-  const [newAddress, setNewAddress] = useState({
-    type: 'Home',
-    street: '',
-    city: '',
-    state: '',
-    postalCode: '',
-    phone: '',
-    isDefault: false
-  });
-
+    
   // Voice Search Hook
-  const showSnackbar = (message, severity = 'success') => {
-    setSnackbar({ open: true, message, severity });
-  };
-
   const handleVoiceResult = (processedResult) => {
     setSearchQuery(processedResult);
   };
 
   const { isListening, voiceSupported, startVoiceSearch, stopVoiceSearch } = useVoiceSearch(
     handleVoiceResult,
-    {
-      showSnackbar,
-    }
+    {}
   );
   const imageFallback = 'https://via.placeholder.com/300x200?text=No+Image';
 
@@ -384,8 +347,8 @@ const [selectedPaymentMethod, setSelectedPaymentMethod] = useState('COD');
   useEffect(() => {
     const loadRecipes = async () => {
       try {
-        // Try to get all products first
-        const response = await fetch(`${API_BASE}/products`);
+        // Try to get all recipes first
+        const response = await fetch(`${API_BASE}/recipes`);
         const data = await response.json();
         
         if (data.success && data.data) {
@@ -394,7 +357,7 @@ const [selectedPaymentMethod, setSelectedPaymentMethod] = useState('COD');
           // If general endpoint fails, try to get recipes by vendor ID
           // For demo purposes, we'll try vendor ID 8 as shown in the user's data
           try {
-            const vendorResponse = await fetch(`${API_BASE}/products/vendor/8`);
+            const vendorResponse = await fetch(`${API_BASE}/recipes/vendor/8`);
             const vendorData = await vendorResponse.json();
             if (vendorData.success && vendorData.data) {
               setRecipes(vendorData.data);
@@ -491,27 +454,6 @@ const [selectedPaymentMethod, setSelectedPaymentMethod] = useState('COD');
       alert('Cart is empty'); 
       return; 
     }
-
-    if (selectedPaymentMethod === 'ESEWA') {
-      try {
-        const purchaseOrderId = paymentService.generatePurchaseOrderId();
-        const response = await paymentService.initiateEsewaPayment(displayOrderTotal, purchaseOrderId);
-
-        if (!response.success) {
-          throw new Error(response.message || 'Failed to initiate payment');
-        }
-
-        paymentService.submitPaymentForm(response.actionUrl, response.formData);
-      } catch (error) {
-        console.error('Failed to initiate eSewa payment:', error);
-        setSnackbar({
-          open: true,
-          message: `Payment failed: ${error.message || 'Unknown error'}`,
-          severity: 'error'
-        });
-      }
-      return;
-    }
     
     // Generate unique ID for this checkout attempt
     const checkoutId = 'checkout-' + Date.now();
@@ -593,23 +535,10 @@ const [selectedPaymentMethod, setSelectedPaymentMethod] = useState('COD');
             const paymentResult = await paymentResponse.json();
             
             if (paymentResult.success) {
-              // Handle eSewa payment
+              // Redirect to eSewa payment
               const paymentData = paymentResult.data;
-              
-              if (paymentData.mockPayment) {
-                // Mock eSewa payment flow
-                console.log('Processing mock eSewa payment for order:', paymentData.orderId);
-                console.log('Amount:', paymentData.amount);
-                console.log('Mock payment message:', paymentData.message);
-                
-                // Simulate payment delay
-                await new Promise(resolve => setTimeout(resolve, 2000));
-                
-                // Mock successful payment
-                showOrderSuccessMessage(order, total, checkoutId, 'eSewa payment completed successfully!');
-              } else if (paymentData.formData) {
-                // Real eSewa form submission (for production)
-                console.log('Redirecting to eSewa for payment...');
+              if (paymentData.formData) {
+                // Submit eSewa form
                 const form = document.createElement('form');
                 form.method = 'POST';
                 form.action = paymentData.actionUrl;
@@ -722,7 +651,7 @@ const [selectedPaymentMethod, setSelectedPaymentMethod] = useState('COD');
     
     // Refresh user stats
     try {
-      const statsResponse = await fetch('http://localhost:8081/api/user/stats', {
+      const statsResponse = await fetch('http://localhost:8081/api/users/stats', {
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('token')}`
         }
@@ -889,7 +818,7 @@ const [selectedPaymentMethod, setSelectedPaymentMethod] = useState('COD');
         setCouponCodeInput(upper);
         setCouponDiscountAmount(Number(body.data.discountAmount));
         setCouponFinalTotal(Number(body.data.finalTotal));
-        showSnackbar(body.data.message || 'Coupon applied successfully', 'success');
+        console.log('Coupon applied successfully');
       } else {
         setCouponError(body?.message || 'Invalid coupon');
       }
@@ -1068,27 +997,7 @@ const [selectedPaymentMethod, setSelectedPaymentMethod] = useState('COD');
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [cartTotal, cartItems.length]);
 
-  // Navigation Items
-  const navItems = [
-    { view: 'dashboard', label: 'Dashboard', icon: <Dashboard /> },
-    { view: 'meals', label: 'Browse', icon: <Restaurant /> },
-    { view: 'recipes', label: 'Recipes', icon: <MenuBook /> },
-    { view: 'favorites', label: 'Favorites', icon: <Favorite />, count: favoriteItems.length },
-    { view: 'cart', label: 'Cart', icon: <ShoppingCart />, count: cartItems.length },
-    { view: 'orders', label: 'My Orders', icon: <Receipt />, external: true },
-    { view: 'profile', label: 'Profile', icon: <Person /> },
-  ];
-
-  const switchView = (view) => {
-    // Handle external navigation for orders
-    if (view === 'orders') {
-      navigate('/orders');
-      return;
-    }
-    setCurrentView(view);
-    setMobileDrawerOpen(false);
-  };
-
+  
   // Profile Management Handlers
   const handleSaveBudget = async () => {
     console.log('=== HANDLE SAVE BUDGET CALLED ===');
@@ -1110,13 +1019,13 @@ const [selectedPaymentMethod, setSelectedPaymentMethod] = useState('COD');
         await loadUserData();
         console.log('After loadUserData, current profileData.weeklyBudget:', profileData.weeklyBudget);
         setBudgetEditMode(false);
-        showSnackbar('Weekly budget updated successfully', 'success');
+        console.log('Weekly budget updated successfully');
       } else {
-        showSnackbar('Failed to update weekly budget: ' + (response.data.message || 'Unknown error'), 'error');
+        console.error('Failed to update weekly budget: ' + (response.data.message || 'Unknown error'));
       }
     } catch (error) {
       console.error('Error updating weekly budget:', error);
-      showSnackbar('Failed to update weekly budget. Please try again.', 'error');
+      console.error('Failed to update weekly budget. Please try again.');
       
       // Handle authentication errors specifically
       if (error.response?.status === 401) {
@@ -1162,24 +1071,17 @@ const [selectedPaymentMethod, setSelectedPaymentMethod] = useState('COD');
         // Refresh user data from backend
         await loadUserData();
         setEditMode(false);
-        showSnackbar('Profile updated successfully', 'success');
+        console.log('Profile updated successfully');
       } else {
-        showSnackbar('Failed to update profile: ' + (response.data.message || 'Unknown error'), 'error');
+        console.error('Failed to update profile: ' + (response.data.message || 'Unknown error'));
       }
     } catch (error) {
       console.error('Error updating profile:', error);
-      showSnackbar('Error updating profile', 'error');
+      console.error('Error updating profile');
     }
   };
 
-  const handleAddAddress = async () => {
-    if (newAddress.street && newAddress.city) {
-      try {
-        const addressToAdd = {
-          ...newAddress,
-          isDefault: profileData.deliveryAddresses.length === 0 || newAddress.isDefault
-        };
-        
+                
         // Send address to backend
         const response = await userAPI.addDeliveryAddress(addressToAdd);
         
@@ -1203,14 +1105,12 @@ const [selectedPaymentMethod, setSelectedPaymentMethod] = useState('COD');
             phone: '',
             isDefault: false
           });
-          setShowAddAddress(false);
-          showSnackbar('Address added successfully', 'success');
-        } else {
-          showSnackbar('Failed to add address: ' + (response.data.message || 'Unknown error'), 'error');
+                            } else {
+          console.error('Failed to add address: ' + (response.data.message || 'Unknown error'));
         }
       } catch (error) {
         console.error('Error adding address:', error);
-        showSnackbar('Failed to add address. Please try again.', 'error');
+        console.error('Failed to add address. Please try again.');
         
         // Handle authentication errors specifically
         if (error.response?.status === 401) {
@@ -1226,8 +1126,9 @@ const [selectedPaymentMethod, setSelectedPaymentMethod] = useState('COD');
   const handleRemoveAddress = (index) => {
     setProfileData(prev => ({
       ...prev,
-      deliveryAddresses: prev.deliveryAddresses.filter((_, i) => i !== index)
+      deliveryAddresses: prev.deliveryAddresses.filter((addr, i) => i !== index)
     }));
+    console.log('Address removed successfully');
   };
 
   const handleSetDefaultAddress = (index) => {
@@ -1274,100 +1175,8 @@ const [selectedPaymentMethod, setSelectedPaymentMethod] = useState('COD');
     );
   }
 
-  // ── Sidebar Content ────────────────────────────
-  const SidebarContent = () => (
-    <Box sx={{ width: 220, pt: 2 }}>
-      <Box sx={{ px: 2, pb: 2, display: 'flex', alignItems: 'center', gap: 1.5 }}>
-        <Avatar sx={{ bgcolor: 'primary.main', width: 40, height: 40 }}>
-          {userData?.name?.[0] || 'U'}
-        </Avatar>
-        <Box>
-          <Typography variant="subtitle2" fontWeight={700} noWrap>{userData?.name || 'User'}</Typography>
-          <Typography variant="caption" color="text.secondary">{userData?.role || 'USER'}</Typography>
-        </Box>
-      </Box>
-      <Divider />
-      <List dense>
-        {navItems.map(({ view, label, icon, count }) => (
-          <ListItem key={view} disablePadding>
-            <ListItemButton
-              selected={currentView === view}
-              onClick={() => switchView(view)}
-              sx={{
-                borderRadius: 1, mx: 1, my: 0.25,
-                '&.Mui-selected': { bgcolor: 'primary.50', color: 'primary.main' },
-              }}
-            >
-              <ListItemIcon sx={{ minWidth: 36, color: currentView === view ? 'primary.main' : 'inherit' }}>
-                {count !== undefined ? (
-                  <Badge badgeContent={count} color="error" max={99}>{icon}</Badge>
-                ) : icon}
-              </ListItemIcon>
-              <ListItemText primary={label} primaryTypographyProps={{ fontSize: 14, fontWeight: currentView === view ? 600 : 400 }} />
-            </ListItemButton>
-          </ListItem>
-        ))}
-      </List>
-      <Divider sx={{ mt: 1 }} />
-      <List dense>
-        <ListItem disablePadding>
-          <ListItemButton onClick={handleLogout} sx={{ borderRadius: 1, mx: 1, my: 0.25 }}>
-            <ListItemIcon sx={{ minWidth: 36 }}><LogoutIcon color="error" /></ListItemIcon>
-            <ListItemText primary="Logout" primaryTypographyProps={{ fontSize: 14, color: 'error.main' }} />
-          </ListItemButton>
-        </ListItem>
-      </List>
-    </Box>
-  );
-
   return (
-    <Box sx={{ display: 'flex', minHeight: '100vh', bgcolor: 'grey.50' }}>
-
-      {/* ── Desktop Sidebar ── */}
-      {!isMobile && (
-        <Paper
-          elevation={2}
-          sx={{
-            width: 220,
-            flexShrink: 0,
-            position: 'sticky',
-            top: 0,
-            height: '100vh',
-            overflowY: 'auto',
-            borderRadius: 0,
-          }}
-        >
-          <SidebarContent />
-        </Paper>
-      )}
-
-      {/* ── Mobile Drawer ── */}
-      {isMobile && (
-        <Drawer open={mobileDrawerOpen} onClose={() => setMobileDrawerOpen(false)}>
-          <Box sx={{ display: 'flex', justifyContent: 'flex-end', p: 1 }}>
-            <IconButton onClick={() => setMobileDrawerOpen(false)}><CloseIcon /></IconButton>
-          </Box>
-          <SidebarContent />
-        </Drawer>
-      )}
-
-      {/* ── Main Content ── */}
-      <Box sx={{ flexGrow: 1, overflow: 'auto' }}>
-
-        {/* Top Bar (mobile) */}
-        {isMobile && (
-          <Paper elevation={1} sx={{ px: 2, py: 1.5, display: 'flex', alignItems: 'center', gap: 2, borderRadius: 0, position: 'sticky', top: 0, zIndex: 100 }}>
-            <IconButton onClick={() => setMobileDrawerOpen(true)}><MenuIcon /></IconButton>
-            <Typography variant="h6" fontWeight={700} sx={{ flexGrow: 1 }}>
-              {navItems.find(n => n.view === currentView)?.label || 'Dashboard'}
-            </Typography>
-            <Badge badgeContent={cartItems.length} color="error">
-              <IconButton onClick={() => switchView('cart')}><ShoppingCart /></IconButton>
-            </Badge>
-          </Paper>
-        )}
-
-        <Container maxWidth="lg" sx={{ py: 3 }}>
+    <Container maxWidth="lg" sx={{ py: 3 }}>
 
           {/* ── Dashboard View ── */}
           {currentView === 'dashboard' && (
@@ -1378,22 +1187,6 @@ const [selectedPaymentMethod, setSelectedPaymentMethod] = useState('COD');
                 </Typography>
                 <Typography color="text.secondary">Member since {userStats.memberSince}</Typography>
               </Box>
-
-              {/* Quick Nav Cards */}
-              <Grid container spacing={2} sx={{ mb: 4 }}>
-                {navItems.filter(n => n.view !== 'dashboard').map(({ view, label, icon, count }) => (
-                  <Grid item xs={6} sm={3} key={view}>
-                    <NavCard
-                      icon={icon}
-                      label={label}
-                      count={count}
-                      active={currentView === view}
-                      onClick={() => switchView(view)}
-                      color={view === 'cart' ? '#d32f2f' : view === 'favorites' ? '#e91e63' : '#1976d2'}
-                    />
-                  </Grid>
-                ))}
-              </Grid>
 
               {/* Stat Cards */}
               <Grid container spacing={3} sx={{ mb: 4 }}>
@@ -1443,7 +1236,7 @@ const [selectedPaymentMethod, setSelectedPaymentMethod] = useState('COD');
                       </Typography>
                       <Typography color="text.secondary">Total: NPR {displayOrderTotal.toFixed(2)}</Typography>
                     </Box>
-                    <Button variant="contained" color="warning" onClick={() => switchView('cart')}>
+                    <Button variant="contained" color="warning" onClick={() => navigate('/cart')}>
                       View Cart
                     </Button>
                   </Box>
@@ -1454,7 +1247,7 @@ const [selectedPaymentMethod, setSelectedPaymentMethod] = useState('COD');
                 variant="contained"
                 size="large"
                 startIcon={<Restaurant />}
-                onClick={() => switchView('meals')}
+                onClick={() => navigate('/meals')}
                 sx={{ py: 1.5, px: 4 }}
               >
                 Browse Products
@@ -1805,7 +1598,7 @@ const [selectedPaymentMethod, setSelectedPaymentMethod] = useState('COD');
                 <Paper sx={{ p: 5, textAlign: 'center' }}>
                   <Favorite sx={{ fontSize: 64, color: 'grey.300', mb: 2 }} />
                   <Typography variant="h6" color="text.secondary" gutterBottom>No favorites yet</Typography>
-                  <Button variant="contained" onClick={() => switchView('meals')}>Browse Products</Button>
+                  <Button variant="contained" onClick={() => navigate('/meals')}>Browse Products</Button>
                 </Paper>
               ) : (
                 <Grid container spacing={3}>
@@ -1849,7 +1642,7 @@ const [selectedPaymentMethod, setSelectedPaymentMethod] = useState('COD');
                 <Paper sx={{ p: 5, textAlign: 'center' }}>
                   <ShoppingCart sx={{ fontSize: 64, color: 'grey.300', mb: 2 }} />
                   <Typography variant="h6" color="text.secondary" gutterBottom>Your cart is empty</Typography>
-                  <Button variant="contained" onClick={() => switchView('meals')}>Shop Now</Button>
+                  <Button variant="contained" onClick={() => navigate('/meals')}>Shop Now</Button>
                 </Paper>
               ) : (
                 <Grid container spacing={3}>
@@ -2020,7 +1813,7 @@ const [selectedPaymentMethod, setSelectedPaymentMethod] = useState('COD');
                       <Button variant="outlined" color="error" size="large" fullWidth sx={{ mt: 1 }} onClick={handleClearCart}>
                         🗑️ Clear Cart
                       </Button>
-                      <Button variant="text" fullWidth sx={{ mt: 1 }} onClick={() => switchView('meals')}>
+                      <Button variant="text" fullWidth sx={{ mt: 1 }} onClick={() => navigate('/meals')}>
                         Continue Shopping
                       </Button>
                     </Paper>
@@ -2245,164 +2038,6 @@ const [selectedPaymentMethod, setSelectedPaymentMethod] = useState('COD');
           )}
 
         </Container>
-      </Box>
-
-      {/* ── Product Detail Dialog ── */}
-      <Dialog open={showProductDetail} onClose={() => setShowProductDetail(false)} maxWidth="md" fullWidth>
-        {selectedProductId && (() => {
-          const product = vendorProducts.find(p => p.id === selectedProductId);
-          if (!product) return null;
-          return (
-            <>
-              <DialogTitle sx={{ fontWeight: 700 }}>{product.name}</DialogTitle>
-              <DialogContent>
-                <Grid container spacing={3}>
-                  <Grid item xs={12} sm={5}>
-                    <img
-                      src={product.image}
-                      alt={product.name}
-                      style={{ width: '100%', aspectRatio: '1', objectFit: 'cover', borderRadius: 8 }}
-                      onError={e => { e.target.src = imageFallback; }}
-                    />
-                  </Grid>
-                  <Grid item xs={12} sm={7}>
-                    <Typography variant="body2" color="text.secondary" gutterBottom>by {product.vendor}</Typography>
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
-                      <Rating
-                        value={product.rating || 0}
-                        onChange={(_, v) => v && handleRateProduct(product.id, v)}
-                        precision={0.5}
-                      />
-                      <Typography variant="caption">({product.totalRatings || 0} ratings)</Typography>
-                    </Box>
-                    <Chip label={`NPR ${product.price}`} color="success" size="medium" sx={{ mb: 2, fontWeight: 700, fontSize: 16 }} />
-                    {product.category && <Chip label={product.category} variant="outlined" size="small" sx={{ ml: 1, mb: 2 }} />}
-                    <Typography variant="subtitle2" fontWeight={700} sx={{ mt: 1 }}>Ingredients</Typography>
-                    <Typography variant="body2" color="text.secondary" gutterBottom>{product.ingredients}</Typography>
-                    <Typography variant="subtitle2" fontWeight={700} sx={{ mt: 1 }}>Nutrition</Typography>
-                    <Typography variant="body2" color="text.secondary">{product.nutrition}</Typography>
-                  </Grid>
-                </Grid>
-              </DialogContent>
-              <DialogActions sx={{ p: 2 }}>
-                <Button onClick={() => setShowProductDetail(false)}>Close</Button>
-                <Button variant="outlined" onClick={() => { handleAddToFavorites(product); setShowProductDetail(false); }} startIcon={<Favorite />}>
-                  Favorite
-                </Button>
-                <Button variant="contained" onClick={() => { handleAddToCart(product); setShowProductDetail(false); }} startIcon={<ShoppingCart />}>
-                  Add to Cart
-                </Button>
-              </DialogActions>
-            </>
-          );
-        })()}
-      </Dialog>
-
-      {/* Add Address Dialog */}
-      <Dialog open={showAddAddress} onClose={() => setShowAddAddress(false)} maxWidth="sm" fullWidth>
-        <DialogTitle>Add New Delivery Address</DialogTitle>
-        <DialogContent>
-          <Grid container spacing={2} sx={{ mt: 1 }}>
-            <Grid item xs={12}>
-              <FormControl fullWidth>
-                <InputLabel>Address Type</InputLabel>
-                <Select
-                  value={newAddress.type}
-                  label="Address Type"
-                  onChange={(e) => setNewAddress(prev => ({ ...prev, type: e.target.value }))}
-                >
-                  <MenuItem value="Home">Home</MenuItem>
-                  <MenuItem value="Work">Work</MenuItem>
-                  <MenuItem value="Other">Other</MenuItem>
-                </Select>
-              </FormControl>
-            </Grid>
-            <Grid item xs={12}>
-              <TextField
-                fullWidth
-                label="Street Address"
-                value={newAddress.street}
-                onChange={(e) => setNewAddress(prev => ({ ...prev, street: e.target.value }))}
-                multiline
-                rows={2}
-              />
-            </Grid>
-            <Grid item xs={12} sm={6}>
-              <TextField
-                fullWidth
-                label="City"
-                value={newAddress.city}
-                onChange={(e) => setNewAddress(prev => ({ ...prev, city: e.target.value }))}
-              />
-            </Grid>
-            <Grid item xs={12} sm={6}>
-              <TextField
-                fullWidth
-                label="State/Province"
-                value={newAddress.state}
-                onChange={(e) => setNewAddress(prev => ({ ...prev, state: e.target.value }))}
-              />
-            </Grid>
-            <Grid item xs={12} sm={6}>
-              <TextField
-                fullWidth
-                label="Postal Code"
-                value={newAddress.postalCode}
-                onChange={(e) => setNewAddress(prev => ({ ...prev, postalCode: e.target.value }))}
-              />
-            </Grid>
-            <Grid item xs={12} sm={6}>
-              <TextField
-                fullWidth
-                label="Phone Number"
-                value={newAddress.phone}
-                onChange={(e) => setNewAddress(prev => ({ ...prev, phone: e.target.value }))}
-              />
-            </Grid>
-            <Grid item xs={12}>
-              <FormControlLabel
-                control={
-                  <Checkbox
-                    checked={newAddress.isDefault}
-                    onChange={(e) => setNewAddress(prev => ({ ...prev, isDefault: e.target.checked }))}
-                  />
-                }
-                label="Set as default address"
-              />
-            </Grid>
-          </Grid>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setShowAddAddress(false)}>Cancel</Button>
-          <Button variant="contained" onClick={handleAddAddress}>Add Address</Button>
-        </DialogActions>
-      </Dialog>
-      
-      {/* Voice Search Snackbar */}
-      <Snackbar
-        open={snackbar.open}
-        autoHideDuration={3000}
-        onClose={() => setSnackbar(prev => ({ ...prev, open: false }))}
-      >
-        <Alert 
-          severity={snackbar.severity} 
-          onClose={() => setSnackbar(prev => ({ ...prev, open: false }))}
-        >
-          {snackbar.message}
-        </Alert>
-      </Snackbar>
-
-      {/* Payment Modal */}
-      <PaymentModal
-        open={paymentModalOpen}
-        onClose={() => setPaymentModalOpen(false)}
-        amount={displayOrderTotal}
-        cartItems={cartItems}
-        onPaymentSuccess={handlePaymentSuccess}
-        onPaymentFailed={handlePaymentFailed}
-      />
-
-          </Box>
   );
 };
 

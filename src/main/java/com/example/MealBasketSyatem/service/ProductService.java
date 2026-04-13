@@ -59,4 +59,8 @@ public class ProductService {
 		return productRepo.findByName(name);
 	}
 
+	// ✅ Find products by name (alias for consistency)
+	public List<Product> findByName(String name) {
+		return productRepo.findByName(name);
+	}
 }

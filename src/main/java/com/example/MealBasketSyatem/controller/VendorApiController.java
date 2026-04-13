@@ -23,7 +23,7 @@ import java.util.Map;
  */
 @RestController
 @RequestMapping("/api/vendor")
-@CrossOrigin(origins = {"http://localhost:3000", "http://localhost:3001"})
+@CrossOrigin(origins = {"http://localhost:3000", "http://localhost:3001", "http://localhost:3002", "http://localhost:3003"})
 public class VendorApiController {
 
     @Autowired
@@ -225,6 +225,18 @@ public class VendorApiController {
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(ApiResponse.error("Failed to retrieve vendor orders: " + e.getMessage()));
+        }
+    }
+    
+    // Create test orders for demonstration
+    @PostMapping("/{vendorId}/create-test-orders")
+    public ResponseEntity<ApiResponse<String>> createTestOrders(@PathVariable Long vendorId) {
+        try {
+            orderService.createTestOrders(vendorId);
+            return ResponseEntity.ok(ApiResponse.success("Test orders created successfully", "Test orders created"));
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(ApiResponse.error("Failed to create test orders: " + e.getMessage()));
         }
     }
 

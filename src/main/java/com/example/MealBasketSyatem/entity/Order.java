@@ -23,10 +23,12 @@ public class Order {
 	// New fields for proper order management
 	@ManyToOne
 	@JoinColumn(name="UserId")
+	@JsonIgnore
 	private User user;
 	
 	@ManyToOne
 	@JoinColumn(name="VendorId")
+	@JsonIgnore
 	private Vendor vendor;
 	
 	@Column(name="total_amount")
@@ -34,6 +36,12 @@ public class Order {
 	
 	@Column(name="status")
 	private String status; // PENDING, CONFIRMED, PREPARING, READY, DELIVERED, CANCELLED
+	
+	@Column(name="payment_status")
+	private String paymentStatus; // PENDING, SUCCESS, FAILED
+	
+	@Column(name="payment_method")
+	private String paymentMethod; // COD, ESEWA, KHALTI
 	
 	@Column(name="delivery_address")
 	private String deliveryAddress;
@@ -120,6 +128,24 @@ public class Order {
 
 	public void setStatus(String status) {
 		this.status = status;
+		this.updatedAt = LocalDateTime.now();
+	}
+
+	public String getPaymentStatus() {
+		return paymentStatus != null ? paymentStatus : "PENDING";
+	}
+
+	public void setPaymentStatus(String paymentStatus) {
+		this.paymentStatus = paymentStatus;
+		this.updatedAt = LocalDateTime.now();
+	}
+
+	public String getPaymentMethod() {
+		return paymentMethod != null ? paymentMethod : "COD";
+	}
+
+	public void setPaymentMethod(String paymentMethod) {
+		this.paymentMethod = paymentMethod;
 		this.updatedAt = LocalDateTime.now();
 	}
 

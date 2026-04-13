@@ -25,6 +25,9 @@ public class OrderService {
 	private OrderRepo orderRepo; // Legacy repository
 	
 	@Autowired
+	private com.example.MealBasketSyatem.repo.VendorRepo vendorRepo;
+	
+	@Autowired
 	private UserService userService;
 	
 	@Autowired
@@ -145,6 +148,66 @@ public class OrderService {
 
 	public Order getOrderById(Long orderId) {
 		return orderRepository.findById(orderId).orElse(null);
+	}
+	
+	// Create test orders for demonstration
+	public void createTestOrders(Long vendorId) {
+		try {
+			// Create test order 1
+			Order order1 = new Order();
+			User user1 = userService.getUserById(1L);
+			Vendor vendor1 = vendorRepo.findById(vendorId).orElse(null);
+			
+			if (user1 != null && vendor1 != null) {
+				order1.setUser(user1);
+				order1.setVendor(vendor1);
+				order1.setTotalAmount(450.0);
+				order1.setStatus("PENDING");
+				order1.setPaymentStatus("PENDING");
+				order1.setDeliveryAddress("Test Address 1");
+				order1.setPhone("9876543210");
+				order1.setNotes("Test order 1");
+				order1.setCreatedAt(LocalDateTime.now());
+				order1.setUpdatedAt(LocalDateTime.now());
+				orderRepository.save(order1);
+			}
+			
+			// Create test order 2
+			Order order2 = new Order();
+			if (user1 != null && vendor1 != null) {
+				order2.setUser(user1);
+				order2.setVendor(vendor1);
+				order2.setTotalAmount(300.0);
+				order2.setStatus("PREPARING");
+				order2.setPaymentStatus("SUCCESS");
+				order2.setDeliveryAddress("Test Address 2");
+				order2.setPhone("9876543211");
+				order2.setNotes("Test order 2");
+				order2.setCreatedAt(LocalDateTime.now().minusHours(2));
+				order2.setUpdatedAt(LocalDateTime.now().minusHours(1));
+				orderRepository.save(order2);
+			}
+			
+			// Create test order 3
+			Order order3 = new Order();
+			if (user1 != null && vendor1 != null) {
+				order3.setUser(user1);
+				order3.setVendor(vendor1);
+				order3.setTotalAmount(600.0);
+				order3.setStatus("READY");
+				order3.setPaymentStatus("SUCCESS");
+				order3.setDeliveryAddress("Test Address 3");
+				order3.setPhone("9876543212");
+				order3.setNotes("Test order 3");
+				order3.setCreatedAt(LocalDateTime.now().minusHours(4));
+				order3.setUpdatedAt(LocalDateTime.now().minusHours(3));
+				orderRepository.save(order3);
+			}
+			
+		} catch (Exception e) {
+			System.err.println("Error creating test orders: " + e.getMessage());
+			e.printStackTrace();
+		}
 	}
 }
 

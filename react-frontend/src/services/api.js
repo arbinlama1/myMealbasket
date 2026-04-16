@@ -203,8 +203,8 @@ export const shoppingListAPI = {
 /** Discount coupons at checkout */
 export const couponAPI = {
   apply: ({ couponCode, cartTotal }) =>
-    api.post('/coupons/apply', { couponCode, cartTotal }),
-  getActive: () => api.get('/coupons/active'),
+    api.post('/promotions/apply', { couponCode, cartTotal }),
+  getActive: () => api.get('/promotions/active'),
 };
 
 // Stock Alert APIs

@@ -34,6 +34,10 @@ public class PromotionService {
         return promotionRepo.findByIsActiveTrueAndStartDateLessThanEqualAndExpiryDateGreaterThanEqual(today, today);
     }
 
+    public List<Promotion> getAllPromotions() {
+        return promotionRepo.findAll();
+    }
+
     public Promotion updatePromotion(Promotion promotion) {
         return promotionRepo.save(promotion);
     }

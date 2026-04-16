@@ -51,6 +51,27 @@ public class PromotionController {
         }
     }
 
+    @GetMapping("/admin/all")
+    public ResponseEntity<ApiResponse<List<Promotion>>> getAllPromotions() {
+        try {
+            Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+            if (auth == null || !auth.isAuthenticated() || auth instanceof AnonymousAuthenticationToken) {
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                        .body(ApiResponse.error("User not authenticated"));
+            }
+            if (auth.getAuthorities().stream().noneMatch(a -> "ROLE_ADMIN".equals(a.getAuthority()))) {
+                return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                        .body(ApiResponse.error("Access denied. Admin role required."));
+            }
+
+            List<Promotion> promotions = promotionService.getAllPromotions();
+            return ResponseEntity.ok(ApiResponse.success("All promotions retrieved successfully", promotions));
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(ApiResponse.error("Failed to retrieve promotions: " + e.getMessage()));
+        }
+    }
+
     @GetMapping("/{id}")
     public ResponseEntity<ApiResponse<Promotion>> getPromotionById(@PathVariable Long id) {
         return promotionService.getPromotionById(id)
@@ -159,6 +180,30 @@ public class PromotionController {
 
             promotionService.deletePromotion(id);
             return ResponseEntity.ok(ApiResponse.success("Promotion deleted successfully", null));
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(ApiResponse.error("Failed to delete promotion: " + e.getMessage()));
+        }
+    }
+
+    @DeleteMapping("/admin/{id}")
+    public ResponseEntity<ApiResponse<?>> deletePromotionByAdmin(@PathVariable Long id) {
+        try {
+            Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+            if (auth == null || !auth.isAuthenticated() || auth instanceof AnonymousAuthenticationToken) {
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                        .body(ApiResponse.error("User not authenticated"));
+            }
+            if (auth.getAuthorities().stream().noneMatch(a -> "ROLE_ADMIN".equals(a.getAuthority()))) {
+                return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                        .body(ApiResponse.error("Access denied. Admin role required."));
+            }
+
+            promotionService.getPromotionById(id)
+                    .orElseThrow(() -> new RuntimeException("Promotion not found"));
+
+            promotionService.deletePromotion(id);
+            return ResponseEntity.ok(ApiResponse.success("Promotion deleted successfully by admin", null));
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(ApiResponse.error("Failed to delete promotion: " + e.getMessage()));

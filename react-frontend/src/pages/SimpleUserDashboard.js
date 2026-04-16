@@ -883,15 +883,15 @@ const [selectedPaymentMethod, setSelectedPaymentMethod] = useState('COD');
         cartTotal: Number(cartTotal.toFixed(2)),
       });
       const body = res.data;
-      if (body?.success && body.data?.success) {
+      if (body?.success && body.data) {
         const upper = code.toUpperCase();
         setAppliedCouponCode(upper);
         setCouponCodeInput(upper);
-        setCouponDiscountAmount(Number(body.data.discountAmount));
-        setCouponFinalTotal(Number(body.data.finalTotal));
-        showSnackbar(body.data.message || 'Coupon applied successfully', 'success');
+        setCouponDiscountAmount(Number(body.data.discount || 0));
+        setCouponFinalTotal(Number(body.data.finalAmount || cartTotal));
+        showSnackbar(body.message || 'Promotion applied successfully', 'success');
       } else {
-        setCouponError(body?.message || 'Invalid coupon');
+        setCouponError(body?.message || 'Invalid promotion code');
       }
     } catch (e) {
       setCouponError(e.response?.data?.message || e.message || 'Could not apply coupon');
@@ -1043,15 +1043,15 @@ const [selectedPaymentMethod, setSelectedPaymentMethod] = useState('COD');
         });
         const body = res.data;
         if (cancelled) return;
-        if (body?.success && body.data?.success) {
-          setCouponDiscountAmount(Number(body.data.discountAmount));
-          setCouponFinalTotal(Number(body.data.finalTotal));
+        if (body?.success && body.data) {
+          setCouponDiscountAmount(Number(body.data.discount || 0));
+          setCouponFinalTotal(Number(body.data.finalAmount || cartTotal));
           setCouponError('');
         } else {
           setAppliedCouponCode(null);
           setCouponDiscountAmount(0);
           setCouponFinalTotal(null);
-          setCouponError(body?.message || 'Coupon no longer applies to this cart.');
+          setCouponError(body?.message || 'Promotion code no longer applies to this cart.');
         }
       } catch (e) {
         if (cancelled) return;
@@ -1948,12 +1948,12 @@ const [selectedPaymentMethod, setSelectedPaymentMethod] = useState('COD');
                           <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5, mt: 0.75 }}>
                             {activeCoupons.map((c) => (
                               <Chip
-                                key={c.code}
+                                key={c.couponCode}
                                 size="small"
                                 icon={<LocalOffer fontSize="small" />}
-                                label={c.code}
+                                label={c.couponCode}
                                 onClick={() => {
-                                  setCouponCodeInput(String(c.code).toUpperCase());
+                                  setCouponCodeInput(String(c.couponCode).toUpperCase());
                                   setCouponError('');
                                 }}
                                 variant="outlined"

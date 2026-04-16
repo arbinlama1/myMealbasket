@@ -77,9 +77,9 @@ const StatusChip = ({ status }) => {
   );
 };
 
-// Backend endpoints for recipes/promotions are not implemented in this repo yet.
+// Backend endpoints for recipes/promotions are now implemented.
 const RECIPES_API_AVAILABLE = false;
-const PROMOTIONS_API_AVAILABLE = false;
+const PROMOTIONS_API_AVAILABLE = true;
 
 // ── Main Component ────────────────────────────────────────────────────────────
 const SimpleVendorDashboard = () => {
@@ -575,8 +575,14 @@ const SimpleVendorDashboard = () => {
   };
 
   const handleTogglePromotion = async (id) => {
+    console.log('Toggling promotion with id:', id, 'type:', typeof id);
+    if (!id || isNaN(id)) {
+      showToast('Invalid promotion ID', 'error');
+      return;
+    }
     try {
       const response = await promotionAPI.togglePromotionStatus(id);
+      console.log('Toggle response:', response);
       if (response.data.success) {
         showToast('Promotion status updated successfully', 'success');
         await loadPromotions(); // Refresh the list
@@ -585,6 +591,7 @@ const SimpleVendorDashboard = () => {
       }
     } catch (error) {
       console.error('Error toggling promotion:', error);
+      console.error('Error response:', error.response);
       showToast(error.response?.data?.message || 'Failed to update promotion status', 'error');
     }
   };

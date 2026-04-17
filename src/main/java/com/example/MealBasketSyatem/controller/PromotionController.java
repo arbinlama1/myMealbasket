@@ -256,7 +256,7 @@ public class PromotionController {
                     .orElseThrow(() -> new RuntimeException("Promotion code not found"));
 
             LocalDate today = LocalDate.now();
-            if (!promotion.getIsActive() || promotion.getStartDate().isAfter(today) || promotion.getExpiryDate().isBefore(today)) {
+            if (!promotion.getIsActive() || promotion.getStartDate().isAfter(today) || !promotion.getExpiryDate().isAfter(today)) {
                 return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                         .body(ApiResponse.error("Promotion is not active"));
             }
@@ -318,6 +318,32 @@ public class PromotionController {
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(ApiResponse.error("Failed to retrieve promotion stats: " + e.getMessage()));
+        }
+    }
+
+    @PostMapping("/admin/deactivate-expired")
+    public ResponseEntity<ApiResponse<Map<String, Object>>> deactivateExpiredPromotions() {
+        try {
+            Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+            if (auth == null || !auth.isAuthenticated() || auth instanceof AnonymousAuthenticationToken) {
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                        .body(ApiResponse.error("User not authenticated"));
+            }
+            if (auth.getAuthorities().stream().noneMatch(a -> "ROLE_ADMIN".equals(a.getAuthority()))) {
+                return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                        .body(ApiResponse.error("Access denied. Admin role required."));
+            }
+
+            promotionService.deactivateExpiredPromotions();
+            
+            Map<String, Object> response = new HashMap<>();
+            response.put("message", "Expired promotions deactivated successfully");
+            response.put("timestamp", LocalDate.now());
+            
+            return ResponseEntity.ok(ApiResponse.success("Expired promotions deactivated successfully", response));
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(ApiResponse.error("Failed to deactivate expired promotions: " + e.getMessage()));
         }
     }
 }

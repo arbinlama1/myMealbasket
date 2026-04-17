@@ -20,4 +20,6 @@ public interface PromotionRepo extends JpaRepository<Promotion, Long> {
     List<Promotion> findByIsActiveTrueAndExpiryDateBetween(LocalDate from, LocalDate to);
 
     long countByVendorIdAndIsActiveTrue(Long vendorId);
+
+    List<Promotion> findByIsActiveTrueAndExpiryDateLessThanEqual(LocalDate date);
 }

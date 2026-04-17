@@ -8,7 +8,7 @@ import {
   TableCell, TableContainer, TableHead, TableRow, Chip, IconButton,
   MenuItem, LinearProgress, Badge, Drawer, useTheme, useMediaQuery,
   InputAdornment, ListItemButton, Rating, Snackbar, Stack, FormGroup,
-  FormControlLabel, Checkbox,
+  FormControlLabel, Checkbox, Popover,
 } from '@mui/material';
 import {
   Person,
@@ -185,6 +185,8 @@ const SimpleUserDashboard = () => {
   const [couponError, setCouponError] = useState('');
   const [couponApplyLoading, setCouponApplyLoading] = useState(false);
   const [activeCoupons, setActiveCoupons] = useState([]);
+  const [couponHoverAnchor, setCouponHoverAnchor] = useState(null);
+  const [couponHoverData, setCouponHoverData] = useState(null);
   const [favoriteItems, setFavoriteItems] = useState([]);
   const [favoriteProductIds, setFavoriteProductIds] = useState(new Set());
   const [userStats, setUserStats] = useState({
@@ -908,6 +910,20 @@ const [selectedPaymentMethod, setSelectedPaymentMethod] = useState('COD');
     setCouponCodeInput('');
   };
 
+  // ── Coupon Hover Handler ───────────────────────
+  const handleCouponClick = useCallback((event, coupon) => {
+    console.log('🔍 Showing coupon details:', coupon);
+    setCouponHoverAnchor(event.currentTarget);
+    setCouponHoverData(coupon);
+  }, []);
+
+  const handleCloseCouponPopover = useCallback(() => {
+    setCouponHoverAnchor(null);
+    setCouponHoverData(null);
+  }, []);
+
+  const couponPopoverOpen = Boolean(couponHoverAnchor) && Boolean(couponHoverData);
+
   // ── Favorites Functions ────────────────────────
   const handleAddToFavorites = async (product) => {
     if (favoriteProductIds.has(product.id)) { 
@@ -1020,17 +1036,25 @@ const [selectedPaymentMethod, setSelectedPaymentMethod] = useState('COD');
   useEffect(() => {
     if (currentView !== 'cart') return;
     let cancelled = false;
-    couponAPI
-      .getActive()
-      .then((res) => {
-        if (cancelled || !res.data?.success || !Array.isArray(res.data.data)) return;
-        setActiveCoupons(res.data.data);
-      })
-      .catch(() => {});
+    
+    // Only load coupons if list is empty
+    if (activeCoupons.length === 0) {
+      couponAPI
+        .getActive()
+        .then((res) => {
+          if (cancelled || !res.data?.success || !Array.isArray(res.data.data)) return;
+          console.log('📋 Active coupons loaded:', res.data.data);
+          setActiveCoupons(res.data.data);
+        })
+        .catch((err) => {
+          console.error('❌ Failed to load active coupons:', err);
+        });
+    }
+    
     return () => {
       cancelled = true;
     };
-  }, [currentView]);
+  }, [currentView, activeCoupons.length]);
 
   useEffect(() => {
     if (!appliedCouponCode || cartItems.length === 0) return;
@@ -1948,16 +1972,13 @@ const [selectedPaymentMethod, setSelectedPaymentMethod] = useState('COD');
                           <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5, mt: 0.75 }}>
                             {activeCoupons.map((c) => (
                               <Chip
-                                key={c.couponCode}
+                                key={c.couponCode || c.code}
                                 size="small"
                                 icon={<LocalOffer fontSize="small" />}
-                                label={c.couponCode}
-                                onClick={() => {
-                                  setCouponCodeInput(String(c.couponCode).toUpperCase());
-                                  setCouponError('');
-                                }}
+                                label={c.couponCode || c.code}
+                                onClick={(e) => handleCouponClick(e, c)}
                                 variant="outlined"
-                                sx={{ cursor: 'pointer' }}
+                                sx={{ cursor: 'pointer', '&:hover': { bgcolor: 'action.hover' } }}
                               />
                             ))}
                           </Box>
@@ -1969,7 +1990,21 @@ const [selectedPaymentMethod, setSelectedPaymentMethod] = useState('COD');
                       </Box>
                       {hasAppliedCoupon && couponDiscountAmount > 0 && (
                         <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
-                          <Typography color="success.main">Discount ({appliedCouponCode})</Typography>
+                          <Box 
+                            onClick={(e) => {
+                              const appliedCoupon = activeCoupons.find(c => c.couponCode === appliedCouponCode);
+                              if (!appliedCoupon) return;
+                              handleCouponClick(e, appliedCoupon);
+                            }}
+                            sx={{ cursor: 'pointer' }}
+                          >
+                            <Typography 
+                              color="success.main"
+                              sx={{ '&:hover': { textDecoration: 'underline' } }}
+                            >
+                              Discount ({appliedCouponCode})
+                            </Typography>
+                          </Box>
                           <Typography color="success.main">− NPR {Number(couponDiscountAmount).toFixed(2)}</Typography>
                         </Box>
                       )}
@@ -2027,6 +2062,155 @@ const [selectedPaymentMethod, setSelectedPaymentMethod] = useState('COD');
                   </Grid>
                 </Grid>
               )}
+
+              {/* Coupon Details Popover */}
+              <Popover
+                open={couponPopoverOpen}
+                anchorEl={couponHoverAnchor}
+                onClose={handleCloseCouponPopover}
+                anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+                transformOrigin={{ vertical: 'top', horizontal: 'center' }}
+                disableRestoreFocus
+                disableEnforceFocus
+                slotProps={{
+                  backdrop: { sx: { display: 'none' } }
+                }}
+                ModalProps={{
+                  disableEnforceFocus: true
+                }}
+                PaperProps={{
+                  sx: { borderRadius: 2, boxShadow: 4 }
+                }}
+              >
+                {couponHoverData && (
+                  <Paper sx={{ p: 2.5, maxWidth: 380, bgcolor: 'background.paper' }}>
+                    {/* Header with Code */}
+                    <Box sx={{ mb: 2 }}>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+                        <LocalOffer sx={{ color: 'primary.main', fontSize: 24 }} />
+                        <Box>
+                          <Typography variant="h6" fontWeight={800} sx={{ color: 'primary.main' }}>
+                            {couponHoverData.couponCode}
+                          </Typography>
+                          {couponHoverData.title && (
+                            <Typography variant="caption" color="text.secondary">
+                              {couponHoverData.title}
+                            </Typography>
+                          )}
+                        </Box>
+                      </Box>
+                    </Box>
+
+                    {/* Description */}
+                    {couponHoverData.description && (
+                      <>
+                        <Typography variant="body2" sx={{ mb: 2, color: 'text.secondary', fontStyle: 'italic' }}>
+                          "{couponHoverData.description}"
+                        </Typography>
+                        <Divider sx={{ mb: 2 }} />
+                      </>
+                    )}
+
+                    {/* Details Grid */}
+                    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+                      {/* Discount Amount */}
+                      {couponHoverData.discountValue !== undefined && couponHoverData.discountType && (
+                        <Box sx={{ 
+                          p: 1.5, 
+                          bgcolor: 'success.lighter || rgba(76, 175, 80, 0.1)', 
+                          borderRadius: 1.5,
+                          border: '1px solid rgba(76, 175, 80, 0.3)'
+                        }}>
+                          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <Typography variant="subtitle2" fontWeight={600} color="text.secondary">
+                              💰 Discount
+                            </Typography>
+                            <Typography 
+                              variant="h6" 
+                              fontWeight={700} 
+                              sx={{ color: 'success.main' }}
+                            >
+                              {couponHoverData.discountType === 'PERCENT' || couponHoverData.discountType === 'PERCENTAGE'
+                                ? `${couponHoverData.discountValue}%` 
+                                : `NPR ${couponHoverData.discountValue}`}
+                            </Typography>
+                          </Box>
+                        </Box>
+                      )}
+
+                      {/* Minimum Order Amount */}
+                      {couponHoverData.minOrderAmount && couponHoverData.minOrderAmount > 0 && (
+                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                          <Typography variant="body2" color="text.secondary">
+                            🛒 Minimum Order
+                          </Typography>
+                          <Typography variant="body2" fontWeight={600}>
+                            NPR {couponHoverData.minOrderAmount}
+                          </Typography>
+                        </Box>
+                      )}
+
+                      {/* Validity Period */}
+                      <Box>
+                        <Typography variant="caption" fontWeight={700} color="text.secondary" display="block" sx={{ mb: 1 }}>
+                          📅 Valid Period
+                        </Typography>
+                        <Box sx={{ display: 'flex', gap: 2, ml: 1 }}>
+                          {couponHoverData.startDate && (
+                            <Box>
+                              <Typography variant="caption" color="text.secondary">
+                                From:
+                              </Typography>
+                              <Typography variant="body2" fontWeight={600}>
+                                {new Date(couponHoverData.startDate).toLocaleDateString('en-US', { 
+                                  year: 'numeric', 
+                                  month: 'short', 
+                                  day: 'numeric' 
+                                })}
+                              </Typography>
+                            </Box>
+                          )}
+                          {couponHoverData.expiryDate && (
+                            <Box>
+                              <Typography variant="caption" color="text.secondary">
+                                To:
+                              </Typography>
+                              <Typography 
+                                variant="body2" 
+                                fontWeight={600}
+                                sx={{ 
+                                  color: new Date(couponHoverData.expiryDate) < new Date() ? 'error.main' : 'text.primary'
+                                }}
+                              >
+                                {new Date(couponHoverData.expiryDate).toLocaleDateString('en-US', { 
+                                  year: 'numeric', 
+                                  month: 'short', 
+                                  day: 'numeric' 
+                                })}
+                              </Typography>
+                            </Box>
+                          )}
+                        </Box>
+                      </Box>
+
+                      {/* Status */}
+                      {couponHoverData.isActive !== undefined && (
+                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mt: 1 }}>
+                          <Typography variant="body2" color="text.secondary">
+                            Status
+                          </Typography>
+                          <Chip
+                            label={couponHoverData.isActive ? 'Active ✓' : 'Expired'}
+                            color={couponHoverData.isActive ? 'success' : 'error'}
+                            size="small"
+                            sx={{ fontWeight: 700 }}
+                          />
+                        </Box>
+                      )}
+                    </Box>
+                  </Paper>
+                )}
+              </Popover>
             </>
           )}
 

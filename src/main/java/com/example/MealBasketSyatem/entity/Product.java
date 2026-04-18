@@ -46,6 +46,9 @@ public class Product {
 	@Column(name="total_ratings", columnDefinition="int default 0")
 	private Integer totalRatings = 0;
 
+	@Column(name="review_count", columnDefinition="int default 0")
+	private Integer reviewCount = 0;
+
 	@Transient
 	private Integer orderCount;
 
@@ -87,6 +90,9 @@ public class Product {
 
 	public Integer getTotalRatings() { return totalRatings; }
 	public void setTotalRatings(Integer totalRatings) { this.totalRatings = totalRatings; }
+
+	public Integer getReviewCount() { return reviewCount; }
+	public void setReviewCount(Integer reviewCount) { this.reviewCount = reviewCount; }
 
 	public Vendor getVendor() { return vendor; }
 	public void setVendor(Vendor vendor) { this.vendor = vendor; }

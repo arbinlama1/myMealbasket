@@ -13,7 +13,7 @@ import {
   CircularProgress,
   Alert,
   IconButton,
-  useTheme,
+  Snackbar,
 } from '@mui/material';
 import {
   ShoppingCart,
@@ -29,13 +29,15 @@ import { productAPI } from '../services/api';
 const ProductDetail = () => {
   const { id } = useParams();
   const navigate = useNavigate();
-  const theme = useTheme();
 
   const [product, setProduct] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [quantity, setQuantity] = useState(1);
   const [isFavorite, setIsFavorite] = useState(false);
+  const [toastOpen, setToastOpen] = useState(false);
+  const [toastMessage, setToastMessage] = useState('');
+  const [toastSeverity, setToastSeverity] = useState('success');
   const isLoggedIn = !!localStorage.getItem('token'); // true if user logged in
 
   useEffect(() => {
@@ -59,13 +61,6 @@ const ProductDetail = () => {
     }
   };
 
-  const handleAddToCart = () => {
-    // Handle add to cart logic
-    console.log('Adding to cart:', { product, quantity });
-    // Show success message
-    alert(`Added ${quantity} x ${product?.name} to cart!`);
-  };
-
   const handleToggleFavorite = () => {
     setIsFavorite(!isFavorite);
     // Handle favorite logic
@@ -82,7 +77,7 @@ const ProductDetail = () => {
     } else {
       // Fallback: copy to clipboard
       navigator.clipboard.writeText(window.location.href);
-      alert('Product link copied to clipboard!');
+      setToastMessage('Product link copied to clipboard!'); setToastSeverity('success'); setToastOpen(true);
     }
   };
 
@@ -316,6 +311,17 @@ const ProductDetail = () => {
           </Box>
         </Grid>
       </Grid>
+
+      <Snackbar
+        open={toastOpen}
+        autoHideDuration={2000}
+        onClose={() => setToastOpen(false)}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+      >
+        <Alert severity={toastSeverity} onClose={() => setToastOpen(false)}>
+          {toastMessage}
+        </Alert>
+      </Snackbar>
     </Container>
   );
 };

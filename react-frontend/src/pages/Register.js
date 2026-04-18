@@ -15,6 +15,7 @@ import {
   FormControlLabel,
   FormControl,
   FormLabel,
+  Snackbar,
 } from '@mui/material';
 import {
   Person,
@@ -47,6 +48,9 @@ const Register = () => {
   });
 
   const [formErrors, setFormErrors] = useState({});
+  const [toastOpen, setToastOpen] = useState(false);
+  const [toastMessage, setToastMessage] = useState('');
+  const [toastSeverity, setToastSeverity] = useState('success');
 
   // Simple validation function
   const validateForm = () => {
@@ -164,7 +168,7 @@ const Register = () => {
             phone: !!vendorData.phone,
             address: !!vendorData.address
           });
-          alert('Please fill in all required vendor fields');
+          setToastMessage('Please fill in all required vendor fields'); setToastSeverity('error'); setToastOpen(true);
           return;
         }
         
@@ -219,7 +223,7 @@ const Register = () => {
             email: !!userData.email,
             password: !!userData.password
           });
-          alert('Please fill in all required fields');
+          setToastMessage('Please fill in all required fields'); setToastSeverity('error'); setToastOpen(true);
           return;
         }
         
@@ -268,7 +272,7 @@ const Register = () => {
         console.log('Registration successful for:', userType);
         
         // Show success message
-        alert(`Registration successful! Please login to continue.`);
+        setToastMessage('Registration successful! Please login to continue.'); setToastSeverity('success'); setToastOpen(true);
         
         // Reset form completely
         setFormData({
@@ -291,7 +295,7 @@ const Register = () => {
       } else {
         console.error('=== REGISTRATION FAILED ===');
         console.error('Registration error:', result);
-        alert(`Registration failed: ${errorMsg}`);
+        setToastMessage(`Registration failed: ${errorMsg}`); setToastSeverity('error'); setToastOpen(true);
       }
     } catch (error) {
       console.error('=== REGISTRATION EXCEPTION ===');
@@ -303,7 +307,7 @@ const Register = () => {
       
       const errorMsg = error.response?.data?.error || error.message || 'Registration failed';
       console.error('Final error message:', errorMsg);
-      alert('Registration failed: ' + errorMsg);
+      setToastMessage('Registration failed: ' + errorMsg); setToastSeverity('error'); setToastOpen(true);
     }
   };
 
@@ -532,6 +536,17 @@ const Register = () => {
           </Box>
         </Paper>
       </Box>
+
+      <Snackbar
+        open={toastOpen}
+        autoHideDuration={2000}
+        onClose={() => setToastOpen(false)}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+      >
+        <Alert severity={toastSeverity} onClose={() => setToastOpen(false)}>
+          {toastMessage}
+        </Alert>
+      </Snackbar>
     </Container>
   );
 };

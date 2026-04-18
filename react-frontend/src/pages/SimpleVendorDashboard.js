@@ -180,11 +180,11 @@ const SimpleVendorDashboard = () => {
           setEditGoalDialogOpen(false);
           console.log('Revenue goal saved to backend:', tempRevenueGoal);
         } else {
-          alert('Failed to save revenue goal: ' + (response.data?.message || 'Unknown error'));
+          showToast('Failed to save revenue goal: ' + (response.data?.message || 'Unknown error'), 'error');
         }
       } catch (error) {
         console.error('Error saving revenue goal:', error);
-        alert('Failed to save revenue goal. Please try again.');
+        showToast('Failed to save revenue goal. Please try again.', 'error');
       }
     }
   };
@@ -408,8 +408,8 @@ const SimpleVendorDashboard = () => {
   const handlePhotoChange = (e) => {
     const file = e.target.files[0];
     if (!file) return;
-    if (!file.type.startsWith('image/')) { alert('Please select an image file'); return; }
-    if (file.size > 5 * 1024 * 1024) { alert('Photo must be under 5MB'); return; }
+    if (!file.type.startsWith('image/')) { showToast('Please select an image file', 'error'); return; }
+    if (file.size > 5 * 1024 * 1024) { showToast('Photo must be under 5MB', 'error'); return; }
     setNewProduct(p => ({ ...p, photoFile: file, image: URL.createObjectURL(file) }));
   };
 
@@ -421,8 +421,8 @@ const SimpleVendorDashboard = () => {
 
   const handleSaveProduct = async () => {
     const { name, price, category, description, stock } = newProduct;
-    if (!name || !price || !category || !description) { alert('Please fill in all required fields'); return; }
-    if (stock < 0) { alert('Stock cannot be negative'); return; }
+    if (!name || !price || !category || !description) { showToast('Please fill in all required fields', 'error'); return; }
+    if (stock < 0) { showToast('Stock cannot be negative', 'error'); return; }
     try {
       let productImage = newProduct.image;
       if (newProduct.photoFile) productImage = await handlePhotoUpload(newProduct.photoFile);
@@ -432,16 +432,16 @@ const SimpleVendorDashboard = () => {
         const updated = await vendorAPI.updateProduct(vendorData.id, editingProduct.id, productData);
         setProducts(prev => prev.map(p => p.id === editingProduct.id ? updated.data.data : p));
         window.postMessage({ type: 'PRODUCT_UPDATED', product: updated.data.data, vendorId: vendorData.id }, '*');
-        alert(`Product "${updated.data.data.name}" updated!`);
+        showToast(`Product "${updated.data.data.name}" updated!`, 'success');
       } else {
         const saved = await vendorAPI.createProduct(vendorData.id, productData);
         setProducts(prev => [...prev, saved.data.data]);
         setVendorData(prev => ({ ...prev, totalProducts: (prev.totalProducts || 0) + 1 }));
-        alert(`Product "${saved.data.data.name}" added! Price: NPR ${saved.data.data.price}`);
+        showToast(`Product "${saved.data.data.name}" added! Price: NPR ${saved.data.data.price}`, 'success');
       }
       resetForm();
     } catch (err) {
-      alert(`Failed to save product: ${err.message}`);
+      showToast(`Failed to save product: ${err.message}`, 'error');
     }
   };
 
@@ -459,9 +459,9 @@ const SimpleVendorDashboard = () => {
       setProducts(prev => prev.filter(p => p.id !== productId));
       setVendorData(prev => ({ ...prev, totalProducts: Math.max(0, (prev.totalProducts || 0) - 1) }));
       window.postMessage({ type: 'PRODUCT_DELETED', product: product, vendorId: vendorData.id }, '*');
-      alert(`"${product.name}" deleted.`);
+      showToast(`"${product.name}" deleted.`, 'success');
     } catch (err) {
-      alert(`Failed to delete: ${err.message}`);
+      showToast(`Failed to delete: ${err.message}`, 'error');
     }
   };
 
@@ -472,14 +472,14 @@ const SimpleVendorDashboard = () => {
       const currentStock = product.stock || 0;
       const newStock = currentStock === 0 ? 10 : 0; // Toggle between 0 (out of stock) and 10 (in stock)
       
-      const updatedProduct = await vendorAPI.updateProduct(vendorData.id, productId, { 
-        ...product, 
-        stock: newStock 
+      const updatedProduct = await vendorAPI.updateProduct(vendorData.id, productId, {
+        ...product,
+        stock: newStock
       });
       setProducts(prev => prev.map(p => p.id === productId ? updatedProduct.data.data : p));
-      alert(`Stock updated: ${product.name} is now ${newStock === 0 ? 'Out of Stock' : 'In Stock (10 units)'}`);
+      showToast(`Stock updated: ${product.name} is now ${newStock === 0 ? 'Out of Stock' : 'In Stock (10 units)'}`, 'success');
     } catch (err) {
-      alert(`Failed to update stock: ${err.message}`);
+      showToast(`Failed to update stock: ${err.message}`, 'error');
     }
   };
 
@@ -489,41 +489,23 @@ const SimpleVendorDashboard = () => {
     window.postMessage({ type: 'VENDOR_PRODUCTS_DELETED', vendorId: vendorData.id }, '*');
   };
 
-  // ── Order Actions ─────────────────────────────
   const handleUpdateOrderStatus = async (orderId, newStatus) => {
     try {
-      console.log('Updating order status:', orderId, newStatus);
-      console.log('Vendor ID:', vendorData.id);
-      console.log('API call: vendorAPI.updateOrderStatus');
-      
-      // Show immediate UI feedback
       setOrders(prev => prev.map(o => o.id === orderId ? { ...o, status: newStatus } : o));
-      
       const response = await vendorAPI.updateOrderStatus(vendorData.id, orderId, newStatus);
-      console.log('API response:', response);
-      
       if (response.data && response.data.success) {
-        console.log('Order status updated successfully');
-        // Refresh orders to get latest data from backend
         await refreshOrders();
-        
-        // Show success message
-        alert(`Order #${orderId} status updated to ${newStatus} successfully!`);
+        showToast(`Order #${orderId} status updated to ${newStatus} successfully!`, 'success');
       } else {
-        console.log('Order status update failed:', response);
-        alert(`Failed to update order status: ${response.data?.message || 'Unknown error'}`);
-        // Revert the status change if API failed
+        showToast(`Failed to update order status: ${response.data?.message || 'Unknown error'}`, 'error');
         setOrders(prev => prev.map(o => o.id === orderId ? { ...o, status: o.status } : o));
       }
     } catch (err) {
-      console.error('Failed to update order status:', err);
-      alert(`Failed to update order status: ${err.message}`);
-      // Revert the status change if API failed
+      showToast(`Failed to update order status: ${err.message}`, 'error');
       setOrders(prev => prev.map(o => o.id === orderId ? { ...o, status: o.status } : o));
     }
   };
 
-  // ── Business Information Handlers ────────────────────────────────
   const handleEditBusinessInfo = () => {
     setBusinessInfoData({
       name: vendorData.name || '',
@@ -938,7 +920,7 @@ const SimpleVendorDashboard = () => {
                   <InputLabel>Category</InputLabel>
                   <Select value={selectedCategory} label="Category" onChange={e => setSelectedCategory(e.target.value)}>
                     <MenuItem value="All">All Categories</MenuItem>
-                    {['Clothing', 'Electronic', 'Foods', 'Books'].map(c => (
+                    {['Breakfast', 'Lunch', 'Dinner', 'Snacks', 'Beverages', 'Desserts'].map(c => (
                       <MenuItem key={c} value={c}>{c}</MenuItem>
                     ))}
                   </Select>
@@ -1193,7 +1175,7 @@ const SimpleVendorDashboard = () => {
                 <Grid item xs={12} md={6}>
                   <Paper sx={{ p: 3 }}>
                     <Typography variant="h6" fontWeight={700} gutterBottom>Products by Category</Typography>
-                    {['Clothing', 'Electronic', 'Foods', 'Books'].map(cat => {
+                    {['Breakfast', 'Lunch', 'Dinner', 'Snacks', 'Beverages', 'Desserts'].map(cat => {
                       const count = products.filter(p => p.category === cat).length;
                       const pct = products.length ? Math.round(count / products.length * 100) : 0;
                       return (
@@ -1522,7 +1504,7 @@ const SimpleVendorDashboard = () => {
               <FormControl fullWidth>
                 <InputLabel>Category *</InputLabel>
                 <Select value={newProduct.category} label="Category *" onChange={e => setNewProduct(p => ({ ...p, category: e.target.value }))}>
-                  {['Clothing', 'Electronic', 'Foods', 'Books'].map(c => <MenuItem key={c} value={c}>{c}</MenuItem>)}
+                  {['Breakfast', 'Lunch', 'Dinner', 'Snacks', 'Beverages', 'Desserts'].map(c => <MenuItem key={c} value={c}>{c}</MenuItem>)}
                 </Select>
               </FormControl>
             </Grid>

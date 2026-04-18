@@ -129,25 +129,20 @@ const ProductCard = ({ product, onAddToCart, onFavorite, onDetails, onRate, imag
         {product.vendor}
       </Typography>
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 2 }}>
-        {onRate ? (
+        <Box
+          sx={{ cursor: 'pointer' }}
+          onClick={() => onDetails && onDetails(product.id)}
+        >
           <Rating
             name={`rating-${product.id}`}
-            value={Number(product.rating) || 0}
-            precision={0.5}
-            size="small"
-            onChange={(_, v) => v && onRate(product.id, v)}
-          />
-        ) : (
-          <Rating
-            name={`rating-readOnly-${product.id}`}
             value={Number(product.rating) || 0}
             precision={0.5}
             readOnly
             size="small"
           />
-        )}
+        </Box>
         <Typography variant="caption" color="text.secondary">
-          ({product.totalRatings || 0})
+          ({product.reviewCount || 0} reviews)
         </Typography>
       </Box>
       <Box sx={{ mt: 'auto', display: 'flex', gap: 1, flexWrap: 'wrap' }}>
@@ -192,6 +187,17 @@ const SimpleUserDashboard = () => {
   const [vendorProducts, setVendorProducts] = useState([]);
   const [selectedProductId, setSelectedProductId] = useState(null);
   const [showProductDetail, setShowProductDetail] = useState(false);
+  const [reviews, setReviews] = useState([]);
+  const [myReview, setMyReview] = useState(null);
+  const [reviewRating, setReviewRating] = useState(0);
+  const [reviewText, setReviewText] = useState('');
+  const [reviewLoading, setReviewLoading] = useState(false);
+  const [deleteToastOpen, setDeleteToastOpen] = useState(false);
+  const [submitToastOpen, setSubmitToastOpen] = useState(false);
+  const [errorToastOpen, setErrorToastOpen] = useState(false);
+  const [errorToastMessage, setErrorToastMessage] = useState('');
+  const [successToastOpen, setSuccessToastOpen] = useState(false);
+  const [successToastMessage, setSuccessToastMessage] = useState('');
 
   const [cartItems, setCartItems] = useState([]);
   const [couponCodeInput, setCouponCodeInput] = useState('');
@@ -499,14 +505,16 @@ const [selectedPaymentMethod, setSelectedPaymentMethod] = useState('COD');
       if (cartResponse.data.success) {
         setCartItems(cartResponse.data.data.items || []);
       }
-      alert('Failed to add item to cart');
+      setErrorToastMessage('Failed to add item to cart');
+      setErrorToastOpen(true);
     }
   };
 
   const handleCheckout = async () => {
-    if (cartItems.length === 0) { 
-      alert('Cart is empty'); 
-      return; 
+    if (cartItems.length === 0) {
+      setErrorToastMessage('Cart is empty');
+      setErrorToastOpen(true);
+      return;
     }
 
     if (selectedPaymentMethod === 'ESEWA') {
@@ -834,7 +842,8 @@ const [selectedPaymentMethod, setSelectedPaymentMethod] = useState('COD');
       setCartItems(prev => prev.map(item => 
         item.id === id ? { ...item, quantity: item.quantity } : item
       ));
-      alert('Failed to update cart quantity');
+      setErrorToastMessage('Failed to update cart quantity');
+      setErrorToastOpen(true);
     }
   };
 
@@ -850,7 +859,8 @@ const [selectedPaymentMethod, setSelectedPaymentMethod] = useState('COD');
       console.error('Failed to remove from cart:', error);
       // Revert on error
       setCartItems(originalItems);
-      alert('Failed to remove item from cart');
+      setErrorToastMessage('Failed to remove item from cart');
+      setErrorToastOpen(true);
     }
   };
 
@@ -948,9 +958,10 @@ const [selectedPaymentMethod, setSelectedPaymentMethod] = useState('COD');
 
   // ── Favorites Functions ────────────────────────
   const handleAddToFavorites = async (product) => {
-    if (favoriteProductIds.has(product.id)) { 
-      alert('Already in favorites'); 
-      return; 
+    if (favoriteProductIds.has(product.id)) {
+      setErrorToastMessage('Already in favorites');
+      setErrorToastOpen(true);
+      return;
     }
 
     try {
@@ -963,16 +974,19 @@ const [selectedPaymentMethod, setSelectedPaymentMethod] = useState('COD');
           setFavoriteItems(favorites);
           setFavoriteProductIds(new Set(favorites.map(f => f.id)));
         }
-        alert(`Added "${product.name}" to favorites`);
+        setSuccessToastMessage(`Added "${product.name}" to favorites`);
+        setSuccessToastOpen(true);
       }
     } catch (error) {
       console.error('Failed to add to favorites:', error);
-      alert('Failed to add to favorites');
+      setErrorToastMessage('Failed to add to favorites');
+      setErrorToastOpen(true);
     }
   };
 
   const handleRemoveFromFavorites = async (id) => {
     try {
+// ...
       console.log('Removing from favorites, product ID:', id);
       const response = await favoritesAPI.removeFromFavorites(id);
       console.log('Remove from favorites response:', response.data);
@@ -986,11 +1000,13 @@ const [selectedPaymentMethod, setSelectedPaymentMethod] = useState('COD');
         }
       } else {
         console.error('Remove from favorites failed:', response.data.error);
-        alert('Failed to remove from favorites: ' + response.data.error);
+        setErrorToastMessage('Failed to remove from favorites: ' + response.data.error);
+        setErrorToastOpen(true);
       }
     } catch (error) {
       console.error('Failed to remove from favorites:', error);
-      alert('Failed to remove from favorites');
+      setErrorToastMessage('Failed to remove from favorites');
+      setErrorToastOpen(true);
     }
   };
 
@@ -999,34 +1015,84 @@ const [selectedPaymentMethod, setSelectedPaymentMethod] = useState('COD');
     navigate('/home');
   };
 
-  const handleRateProduct = async (productId, newRating) => {
+  const fetchReviews = async (productId) => {
     try {
-      await productAPI.rateProduct(productId, newRating);
-      // Update vendorProducts state
-      setVendorProducts(prev =>
-        prev.map(p => p.id === productId ? { ...p, rating: newRating, totalRatings: (p.totalRatings || 0) + 1 } : p)
-      );
+      const response = await productAPI.getReviews(productId);
+      const reviewsData = response.data?.data || response.data || [];
+      setReviews(Array.isArray(reviewsData) ? reviewsData : []);
     } catch (e) {
-      console.error('Failed to rate product:', e);
+      console.error('Failed to fetch reviews:', e);
+      setReviews([]);
     }
   };
 
-  const handleRateProductInBrowse = async (productId, newRating) => {
+  const fetchMyReview = async (productId) => {
     try {
-      const response = await productAPI.rateProduct(productId, newRating);
-      console.log('Rating response:', response);
-      // Use backend response data to update state correctly
-      const updatedProduct = response.data?.data;
-      if (updatedProduct) {
-        setVendorProducts(prev =>
-          prev.map(p => p.id === productId ? { ...p, rating: updatedProduct.rating, totalRatings: updatedProduct.totalRatings } : p)
-        );
+      const response = await productAPI.getMyReview(productId);
+      const reviewData = response.data?.data;
+      setMyReview(reviewData || null);
+      if (reviewData) {
+        setReviewRating(reviewData.rating || 0);
+        setReviewText(reviewData.reviewText || '');
       }
     } catch (e) {
-      console.error('Failed to rate product:', e);
-      alert('Failed to save rating: ' + (e.response?.data?.message || e.message));
+      console.error('Failed to fetch my review:', e);
+      setMyReview(null);
     }
   };
+
+  const handleSubmitReview = async () => {
+    if (!reviewRating) {
+      setErrorToastMessage('Please select a rating');
+      setErrorToastOpen(true);
+      return;
+    }
+    if (!reviewText.trim()) {
+      setErrorToastMessage('Please write a review');
+      setErrorToastOpen(true);
+      return;
+    }
+
+    setReviewLoading(true);
+    try {
+      const response = await productAPI.addReview(selectedProductId, reviewRating, reviewText);
+      const savedReview = response.data?.data;
+      if (savedReview) {
+        setReviewRating(0);
+        setReviewText('');
+        fetchReviews(selectedProductId);
+        fetchMyReview(selectedProductId);
+        setSubmitToastOpen(true);
+      }
+    } catch (e) {
+      console.error('Failed to submit review:', e);
+      setErrorToastMessage('Failed to submit review: ' + (e.response?.data?.message || e.message));
+      setErrorToastOpen(true);
+    } finally {
+      setReviewLoading(false);
+    }
+  };
+
+  const handleDeleteReview = async () => {
+    try {
+      await productAPI.deleteReview(selectedProductId);
+      setMyReview(null);
+      setReviewRating(0);
+      setReviewText('');
+      fetchReviews(selectedProductId);
+      setDeleteToastOpen(true);
+    } catch (e) {
+      console.error('Failed to delete review:', e);
+    }
+  };
+
+  // Fetch reviews when product detail opens
+  useEffect(() => {
+    if (showProductDetail && selectedProductId) {
+      fetchReviews(selectedProductId);
+      fetchMyReview(selectedProductId);
+    }
+  }, [showProductDetail, selectedProductId]);
 
   // ── Computed ───────────────────────────────────
   const filteredProducts = vendorProducts.filter(product => {
@@ -1602,7 +1668,6 @@ const [selectedPaymentMethod, setSelectedPaymentMethod] = useState('COD');
                         onAddToCart={handleAddToCart}
                         onFavorite={handleAddToFavorites}
                         onDetails={(id) => { setSelectedProductId(id); setShowProductDetail(true); }}
-                        onRate={handleRateProductInBrowse}
                         imageFallback={imageFallback}
                         isFavorite={favoriteProductIds.has(product.id)}
                       />
@@ -2507,8 +2572,9 @@ const [selectedPaymentMethod, setSelectedPaymentMethod] = useState('COD');
                       <Rating
                         name={`rating-detail-${product.id}`}
                         value={Number(product.rating) || 0}
-                        onChange={(_, v) => v && handleRateProduct(product.id, v)}
                         precision={0.5}
+                        readOnly
+                        size="small"
                       />
                       <Typography variant="caption">({product.totalRatings || 0} ratings)</Typography>
                     </Box>
@@ -2521,6 +2587,79 @@ const [selectedPaymentMethod, setSelectedPaymentMethod] = useState('COD');
                   </Grid>
                 </Grid>
               </DialogContent>
+
+              {/* Reviews Section */}
+              <Box sx={{ px: 3, pb: 2 }}>
+                <Divider sx={{ my: 2 }} />
+                <Typography variant="h6" fontWeight={700} gutterBottom>Reviews ({reviews.length})</Typography>
+
+                {/* Review Form */}
+                {myReview ? (
+                  <Paper sx={{ p: 2, mb: 2, bgcolor: 'action.hover' }}>
+                    <Typography variant="subtitle2" fontWeight={600} gutterBottom>Your Review</Typography>
+                    <Rating value={myReview.rating} readOnly size="small" />
+                    <Typography variant="body2" sx={{ mt: 1 }}>{myReview.reviewText}</Typography>
+                    <Button size="small" color="error" onClick={handleDeleteReview} sx={{ mt: 1 }}>
+                      Delete Review
+                    </Button>
+                  </Paper>
+                ) : (
+                  <Paper sx={{ p: 2, mb: 2 }}>
+                    <Typography variant="subtitle2" fontWeight={600} gutterBottom>Write a Review</Typography>
+                    <Rating
+                      value={reviewRating}
+                      onChange={(_, v) => setReviewRating(v)}
+                      precision={0.5}
+                      size="small"
+                    />
+                    <TextField
+                      fullWidth
+                      multiline
+                      rows={3}
+                      placeholder="Share your experience with this product..."
+                      value={reviewText}
+                      onChange={(e) => setReviewText(e.target.value)}
+                      sx={{ mt: 2 }}
+                    />
+                    <Button
+                      variant="contained"
+                      onClick={handleSubmitReview}
+                      disabled={reviewLoading}
+                      sx={{ mt: 1 }}
+                    >
+                      {reviewLoading ? 'Submitting...' : 'Submit Review'}
+                    </Button>
+                  </Paper>
+                )}
+
+                {/* Reviews List */}
+                {reviews.length > 0 ? (
+                  reviews.map((review) => (
+                    <Paper key={review.id} sx={{ p: 2, mb: 1 }}>
+                      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
+                        <Typography variant="subtitle2" fontWeight={600}>
+                          {review.user?.name || 'User'}
+                        </Typography>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                          <Typography variant="caption" color="text.secondary">
+                            {review.createdAt ? new Date(review.createdAt).toLocaleDateString() : ''}
+                          </Typography>
+                          {myReview && review.id === myReview.id && (
+                            <Button size="small" color="error" onClick={handleDeleteReview}>
+                              Delete
+                            </Button>
+                          )}
+                        </Box>
+                      </Box>
+                      <Rating value={review.rating || 0} readOnly size="small" />
+                      <Typography variant="body2" sx={{ mt: 1 }}>{review.reviewText}</Typography>
+                    </Paper>
+                  ))
+                ) : (
+                  <Typography variant="body2" color="text.secondary">No reviews yet. Be the first to review!</Typography>
+                )}
+              </Box>
+
               <DialogActions sx={{ p: 2 }}>
                 <Button onClick={() => setShowProductDetail(false)}>Close</Button>
                 <Button variant="outlined" onClick={() => { handleAddToFavorites(product); setShowProductDetail(false); }} startIcon={<Favorite />}>
@@ -2638,6 +2777,54 @@ const [selectedPaymentMethod, setSelectedPaymentMethod] = useState('COD');
         onPaymentSuccess={handlePaymentSuccess}
         onPaymentFailed={handlePaymentFailed}
       />
+
+      {/* Delete Review Toast */}
+      <Snackbar
+        open={deleteToastOpen}
+        autoHideDuration={2000}
+        onClose={() => setDeleteToastOpen(false)}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+      >
+        <Alert severity="success" onClose={() => setDeleteToastOpen(false)}>
+          Review deleted successfully!
+        </Alert>
+      </Snackbar>
+
+      {/* Submit Review Toast */}
+      <Snackbar
+        open={submitToastOpen}
+        autoHideDuration={2000}
+        onClose={() => setSubmitToastOpen(false)}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+      >
+        <Alert severity="success" onClose={() => setSubmitToastOpen(false)}>
+          Review submitted successfully!
+        </Alert>
+      </Snackbar>
+
+      {/* Success Toast */}
+      <Snackbar
+        open={successToastOpen}
+        autoHideDuration={2000}
+        onClose={() => setSuccessToastOpen(false)}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+      >
+        <Alert severity="success" onClose={() => setSuccessToastOpen(false)}>
+          {successToastMessage}
+        </Alert>
+      </Snackbar>
+
+      {/* Error Toast */}
+      <Snackbar
+        open={errorToastOpen}
+        autoHideDuration={2000}
+        onClose={() => setErrorToastOpen(false)}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+      >
+        <Alert severity="error" onClose={() => setErrorToastOpen(false)}>
+          {errorToastMessage}
+        </Alert>
+      </Snackbar>
 
           </Box>
   );

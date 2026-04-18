@@ -14,18 +14,15 @@ import {
   Chip,
   CircularProgress,
   Alert,
-  Tabs,
-  Tab,
   Card,
   CardContent,
-  LinearProgress,
   IconButton,
   ListItemSecondaryAction,
-  Fade,
   AppBar,
   Toolbar,
   Menu,
-  MenuItem
+  MenuItem,
+  Snackbar,
 } from '@mui/material';
 import {
   People,
@@ -34,23 +31,12 @@ import {
   AttachMoney,
   TrendingUp,
   Person,
-  Business,
-  Email,
-  Phone,
-  LocationOn,
-  AccessTime,
   Delete,
-  Refresh,
-  Dashboard,
-  Assessment,
-  Group,
-  LocalMall,
-  MonetizationOn,
-  ShowChart,
-  AdminPanelSettings,
   Logout,
+  AccountCircle,
   ArrowBack,
-  AccountCircle
+  AdminPanelSettings,
+  Assessment
 } from '@mui/icons-material';
 import adminService from '../services/adminService';
 
@@ -65,7 +51,6 @@ const SimpleAdminDashboard = () => {
   const [users, setUsers] = useState([]);
   const [vendors, setVendors] = useState([]);
   const [products, setProducts] = useState([]);
-  const [orders, setOrders] = useState([]);
   const [stats, setStats] = useState({
     totalUsers: 0,
     totalVendors: 0,
@@ -86,6 +71,9 @@ const SimpleAdminDashboard = () => {
     systemVersion: 'v2.1.0'
   });
   const [userSessions, setUserSessions] = useState([]);
+  const [toastOpen, setToastOpen] = useState(false);
+  const [toastMessage, setToastMessage] = useState('');
+  const [toastSeverity, setToastSeverity] = useState('success');
 
   useEffect(() => {
     // Get admin data from localStorage
@@ -307,7 +295,6 @@ const SimpleAdminDashboard = () => {
       setUsers(allUsers);
       setVendors(allVendorsList);
       setProducts(allProducts);
-      setOrders([]); // Will be implemented
       setStats(calculatedStats);
       setLoading(false);
       
@@ -321,8 +308,7 @@ const SimpleAdminDashboard = () => {
   // Load recent activities
   const loadRecentActivities = (products, users, vendors) => {
     const activities = [];
-    const now = new Date();
-    
+
     // Simulate recent vendor registrations
     vendors.forEach((vendor, index) => {
       activities.push({
@@ -446,6 +432,9 @@ const SimpleAdminDashboard = () => {
             addActivity('vendor_registration', 'New Vendor Registration', 
               `${event.data.vendorName} applied for vendor account`);
             loadAdminData(); // Refresh data
+            break;
+          default:
+            console.log('Unknown message type:', event.data.type);
             break;
         }
       }
@@ -621,27 +610,11 @@ const SimpleAdminDashboard = () => {
       console.log('AdminDashboard: Reloading data after deletion');
       await loadAdminData();
       
-      alert(`Vendor "${vendorName}" deleted successfully`);
+      setToastMessage(`Vendor "${vendorName}" deleted successfully`); setToastSeverity('success'); setToastOpen(true);
       
     } catch (error) {
       console.error('AdminDashboard: Error deleting vendor:', error);
       setError('Failed to delete vendor. Please try again.');
-    }
-  };
-
-  const handleDeleteProduct = async (productId) => {
-    if (window.confirm('Are you sure you want to delete this product?')) {
-      try {
-        await adminService.deleteProduct(productId);
-        console.log('AdminDashboard: Product deleted from backend successfully');
-        
-        // Reload data
-        await loadAdminData();
-        alert('Product deleted successfully');
-      } catch (error) {
-        console.error('AdminDashboard: Error deleting product:', error);
-        setError('Failed to delete product. Please try again.');
-      }
     }
   };
 
@@ -1486,6 +1459,17 @@ const SimpleAdminDashboard = () => {
           </>
         )}
       </Container>
+
+      <Snackbar
+        open={toastOpen}
+        autoHideDuration={2000}
+        onClose={() => setToastOpen(false)}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+      >
+        <Alert severity={toastSeverity} onClose={() => setToastOpen(false)}>
+          {toastMessage}
+        </Alert>
+      </Snackbar>
     </Box>
   );
 };

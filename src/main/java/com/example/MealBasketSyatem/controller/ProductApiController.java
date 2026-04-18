@@ -8,6 +8,7 @@ import com.example.MealBasketSyatem.service.ProductRatingService;
 import com.example.MealBasketSyatem.service.ProductReviewService;
 import com.example.MealBasketSyatem.service.ProductService;
 import com.example.MealBasketSyatem.service.UserService;
+import com.example.MealBasketSyatem.service.RecommendationService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -34,6 +35,9 @@ public class ProductApiController {
 
     @Autowired
     private UserService userService;
+
+    @Autowired
+    private RecommendationService recommendationService;
 
     private User getCurrentUser() {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
@@ -250,6 +254,28 @@ public class ProductApiController {
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(ApiResponse.error("Failed to delete review: " + e.getMessage()));
+        }
+    }
+
+    // ── Recommendation Endpoint ─────────────────────────────────────────────────────────────
+
+    @GetMapping("/recommendations")
+    public ResponseEntity<ApiResponse<List<RecommendationService.RecommendationResult>>> getRecommendations(
+            @RequestParam(defaultValue = "10") int topN) {
+        try {
+            User currentUser = getCurrentUser();
+            if (currentUser == null) {
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                        .body(ApiResponse.error("User not authenticated"));
+            }
+
+            List<RecommendationService.RecommendationResult> recommendations =
+                recommendationService.getRecommendationsForUser(currentUser.getId(), topN);
+
+            return ResponseEntity.ok(ApiResponse.success("Recommendations retrieved successfully", recommendations));
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(ApiResponse.error("Failed to get recommendations: " + e.getMessage()));
         }
     }
 }

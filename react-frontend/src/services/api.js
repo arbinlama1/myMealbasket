@@ -135,6 +135,7 @@ export const productAPI = {
   create: (product) => api.post('/products', product),
   update: (id, product) => api.put(`/products/${id}`, product),
   delete: (id) => api.delete(`/products/${id}`),
+  getRecommendations: (topN = 10) => api.get(`/products/recommendations?topN=${topN}`),
 };
 
 // User Management APIs

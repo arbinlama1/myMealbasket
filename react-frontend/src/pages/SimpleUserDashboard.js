@@ -225,6 +225,10 @@ const SimpleUserDashboard = () => {
   const categories = ['all', 'breakfast', 'lunch', 'dinner', 'snacks', 'beverages', 'desserts'];
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
 
+  // Recommendations State
+  const [recommendations, setRecommendations] = useState([]);
+  const [recommendationsLoading, setRecommendationsLoading] = useState(false);
+
 // Payment Modal State
 const [paymentModalOpen, setPaymentModalOpen] = useState(false);
 const [selectedPaymentMethod, setSelectedPaymentMethod] = useState('COD');
@@ -379,6 +383,31 @@ const [selectedPaymentMethod, setSelectedPaymentMethod] = useState('COD');
     }
   }, []);
 
+  // ── Load Recommendations ───────────────────────
+  useEffect(() => {
+    const loadRecommendations = async () => {
+      try {
+        console.log('🔍 Loading recommendations...');
+        setRecommendationsLoading(true);
+        const response = await productAPI.getRecommendations(8);
+        console.log('📦 Recommendations response:', response);
+        if (response.data.success) {
+          console.log('✅ Recommendations data:', response.data.data);
+          setRecommendations(response.data.data || []);
+        } else {
+          console.warn('⚠️ Recommendations API returned success=false');
+          setRecommendations([]);
+        }
+      } catch (error) {
+        console.error('❌ Failed to load recommendations:', error);
+        setRecommendations([]);
+      } finally {
+        setRecommendationsLoading(false);
+      }
+    };
+    loadRecommendations();
+  }, []);
+
   // ── Load Products ──────────────────────────────
   useEffect(() => {
     const loadProducts = async () => {
@@ -417,24 +446,10 @@ const [selectedPaymentMethod, setSelectedPaymentMethod] = useState('COD');
           const parsedRecipes = data.map(recipe => {
             if (recipe.ingredients && typeof recipe.ingredients === 'string') {
               try {
-                const parsed = JSON.parse(recipe.ingredients);
-                return { ...recipe, ingredients: Array.isArray(parsed) ? parsed : [] };
+                recipe.ingredients = JSON.parse(recipe.ingredients);
               } catch (e) {
-                return { ...recipe, ingredients: [] };
-              }
-            }
-            return recipe;
-          });
-          setRecipes(parsedRecipes);
-        } else if (data.success && Array.isArray(data.data)) {
-          // Handle wrapped response format
-          const parsedRecipes = data.data.map(recipe => {
-            if (recipe.ingredients && typeof recipe.ingredients === 'string') {
-              try {
-                const parsed = JSON.parse(recipe.ingredients);
-                return { ...recipe, ingredients: Array.isArray(parsed) ? parsed : [] };
-              } catch (e) {
-                return { ...recipe, ingredients: [] };
+                console.error('Failed to parse ingredients for recipe:', recipe.id, e);
+                recipe.ingredients = [];
               }
             }
             return recipe;
@@ -1652,6 +1667,98 @@ const [selectedPaymentMethod, setSelectedPaymentMethod] = useState('COD');
                 )}
               </Box>
 
+              {/* Recommended For You Section */}
+              {!recommendationsLoading && recommendations.length > 0 && (
+                <Box sx={{ mb: 4, bgcolor: 'primary.50', borderRadius: 2, p: 3 }}>
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+                    <Typography variant="h5" fontWeight={700} color="primary.main">
+                      ⭐ Recommended For You
+                    </Typography>
+                    <Typography variant="body2" color="text.secondary">
+                      Based on your taste and similar users
+                    </Typography>
+                  </Box>
+                  <Grid container spacing={3}>
+                    {recommendations.map((item) => (
+                      <Grid item xs={12} sm={6} md={3} key={item.productId}>
+                        <Card
+                          sx={{
+                            height: '100%',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            transition: 'transform 0.2s, box-shadow 0.2s',
+                            '&:hover': { transform: 'translateY(-4px)', boxShadow: 6 },
+                            border: '3px solid',
+                            borderColor: 'primary.main',
+                            bgcolor: 'background.paper',
+                          }}
+                        >
+                          <Box sx={{ position: 'relative', pt: '60%', overflow: 'hidden' }}>
+                            <img
+                              src={item.image || imageFallback}
+                              alt={item.productName}
+                              onError={(e) => { e.target.src = imageFallback; }}
+                              style={{
+                                position: 'absolute',
+                                top: 0,
+                                left: 0,
+                                width: '100%',
+                                height: '100%',
+                                objectFit: 'cover',
+                              }}
+                            />
+                            <Box
+                              sx={{
+                                position: 'absolute',
+                                top: 8,
+                                right: 8,
+                                bgcolor: 'primary.main',
+                                color: 'white',
+                                px: 1.5,
+                                py: 0.5,
+                                borderRadius: 1,
+                                fontSize: '0.75rem',
+                                fontWeight: 700,
+                              }}
+                            >
+                              {item.predictedRating?.toFixed(1)} ⭐
+                            </Box>
+                          </Box>
+                          <CardContent sx={{ flexGrow: 1 }}>
+                            <Typography variant="subtitle2" fontWeight={700} noWrap>
+                              {item.productName}
+                            </Typography>
+                            <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+                              {item.category}
+                            </Typography>
+                            <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+                              {item.reviewCount} reviews
+                            </Typography>
+                            <Typography variant="h6" color="primary.main" sx={{ mt: 1, fontWeight: 700 }}>
+                              NPR {item.price?.toFixed(2)}
+                            </Typography>
+                          </CardContent>
+                          <Box sx={{ p: 2, pt: 0 }}>
+                            <Button
+                              fullWidth
+                              variant="contained"
+                              size="small"
+                              onClick={() => {
+                                setSelectedProductId(item.productId);
+                                setShowProductDetail(true);
+                              }}
+                            >
+                              View Details
+                            </Button>
+                          </Box>
+                        </Card>
+                      </Grid>
+                    ))}
+                  </Grid>
+                  <Divider sx={{ my: 3 }} />
+                </Box>
+              )}
+
               {filteredProducts.length === 0 ? (
                 <Paper sx={{ p: 5, textAlign: 'center' }}>
                   <Typography variant="h6" color="text.secondary" gutterBottom>No products found</Typography>
@@ -2549,116 +2656,116 @@ const [selectedPaymentMethod, setSelectedPaymentMethod] = useState('COD');
       </Box>
 
       {/* ── Product Detail Dialog ── */}
-      <Dialog open={showProductDetail} onClose={() => setShowProductDetail(false)} maxWidth="md" fullWidth>
+      <Dialog open={showProductDetail} onClose={() => setShowProductDetail(false)} maxWidth="md" fullWidth PaperProps={{ sx: { height: '80vh', maxHeight: '80vh' } }}>
         {selectedProductId && (() => {
           const product = vendorProducts.find(p => p.id === selectedProductId);
           if (!product) return null;
           return (
             <>
               <DialogTitle sx={{ fontWeight: 700 }}>{product.name}</DialogTitle>
-              <DialogContent>
-                <Grid container spacing={3}>
-                  <Grid item xs={12} sm={5}>
-                    <img
-                      src={product.image}
-                      alt={product.name}
-                      style={{ width: '100%', aspectRatio: '1', objectFit: 'cover', borderRadius: 8 }}
-                      onError={e => { e.target.src = imageFallback; }}
-                    />
+              <DialogContent sx={{ display: 'flex', flexDirection: 'column', height: 'calc(80vh - 140px)' }}>
+                <Box sx={{ overflowY: 'auto', flex: 1 }}>
+                  <Grid container spacing={3}>
+                    <Grid item xs={12} sm={5}>
+                      <img
+                        src={product.image}
+                        alt={product.name}
+                        style={{ width: '100%', aspectRatio: '1', objectFit: 'cover', borderRadius: 8 }}
+                        onError={e => { e.target.src = imageFallback; }}
+                      />
+                    </Grid>
+                    <Grid item xs={12} sm={7}>
+                      <Typography variant="body2" color="text.secondary" gutterBottom>by {product.vendor}</Typography>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
+                        <Rating
+                          name={`rating-detail-${product.id}`}
+                          value={Number(product.rating) || 0}
+                          precision={0.5}
+                          readOnly
+                          size="small"
+                        />
+                        <Typography variant="caption">({product.totalRatings || 0} ratings)</Typography>
+                      </Box>
+                      <Chip label={`NPR ${product.price}`} color="success" size="medium" sx={{ mb: 2, fontWeight: 700, fontSize: 16 }} />
+                      {product.category && <Chip label={product.category} variant="outlined" size="small" sx={{ ml: 1, mb: 2 }} />}
+                      <Typography variant="subtitle2" fontWeight={700} sx={{ mt: 1 }}>Ingredients</Typography>
+                      <Typography variant="body2" color="text.secondary" gutterBottom>{product.ingredients}</Typography>
+                      <Typography variant="subtitle2" fontWeight={700} sx={{ mt: 1 }}>Nutrition</Typography>
+                      <Typography variant="body2" color="text.secondary">{product.nutrition}</Typography>
+                    </Grid>
                   </Grid>
-                  <Grid item xs={12} sm={7}>
-                    <Typography variant="body2" color="text.secondary" gutterBottom>by {product.vendor}</Typography>
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
+
+                  {/* Reviews Section */}
+                  <Divider sx={{ my: 3 }} />
+                  <Typography variant="h6" fontWeight={700} gutterBottom>Reviews ({reviews.length})</Typography>
+
+                  {/* Review Form */}
+                  {myReview ? (
+                    <Paper sx={{ p: 2, mb: 2, bgcolor: 'action.hover' }}>
+                      <Typography variant="subtitle2" fontWeight={600} gutterBottom>Your Review</Typography>
+                      <Rating value={myReview.rating} readOnly size="small" />
+                      <Typography variant="body2" sx={{ mt: 1 }}>{myReview.reviewText}</Typography>
+                      <Button size="small" color="error" onClick={handleDeleteReview} sx={{ mt: 1 }}>
+                        Delete Review
+                      </Button>
+                    </Paper>
+                  ) : (
+                    <Paper sx={{ p: 2, mb: 2 }}>
+                      <Typography variant="subtitle2" fontWeight={600} gutterBottom>Write a Review</Typography>
                       <Rating
-                        name={`rating-detail-${product.id}`}
-                        value={Number(product.rating) || 0}
+                        value={reviewRating}
+                        onChange={(_, v) => setReviewRating(v)}
                         precision={0.5}
-                        readOnly
                         size="small"
                       />
-                      <Typography variant="caption">({product.totalRatings || 0} ratings)</Typography>
-                    </Box>
-                    <Chip label={`NPR ${product.price}`} color="success" size="medium" sx={{ mb: 2, fontWeight: 700, fontSize: 16 }} />
-                    {product.category && <Chip label={product.category} variant="outlined" size="small" sx={{ ml: 1, mb: 2 }} />}
-                    <Typography variant="subtitle2" fontWeight={700} sx={{ mt: 1 }}>Ingredients</Typography>
-                    <Typography variant="body2" color="text.secondary" gutterBottom>{product.ingredients}</Typography>
-                    <Typography variant="subtitle2" fontWeight={700} sx={{ mt: 1 }}>Nutrition</Typography>
-                    <Typography variant="body2" color="text.secondary">{product.nutrition}</Typography>
-                  </Grid>
-                </Grid>
-              </DialogContent>
-
-              {/* Reviews Section */}
-              <Box sx={{ px: 3, pb: 2 }}>
-                <Divider sx={{ my: 2 }} />
-                <Typography variant="h6" fontWeight={700} gutterBottom>Reviews ({reviews.length})</Typography>
-
-                {/* Review Form */}
-                {myReview ? (
-                  <Paper sx={{ p: 2, mb: 2, bgcolor: 'action.hover' }}>
-                    <Typography variant="subtitle2" fontWeight={600} gutterBottom>Your Review</Typography>
-                    <Rating value={myReview.rating} readOnly size="small" />
-                    <Typography variant="body2" sx={{ mt: 1 }}>{myReview.reviewText}</Typography>
-                    <Button size="small" color="error" onClick={handleDeleteReview} sx={{ mt: 1 }}>
-                      Delete Review
-                    </Button>
-                  </Paper>
-                ) : (
-                  <Paper sx={{ p: 2, mb: 2 }}>
-                    <Typography variant="subtitle2" fontWeight={600} gutterBottom>Write a Review</Typography>
-                    <Rating
-                      value={reviewRating}
-                      onChange={(_, v) => setReviewRating(v)}
-                      precision={0.5}
-                      size="small"
-                    />
-                    <TextField
-                      fullWidth
-                      multiline
-                      rows={3}
-                      placeholder="Share your experience with this product..."
-                      value={reviewText}
-                      onChange={(e) => setReviewText(e.target.value)}
-                      sx={{ mt: 2 }}
-                    />
-                    <Button
-                      variant="contained"
-                      onClick={handleSubmitReview}
-                      disabled={reviewLoading}
-                      sx={{ mt: 1 }}
-                    >
-                      {reviewLoading ? 'Submitting...' : 'Submit Review'}
-                    </Button>
-                  </Paper>
-                )}
-
-                {/* Reviews List */}
-                {reviews.length > 0 ? (
-                  reviews.map((review) => (
-                    <Paper key={review.id} sx={{ p: 2, mb: 1 }}>
-                      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
-                        <Typography variant="subtitle2" fontWeight={600}>
-                          {review.user?.name || 'User'}
-                        </Typography>
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                          <Typography variant="caption" color="text.secondary">
-                            {review.createdAt ? new Date(review.createdAt).toLocaleDateString() : ''}
-                          </Typography>
-                          {myReview && review.id === myReview.id && (
-                            <Button size="small" color="error" onClick={handleDeleteReview}>
-                              Delete
-                            </Button>
-                          )}
-                        </Box>
-                      </Box>
-                      <Rating value={review.rating || 0} readOnly size="small" />
-                      <Typography variant="body2" sx={{ mt: 1 }}>{review.reviewText}</Typography>
+                      <TextField
+                        fullWidth
+                        multiline
+                        rows={3}
+                        placeholder="Share your experience with this product..."
+                        value={reviewText}
+                        onChange={(e) => setReviewText(e.target.value)}
+                        sx={{ mt: 2 }}
+                      />
+                      <Button
+                        variant="contained"
+                        onClick={handleSubmitReview}
+                        disabled={reviewLoading}
+                        sx={{ mt: 1 }}
+                      >
+                        {reviewLoading ? 'Submitting...' : 'Submit Review'}
+                      </Button>
                     </Paper>
-                  ))
-                ) : (
-                  <Typography variant="body2" color="text.secondary">No reviews yet. Be the first to review!</Typography>
-                )}
-              </Box>
+                  )}
+
+                  {/* Reviews List */}
+                  {reviews.length > 0 ? (
+                    reviews.map((review) => (
+                      <Paper key={review.id} sx={{ p: 2, mb: 1 }}>
+                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
+                          <Typography variant="subtitle2" fontWeight={600}>
+                            {review.user?.name || 'User'}
+                          </Typography>
+                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                            <Typography variant="caption" color="text.secondary">
+                              {review.createdAt ? new Date(review.createdAt).toLocaleDateString() : ''}
+                            </Typography>
+                            {myReview && review.id === myReview.id && (
+                              <Button size="small" color="error" onClick={handleDeleteReview}>
+                                Delete
+                              </Button>
+                            )}
+                          </Box>
+                        </Box>
+                        <Rating value={review.rating || 0} readOnly size="small" />
+                        <Typography variant="body2" sx={{ mt: 1 }}>{review.reviewText}</Typography>
+                      </Paper>
+                    ))
+                  ) : (
+                    <Typography variant="body2" color="text.secondary">No reviews yet. Be the first to review!</Typography>
+                  )}
+                </Box>
+              </DialogContent>
 
               <DialogActions sx={{ p: 2 }}>
                 <Button onClick={() => setShowProductDetail(false)}>Close</Button>

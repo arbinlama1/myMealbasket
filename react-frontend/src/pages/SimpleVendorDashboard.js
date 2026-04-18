@@ -202,7 +202,27 @@ const SimpleVendorDashboard = () => {
       const data = await response.json();
       console.log('Recipes fetched:', data);
       const list = Array.isArray(data) ? data : (Array.isArray(data?.data) ? data.data : []);
-      setRecipes(list);
+      
+      // Parse ingredients from JSON string to array for each recipe
+      const parsedList = list.map(recipe => {
+        if (!recipe.ingredients) {
+          return { ...recipe, ingredients: [] };
+        }
+        if (typeof recipe.ingredients === 'string') {
+          try {
+            const parsed = JSON.parse(recipe.ingredients);
+            return { ...recipe, ingredients: Array.isArray(parsed) ? parsed : [] };
+          } catch (e) {
+            return { ...recipe, ingredients: [] };
+          }
+        }
+        if (!Array.isArray(recipe.ingredients)) {
+          return { ...recipe, ingredients: [] };
+        }
+        return recipe;
+      });
+      
+      setRecipes(parsedList);
     } catch (error) {
       console.error('Error fetching recipes:', error);
       setRecipes([]);

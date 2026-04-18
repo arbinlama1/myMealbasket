@@ -67,7 +67,11 @@ const RecipeManagement = ({ recipes, setRecipes, onRecipesUpdate, vendorData }) 
             
             // Parse ingredients from JSON string to array for each recipe
             const parsedList = list.map(recipe => {
-              if (recipe.ingredients && typeof recipe.ingredients === 'string') {
+              // Ensure recipe has valid ingredients array
+              if (!recipe.ingredients) {
+                return { ...recipe, ingredients: [] };
+              }
+              if (typeof recipe.ingredients === 'string') {
                 try {
                   // Try to parse as JSON
                   const parsed = JSON.parse(recipe.ingredients);
@@ -77,6 +81,9 @@ const RecipeManagement = ({ recipes, setRecipes, onRecipesUpdate, vendorData }) 
                   console.warn('Failed to parse ingredients for recipe:', recipe.name, e);
                   return { ...recipe, ingredients: [] };
                 }
+              }
+              if (!Array.isArray(recipe.ingredients)) {
+                return { ...recipe, ingredients: [] };
               }
               return recipe;
             });

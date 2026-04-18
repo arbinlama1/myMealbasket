@@ -69,4 +69,8 @@ public class CartService {
         List<Cart> cartItems = cartRepository.findByUserId(userId);
         cartRepository.deleteAll(cartItems);
     }
+
+    public Cart saveItem(Cart cartItem) {
+        return cartRepository.save(cartItem);
+    }
 }

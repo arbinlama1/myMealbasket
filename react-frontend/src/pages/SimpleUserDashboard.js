@@ -1880,32 +1880,55 @@ const [selectedPaymentMethod, setSelectedPaymentMethod] = useState('COD');
                         </TableHead>
                         <TableBody>
                           {cartItems.map(item => (
-                            <TableRow key={item.id} hover>
+                            <TableRow key={item.id} hover sx={item.itemType === 'INGREDIENT' ? { bgcolor: '#fff8e1' } : {}}>
                               <TableCell>
                                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-                                  <img
-                                    src={item.image || imageFallback}
-                                    alt={item.name}
-                                    style={{ width: 48, height: 48, objectFit: 'cover', borderRadius: 6 }}
-                                    onError={e => { e.target.src = imageFallback; }}
-                                  />
+                                  {item.itemType === 'INGREDIENT' ? (
+                                    <Box sx={{ width: 48, height: 48, display: 'flex', alignItems: 'center', justifyContent: 'center', bgcolor: 'warning.light', borderRadius: 6 }}>
+                                      <Restaurant sx={{ color: 'warning.dark' }} />
+                                    </Box>
+                                  ) : (
+                                    <img
+                                      src={item.image || imageFallback}
+                                      alt={item.name}
+                                      style={{ width: 48, height: 48, objectFit: 'cover', borderRadius: 6 }}
+                                      onError={e => { e.target.src = imageFallback; }}
+                                    />
+                                  )}
                                   <Box>
-                                    <Typography variant="body2" fontWeight={600}>{item.name}</Typography>
-                                    <Typography variant="caption" color="text.secondary">{item.vendor}</Typography>
+                                    <Typography variant="body2" fontWeight={600}>
+                                      {item.itemType === 'INGREDIENT' ? '🥗 ' : ''}{item.name}
+                                      {item.itemType === 'INGREDIENT' && (
+                                        <Typography variant="caption" color="warning.dark" sx={{ ml: 1 }}>
+                                          (Custom Ingredient)
+                                        </Typography>
+                                      )}
+                                    </Typography>
+                                    <Typography variant="caption" color="text.secondary">
+                                      {item.itemType === 'INGREDIENT' ? item.ingredientQuantity : item.vendor}
+                                    </Typography>
                                   </Box>
                                 </Box>
                               </TableCell>
-                              <TableCell align="right">NPR {item.price}</TableCell>
-                              <TableCell align="center">
-                                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 0.5 }}>
-                                  <IconButton size="small" onClick={() => handleUpdateCartQuantity(item.id, -1)}><Remove fontSize="small" /></IconButton>
-                                  <Typography sx={{ minWidth: 24, textAlign: 'center' }}>{item.quantity}</Typography>
-                                  <IconButton size="small" onClick={() => handleUpdateCartQuantity(item.id, 1)}><Add fontSize="small" /></IconButton>
-                                </Box>
+                              <TableCell align="right">
+                                {item.itemType === 'INGREDIENT' ? '-' : `NPR ${item.price}`}
                               </TableCell>
-                              <TableCell align="right">NPR {(item.price * item.quantity).toFixed(2)}</TableCell>
                               <TableCell align="center">
-                                <IconButton color="error" size="small" onClick={() => handleRemoveFromCart(item.id)}><DeleteIcon /></IconButton>
+                                {item.itemType === 'INGREDIENT' ? (
+                                  <Typography variant="body2" color="text.secondary">1</Typography>
+                                ) : (
+                                  <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 0.5 }}>
+                                    <IconButton size="small" onClick={() => handleUpdateCartQuantity(item.id, -1)}><Remove fontSize="small" /></IconButton>
+                                    <Typography sx={{ minWidth: 24, textAlign: 'center' }}>{item.quantity}</Typography>
+                                    <IconButton size="small" onClick={() => handleUpdateCartQuantity(item.id, 1)}><Add fontSize="small" /></IconButton>
+                                  </Box>
+                                )}
+                              </TableCell>
+                              <TableCell align="right">
+                                {item.itemType === 'INGREDIENT' ? '-' : `NPR ${(item.price * item.quantity).toFixed(2)}`}
+                              </TableCell>
+                              <TableCell align="center">
+                                <IconButton size="small" color="error" onClick={() => handleRemoveFromCart(item.id)}><DeleteIcon fontSize="small" /></IconButton>
                               </TableCell>
                             </TableRow>
                           ))}

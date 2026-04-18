@@ -1,5 +1,6 @@
 package com.example.MealBasketSyatem.entity;
 
+import com.example.MealBasketSyatem.enums.ItemType;
 import jakarta.persistence.*;
 import java.time.LocalDateTime;
 
@@ -15,11 +16,21 @@ public class Cart {
     private User user;
 
     @ManyToOne
-    @JoinColumn(name = "product_id", nullable = false)
+    @JoinColumn(name = "product_id", nullable = true)  // Made nullable for ingredients
     private Product product;
 
     @Column(name = "quantity", nullable = false)
     private Integer quantity;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "item_type", nullable = false)
+    private ItemType itemType = ItemType.PRODUCT;
+
+    @Column(name = "ingredient_name", length = 255)
+    private String ingredientName;
+
+    @Column(name = "ingredient_quantity", length = 100)
+    private String ingredientQuantity;
 
     @Column(name = "created_at")
     private LocalDateTime createdAt;
@@ -56,6 +67,15 @@ public class Cart {
 
     public LocalDateTime getUpdatedAt() { return updatedAt; }
     public void setUpdatedAt(LocalDateTime updatedAt) { this.updatedAt = updatedAt; }
+
+    public ItemType getItemType() { return itemType; }
+    public void setItemType(ItemType itemType) { this.itemType = itemType; }
+
+    public String getIngredientName() { return ingredientName; }
+    public void setIngredientName(String ingredientName) { this.ingredientName = ingredientName; }
+
+    public String getIngredientQuantity() { return ingredientQuantity; }
+    public void setIngredientQuantity(String ingredientQuantity) { this.ingredientQuantity = ingredientQuantity; }
 
     @PreUpdate
     public void preUpdate() {

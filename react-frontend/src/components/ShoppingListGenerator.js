@@ -21,7 +21,7 @@ import {
   CheckCircle as CheckIcon,
   RadioButtonUnchecked as UncheckedIcon,
 } from '@mui/icons-material';
-import { shoppingListAPI, cartAPI, productAPI, contactAPI } from '../services/api';
+import { shoppingListAPI, cartAPI, contactAPI } from '../services/api';
 
 /**
  * Toolbar + dialog: calls POST /api/shopping-list/generate and shows merged ingredients.
@@ -142,39 +142,23 @@ export default function ShoppingListGeneratorPanel({
     setCartLoading(true);
     setCartResult(null);
     try {
-      // Fetch all products
-      const response = await productAPI.getAll();
-      const products = response.data?.data || [];
-      
       const added = [];
       const notFound = [];
-      
-      // Try to match each ingredient to a product
+
+      // Add ingredients directly to cart (no product matching)
       for (const item of items) {
-        const ingredientName = item.name.toLowerCase().trim();
-        // Find product with matching name (partial match)
-        const matchedProduct = products.find(p => 
-          p.name.toLowerCase().includes(ingredientName) || 
-          ingredientName.includes(p.name.toLowerCase())
-        );
-        
-        if (matchedProduct) {
-          // Add to cart with calculated quantity
-          const qty = Math.ceil(item.quantity / (matchedProduct.quantity || 1));
-          await cartAPI.addToCart(matchedProduct.id, qty);
-          added.push({
-            ingredient: item.name,
-            product: matchedProduct.name,
-            quantity: qty
-          });
-        } else {
-          notFound.push(item.name);
-        }
+        const quantityStr = item.quantity + (item.unit || '');
+        await cartAPI.addIngredient(item.name, quantityStr);
+        added.push({
+          ingredient: item.name,
+          quantity: quantityStr
+        });
       }
-      
-      setCartResult({ added, notFound, success: added.length > 0 });
+
+      setCartResult({ success: true, added, notFound });
     } catch (e) {
-      setCartResult({ error: e.message || 'Failed to add to cart' });
+      console.error('Failed to add ingredients to cart:', e);
+      setCartResult({ error: 'Failed to add ingredients to cart' });
     } finally {
       setCartLoading(false);
     }

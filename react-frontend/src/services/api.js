@@ -104,11 +104,12 @@ export const authAPI = {
 // Cart APIs
 export const cartAPI = {
   getCart: () => api.get('/cart'),
- addToCart: (productId, quantity = 1) => api.post('/cart/add', { productId, quantity }),
+  addToCart: (productId, qty) => api.post('/cart/add', { productId, quantity: qty }),
+  addIngredient: (name, quantity) => api.post('/cart/ingredient', { name, quantity }),
   updateCartItem: (itemId, quantity) => api.put(`/cart/${itemId}`, { quantity }),
   removeFromCart: (itemId) => api.delete(`/cart/${itemId}`),
   clearCart: () => api.delete('/cart'),
- checkout: (orderData) => api.post('/cart/checkout', orderData)
+  checkout: (orderData) => api.post('/cart/checkout', orderData)
 };
 
 // Favorites APIs

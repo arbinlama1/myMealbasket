@@ -5,6 +5,7 @@ import com.example.MealBasketSyatem.entity.Cart;
 import com.example.MealBasketSyatem.entity.Order;
 import com.example.MealBasketSyatem.entity.Product;
 import com.example.MealBasketSyatem.entity.User;
+import com.example.MealBasketSyatem.enums.ItemType;
 import com.example.MealBasketSyatem.service.CartService;
 import com.example.MealBasketSyatem.service.OrderService;
 import com.example.MealBasketSyatem.service.ProductService;
@@ -41,21 +42,32 @@ public class CartController {
         try {
             User currentUser = getCurrentUser();
             List<Cart> cartItems = cartService.getCartByUser(currentUser.getId());
-            
+
             // Transform cart items to match frontend expectations
             List<Map<String, Object>> transformedItems = cartItems.stream().map(cart -> {
                 Map<String, Object> item = new java.util.HashMap<>();
                 item.put("id", cart.getId());
                 item.put("quantity", cart.getQuantity());
-                item.put("name", cart.getProduct().getName());
-                item.put("price", cart.getProduct().getPrice());
-                item.put("image", cart.getProduct().getImage());
-                item.put("vendor", cart.getProduct().getVendor() != null ? cart.getProduct().getVendor().getName() : "Unknown");
-                item.put("productId", cart.getProduct().getId());
+                item.put("itemType", cart.getItemType().toString());
+
+                if (cart.getItemType() == ItemType.PRODUCT && cart.getProduct() != null) {
+                    item.put("name", cart.getProduct().getName());
+                    item.put("price", cart.getProduct().getPrice());
+                    item.put("image", cart.getProduct().getImage());
+                    item.put("vendor", cart.getProduct().getVendor() != null ? cart.getProduct().getVendor().getName() : "Unknown");
+                    item.put("productId", cart.getProduct().getId());
+                } else {
+                    // Ingredient item
+                    item.put("name", cart.getIngredientName());
+                    item.put("price", 0);
+                    item.put("image", null);
+                    item.put("vendor", "Custom Ingredient");
+                    item.put("ingredientQuantity", cart.getIngredientQuantity());
+                }
                 return item;
             }).collect(java.util.stream.Collectors.toList());
-            
-            return ResponseEntity.ok(ApiResponse.success("Cart retrieved successfully", 
+
+            return ResponseEntity.ok(ApiResponse.success("Cart retrieved successfully",
                 Map.of("items", transformedItems, "total", transformedItems.size())));
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
@@ -68,7 +80,7 @@ public class CartController {
         try {
             User currentUser = getCurrentUser();
             Long productId = Long.valueOf(request.get("productId").toString());
-            Integer quantity = request.containsKey("quantity") ? 
+            Integer quantity = request.containsKey("quantity") ?
                 Integer.valueOf(request.get("quantity").toString()) : 1;
 
             Product product = productService.getProductById(productId);
@@ -78,7 +90,7 @@ public class CartController {
             }
 
             Cart cartItem = cartService.addToCart(currentUser.getId(), productId, quantity);
-            
+
             // Transform the cart item to match frontend expectations
             Map<String, Object> transformedItem = new java.util.HashMap<>();
             transformedItem.put("id", cartItem.getId());
@@ -88,11 +100,53 @@ public class CartController {
             transformedItem.put("image", cartItem.getProduct().getImage());
             transformedItem.put("vendor", cartItem.getProduct().getVendor() != null ? cartItem.getProduct().getVendor().getName() : "Unknown");
             transformedItem.put("productId", cartItem.getProduct().getId());
-            
+            transformedItem.put("itemType", "PRODUCT");
+
             return ResponseEntity.ok(ApiResponse.success("Item added to cart successfully", transformedItem));
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(ApiResponse.error("Failed to add to cart: " + e.getMessage()));
+        }
+    }
+
+    @PostMapping("/ingredient")
+    public ResponseEntity<ApiResponse<?>> addIngredientToCart(@RequestBody Map<String, Object> request) {
+        try {
+            User currentUser = getCurrentUser();
+            String ingredientName = (String) request.get("name");
+            String ingredientQuantity = (String) request.get("quantity");
+
+            if (ingredientName == null || ingredientName.isEmpty()) {
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                        .body(ApiResponse.error("Ingredient name is required"));
+            }
+
+            Cart cartItem = new Cart();
+            cartItem.setUser(currentUser);
+            cartItem.setItemType(ItemType.INGREDIENT);
+            cartItem.setIngredientName(ingredientName);
+            cartItem.setIngredientQuantity(ingredientQuantity);
+            cartItem.setQuantity(1);
+            cartItem.setCreatedAt(java.time.LocalDateTime.now());
+            cartItem.setUpdatedAt(java.time.LocalDateTime.now());
+
+            Cart savedItem = cartService.saveItem(cartItem);
+
+            // Transform the cart item to match frontend expectations
+            Map<String, Object> transformedItem = new java.util.HashMap<>();
+            transformedItem.put("id", savedItem.getId());
+            transformedItem.put("quantity", savedItem.getQuantity());
+            transformedItem.put("name", savedItem.getIngredientName());
+            transformedItem.put("price", 0);
+            transformedItem.put("image", null);
+            transformedItem.put("vendor", "Custom Ingredient");
+            transformedItem.put("itemType", "INGREDIENT");
+            transformedItem.put("ingredientQuantity", savedItem.getIngredientQuantity());
+
+            return ResponseEntity.ok(ApiResponse.success("Ingredient added to cart successfully", transformedItem));
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(ApiResponse.error("Failed to add ingredient to cart: " + e.getMessage()));
         }
     }
 

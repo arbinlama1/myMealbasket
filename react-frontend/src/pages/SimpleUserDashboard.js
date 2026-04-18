@@ -386,46 +386,45 @@ const [selectedPaymentMethod, setSelectedPaymentMethod] = useState('COD');
   useEffect(() => {
     const loadRecipes = async () => {
       try {
-        // Try to get all products first
-        const response = await fetch(`${API_BASE}/products`);
+        // Fetch recipes from the actual recipes API
+        const response = await fetch(`${API_BASE}/recipes`);
         const data = await response.json();
         
-        if (data.success && data.data) {
-          setRecipes(data.data);
-        } else {
-          // If general endpoint fails, try to get recipes by vendor ID
-          // For demo purposes, we'll try vendor ID 8 as shown in the user's data
-          try {
-            const vendorResponse = await fetch(`${API_BASE}/products/vendor/8`);
-            const vendorData = await vendorResponse.json();
-            if (vendorData.success && vendorData.data) {
-              setRecipes(vendorData.data);
-            } else if (Array.isArray(vendorData)) {
-              // Fallback for old API format
-              setRecipes(vendorData);
-            } else {
-              setRecipes([]);
+        if (Array.isArray(data)) {
+          // Parse ingredients from JSON string to array for each recipe
+          const parsedRecipes = data.map(recipe => {
+            if (recipe.ingredients && typeof recipe.ingredients === 'string') {
+              try {
+                const parsed = JSON.parse(recipe.ingredients);
+                return { ...recipe, ingredients: Array.isArray(parsed) ? parsed : [] };
+              } catch (e) {
+                return { ...recipe, ingredients: [] };
+              }
             }
-          } catch (vendorError) {
-            console.error('Failed to load vendor recipes:', vendorError);
-            setRecipes([]);
-          }
+            return recipe;
+          });
+          setRecipes(parsedRecipes);
+        } else if (data.success && Array.isArray(data.data)) {
+          // Handle wrapped response format
+          const parsedRecipes = data.data.map(recipe => {
+            if (recipe.ingredients && typeof recipe.ingredients === 'string') {
+              try {
+                const parsed = JSON.parse(recipe.ingredients);
+                return { ...recipe, ingredients: Array.isArray(parsed) ? parsed : [] };
+              } catch (e) {
+                return { ...recipe, ingredients: [] };
+              }
+            }
+            return recipe;
+          });
+          setRecipes(parsedRecipes);
+        } else {
+          console.warn('Unexpected recipes data format:', data);
+          setRecipes([]);
         }
       } catch (err) {
         console.error('Failed to load recipes:', err);
-        // Try fallback API call
-        try {
-          const fallbackResponse = await fetch(`${API_BASE}/recipes`);
-          const fallbackData = await fallbackResponse.json();
-          if (Array.isArray(fallbackData)) {
-            setRecipes(fallbackData);
-          } else {
-            setRecipes([]);
-          }
-        } catch (fallbackError) {
-          console.error('Fallback recipe loading failed:', fallbackError);
-          setRecipes([]);
-        }
+        setRecipes([]);
       }
     };
     loadRecipes();
@@ -1637,76 +1636,59 @@ const [selectedPaymentMethod, setSelectedPaymentMethod] = useState('COD');
                           overflow: 'hidden'
                         }}
                       >
-                        <Box
-                          sx={{
-                            position: 'absolute',
-                            top: 8,
-                            left: 8,
-                            zIndex: 2,
-                            bgcolor: 'rgba(255,255,255,0.92)',
-                            borderRadius: 1,
-                            boxShadow: 1,
-                          }}
-                          onClick={(e) => e.stopPropagation()}
-                        >
-                          <Checkbox
-                            size="small"
-                            checked={shoppingListSelectedIds.some((x) => shoppingListIdEquals(x, recipe.id))}
-                            onChange={() => toggleShoppingListRecipe(recipe.id)}
-                            inputProps={{ 'aria-label': `Add ${recipe.name} to shopping list` }}
-                          />
-                        </Box>
-                        {/* Category Badge */}
-                        <Box 
-                          sx={{ 
-                            position: 'absolute', 
-                            top: 16, 
-                            right: 16, 
-                            zIndex: 1 
-                          }}
-                        >
-                          <Chip 
-                            label={recipe.category?.replace('_', ' ') || 'MAIN COURSE'} 
-                            size="small" 
-                            sx={{ 
-                              backgroundColor: 'rgba(255,255,255,0.9)',
-                              backdropFilter: 'blur(10px)',
-                              fontWeight: 600,
-                              textTransform: 'uppercase',
-                              fontSize: '0.7rem',
-                              color: 'primary.main'
-                            }}
-                          />
-                        </Box>
-
                         <CardContent sx={{ flexGrow: 1, p: 3 }}>
-                          {/* Recipe Title */}
-                          <Typography 
-                            variant="h6" 
-                            component="h3" 
-                            sx={{ 
-                              fontWeight: 700,
-                              mb: 2,
-                              color: 'text.primary',
-                              lineHeight: 1.3,
-                              pr: 8 // Make room for the category badge
-                            }}
-                          >
-                            {recipe.name}
-                          </Typography>
+                          {/* Header: Checkbox + Recipe Name + Category */}
+                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 2 }}>
+                            {/* Checkbox */}
+                            <Checkbox
+                              size="small"
+                              checked={shoppingListSelectedIds.some((x) => shoppingListIdEquals(x, recipe.id))}
+                              onChange={() => toggleShoppingListRecipe(recipe.id)}
+                              inputProps={{ 'aria-label': `Add ${recipe.name} to shopping list` }}
+                              onClick={(e) => e.stopPropagation()}
+                            />
+
+                            {/* Recipe Name */}
+                            <Typography
+                              variant="h6"
+                              component="h3"
+                              sx={{
+                                fontWeight: 700,
+                                color: 'text.primary',
+                                lineHeight: 1.3,
+                                flexGrow: 1
+                              }}
+                            >
+                              {recipe.name}
+                            </Typography>
+
+                            {/* Category Badge - White text */}
+                            <Chip
+                              label={recipe.category?.replace('_', ' ') || 'MAIN COURSE'}
+                              size="small"
+                              sx={{
+                                flexShrink: 0,
+                                backgroundColor: 'primary.main',
+                                fontWeight: 600,
+                                textTransform: 'uppercase',
+                                fontSize: '0.7rem',
+                                color: 'white'
+                              }}
+                            />
+                          </Box>
                           
-                          {/* Cooking Time */}
+                          {/* Cooking Time - White text */}
                           <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
-                            <Box sx={{ 
-                              display: 'flex', 
+                            <Box sx={{
+                              display: 'flex',
                               alignItems: 'center',
-                              backgroundColor: 'primary.light',
+                              backgroundColor: 'primary.main',
                               borderRadius: 2,
                               px: 1.5,
                               py: 0.5
                             }}>
-                              <Timer sx={{ fontSize: 16, mr: 0.5, color: 'primary.main' }} />
-                              <Typography variant="body2" sx={{ fontWeight: 600, color: 'primary.main' }}>
+                              <Timer sx={{ fontSize: 16, mr: 0.5, color: 'white' }} />
+                              <Typography variant="body2" sx={{ fontWeight: 600, color: 'white' }}>
                                 {recipe.cookingTime || 30} min
                               </Typography>
                             </Box>

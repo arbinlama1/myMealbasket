@@ -21,7 +21,22 @@ public class RecipeApiController {
     @Autowired
     private RecipeService recipeService;
 
-    
+    // Get all active recipes (for users)
+    @GetMapping
+    public ResponseEntity<ApiResponse<List<Recipe>>> getAllRecipes() {
+        try {
+            System.out.println("Fetching all active recipes");
+            List<Recipe> recipes = recipeService.getAllActiveRecipes();
+            System.out.println("Found " + recipes.size() + " active recipes");
+            return ResponseEntity.ok(ApiResponse.success("Recipes retrieved successfully", recipes));
+        } catch (Exception e) {
+            System.err.println("Error fetching all recipes: " + e.getMessage());
+            e.printStackTrace();
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(ApiResponse.error("Failed to retrieve recipes: " + e.getMessage()));
+        }
+    }
+
     // Get all recipes for a vendor
     @GetMapping("/vendor/{vendorId}")
     public ResponseEntity<ApiResponse<List<Recipe>>> getVendorRecipes(@PathVariable Long vendorId) {

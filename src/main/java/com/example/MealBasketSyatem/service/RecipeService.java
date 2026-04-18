@@ -32,6 +32,11 @@ public class RecipeService {
         return recipeRepository.findByVendorIdAndIsActiveTrue(vendorId);
     }
 
+    // Get all active recipes (for users)
+    public List<Recipe> getAllActiveRecipes() {
+        return recipeRepository.findByIsActiveTrue();
+    }
+
     // Get all recipes for a vendor (including inactive)
     public List<Recipe> getAllVendorRecipes(Long vendorId) {
         return recipeRepository.findByVendorId(vendorId);

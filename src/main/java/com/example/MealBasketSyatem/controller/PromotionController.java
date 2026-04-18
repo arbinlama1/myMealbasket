@@ -256,9 +256,17 @@ public class PromotionController {
                     .orElseThrow(() -> new RuntimeException("Promotion code not found"));
 
             LocalDate today = LocalDate.now();
-            if (!promotion.getIsActive() || promotion.getStartDate().isAfter(today) || !promotion.getExpiryDate().isAfter(today)) {
+            if (!promotion.getIsActive()) {
                 return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-                        .body(ApiResponse.error("Promotion is not active"));
+                        .body(ApiResponse.error("This promotion code is currently inactive"));
+            }
+            if (promotion.getStartDate().isAfter(today)) {
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                        .body(ApiResponse.error("This promotion has not started yet. It starts on " + promotion.getStartDate()));
+            }
+            if (!promotion.getExpiryDate().isAfter(today)) {
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                        .body(ApiResponse.error("This promotion has expired on " + promotion.getExpiryDate()));
             }
 
             if (cartTotal < promotion.getMinOrderAmount()) {

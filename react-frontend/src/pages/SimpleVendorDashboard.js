@@ -1,6 +1,6 @@
 import RecipeManagement from '../components/RecipeManagement';
 import React, { useState, useEffect } from 'react';
-import { vendorAPI, authAPI, contactAPI } from '../services/api';
+import { vendorAPI, authAPI } from '../services/api';
 import promotionAPI from '../services/promotionAPI';
 import {
   Container, Paper, Typography, Box, Grid, Card, CardContent, Button,
@@ -16,7 +16,7 @@ import {
   Logout, Add, Edit, Delete, CheckCircle,
   Store, Menu as MenuIcon, Close as CloseIcon,
   Inventory, LocalOffer, BarChart, Dashboard, Warning, Refresh,
-  MenuBook, Save, Message as MessageIcon, Delete as DeleteIcon,
+  MenuBook, Save,
 } from '@mui/icons-material';
 
 // ── Stat Card ─────────────────────────────────────────────────────────────────
@@ -105,10 +105,6 @@ const SimpleVendorDashboard = () => {
   const [ordersLoading, setOrdersLoading] = useState(false);
   const [ordersError, setOrdersError] = useState('');
 
-  // Messages/Contact State
-  const [messages, setMessages] = useState([]);
-  const [messagesLoading, setMessagesLoading] = useState(false);
-
   // Monthly Revenue Goal State
   const [monthlyRevenueGoal, setMonthlyRevenueGoal] = useState(15000);
   const [editGoalDialogOpen, setEditGoalDialogOpen] = useState(false);
@@ -120,36 +116,6 @@ const SimpleVendorDashboard = () => {
       refreshOrders();
     }
   }, [currentView, vendorData?.id]);
-
-  // Fetch messages on dashboard load to show count in sidebar
-  useEffect(() => {
-    refreshMessages();
-    // Refresh messages every 30 seconds to keep count updated
-    const interval = setInterval(refreshMessages, 30000);
-    return () => clearInterval(interval);
-  }, []);
-
-  // Auto-refresh messages when Messages view is selected
-  useEffect(() => {
-    if (currentView === 'messages') {
-      refreshMessages();
-    }
-  }, [currentView]);
-
-  // Messages Management Functions
-  const refreshMessages = async () => {
-    setMessagesLoading(true);
-    try {
-      const response = await contactAPI.getAllMessages();
-      const messagesData = response.data?.data || response.data || [];
-      setMessages(Array.isArray(messagesData) ? messagesData : []);
-    } catch (e) {
-      console.error('Failed to fetch messages:', e);
-      setMessages([]);
-    } finally {
-      setMessagesLoading(false);
-    }
-  };
 
   // Orders Management Functions
   const refreshOrders = async () => {
@@ -746,7 +712,6 @@ const SimpleVendorDashboard = () => {
     { view: 'recipes', label: 'Recipes', icon: <MenuBook />, count: recipes.length },
     { view: 'analytics', label: 'Analytics', icon: <BarChart /> },
     { view: 'promotions', label: 'Promotions', icon: <LocalOffer /> },
-    { view: 'messages', label: `Messages${messages.length > 0 ? ` (${messages.length})` : ''}`, icon: <MessageIcon /> },
     { view: 'profile', label: 'Profile', icon: <Person /> },
   ];
 
@@ -1036,7 +1001,7 @@ const SimpleVendorDashboard = () => {
                             />
                           </TableCell>
                           <TableCell align="center">{product.orderCount || 0}</TableCell>
-                          <TableCell align="center">?? {product.rating || '??'}</TableCell>
+                          <TableCell align="center">{product.rating || '0'}</TableCell>
                           <TableCell align="center">
                             <Chip
                               label={(product.stock || 0) === 0 ? 'Out of Stock' : 'In Stock'}
@@ -1537,103 +1502,7 @@ const SimpleVendorDashboard = () => {
             </>
           )}
 
-          {/* ════════════════ MESSAGES VIEW ════════════════ */}
-          {currentView === 'messages' && (
-            <>
-              <Typography variant="h4" fontWeight={700} sx={{ mb: 3 }}>Customer Messages</Typography>
-              
-              {messagesLoading ? (
-                <Box display="flex" justifyContent="center" py={4}>
-                  <CircularProgress />
-                </Box>
-              ) : messages.length === 0 ? (
-                <Paper sx={{ p: 4, textAlign: 'center' }}>
-                  <MessageIcon sx={{ fontSize: 64, color: 'grey.300', mb: 2 }} />
-                  <Typography variant="h6" color="text.secondary">No messages yet</Typography>
-                  <Typography variant="body2" color="text.secondary">
-                    When customers send product requests, they will appear here.
-                  </Typography>
-                </Paper>
-              ) : (
-                <>
-                  <Box sx={{ mb: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <Typography variant="body1" color="text.secondary">
-                      {messages.length} message{messages.length !== 1 ? 's' : ''} received
-                    </Typography>
-                    <Button 
-                      variant="outlined" 
-                      size="small" 
-                      onClick={refreshMessages}
-                      startIcon={<Refresh />}
-                    >
-                      Refresh
-                    </Button>
-                  </Box>
-                  
-                  <Paper>
-                    <List>
-                      {messages.map((msg, idx) => (
-                        <React.Fragment key={msg.id || idx}>
-                          <ListItem 
-                            sx={{ 
-                              py: 2, 
-                              px: 3,
-                              '&:hover .delete-btn': {
-                                opacity: 1,
-                              }
-                            }}
-                            secondaryAction={
-                              <IconButton 
-                                edge="end" 
-                                aria-label="delete"
-                                className="delete-btn"
-                                sx={{ opacity: 0.3, transition: 'opacity 0.2s' }}
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  if (window.confirm('Delete this message?')) {
-                                    contactAPI.deleteMessage(msg.id)
-                                      .then(() => {
-                                        setMessages(prev => prev.filter(m => m.id !== msg.id));
-                                      })
-                                      .catch(err => {
-                                        console.error('Failed to delete:', err);
-                                        alert('Failed to delete message');
-                                      });
-                                  }
-                                }}
-                              >
-                                <DeleteIcon color="error" />
-                              </IconButton>
-                            }
-                          >
-                            <Box sx={{ flexGrow: 1, pr: 4 }}>
-                              <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
-                                <Typography variant="subtitle1" fontWeight={600}>
-                                  {msg.subject || 'Product Request'}
-                                </Typography>
-                                <Typography variant="caption" color="text.secondary">
-                                  {msg.createdAt ? new Date(msg.createdAt).toLocaleDateString() : 'Just now'}
-                                </Typography>
-                              </Box>
-                              <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-                                From: {msg.name || msg.email || 'Anonymous Customer'}
-                              </Typography>
-                              <Typography variant="body1" sx={{ whiteSpace: 'pre-wrap' }}>
-                                {msg.content || msg.message}
-                              </Typography>
-                            </Box>
-                          </ListItem>
-                          {idx < messages.length - 1 && <Divider />}
-                        </React.Fragment>
-                      ))}
-                    </List>
-                  </Paper>
-                </>
-              )}
-            </>
-          )}
-
-        </Container>
+          </Container>
       </Box>
 
       {/* ════════════════ ADD / EDIT PRODUCT DIALOG ════════════════ */}

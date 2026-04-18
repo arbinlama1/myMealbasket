@@ -86,7 +86,7 @@ const StatCard = ({ label, value, icon, bgcolor, color = 'text.primary' }) => (
 );
 
 // ── Product Card ───────────────────────────────────────────────────────────────
-const ProductCard = ({ product, onAddToCart, onFavorite, onDetails, imageFallback, isFavorite }) => (
+const ProductCard = ({ product, onAddToCart, onFavorite, onDetails, onRate, imageFallback, isFavorite }) => (
   <Card
     sx={{
       height: '100%',
@@ -129,7 +129,23 @@ const ProductCard = ({ product, onAddToCart, onFavorite, onDetails, imageFallbac
         {product.vendor}
       </Typography>
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 2 }}>
-        <Rating value={product.rating || 0} precision={0.5} readOnly size="small" />
+        {onRate ? (
+          <Rating
+            name={`rating-${product.id}`}
+            value={Number(product.rating) || 0}
+            precision={0.5}
+            size="small"
+            onChange={(_, v) => v && onRate(product.id, v)}
+          />
+        ) : (
+          <Rating
+            name={`rating-readOnly-${product.id}`}
+            value={Number(product.rating) || 0}
+            precision={0.5}
+            readOnly
+            size="small"
+          />
+        )}
         <Typography variant="caption" color="text.secondary">
           ({product.totalRatings || 0})
         </Typography>
@@ -983,10 +999,33 @@ const [selectedPaymentMethod, setSelectedPaymentMethod] = useState('COD');
     navigate('/home');
   };
 
-  const handleRateProduct = (productId, newRating) => {
-    setVendorProducts(prev =>
-      prev.map(p => p.id === productId ? { ...p, rating: newRating, totalRatings: (p.totalRatings || 0) + 1 } : p)
-    );
+  const handleRateProduct = async (productId, newRating) => {
+    try {
+      await productAPI.rateProduct(productId, newRating);
+      // Update vendorProducts state
+      setVendorProducts(prev =>
+        prev.map(p => p.id === productId ? { ...p, rating: newRating, totalRatings: (p.totalRatings || 0) + 1 } : p)
+      );
+    } catch (e) {
+      console.error('Failed to rate product:', e);
+    }
+  };
+
+  const handleRateProductInBrowse = async (productId, newRating) => {
+    try {
+      const response = await productAPI.rateProduct(productId, newRating);
+      console.log('Rating response:', response);
+      // Use backend response data to update state correctly
+      const updatedProduct = response.data?.data;
+      if (updatedProduct) {
+        setVendorProducts(prev =>
+          prev.map(p => p.id === productId ? { ...p, rating: updatedProduct.rating, totalRatings: updatedProduct.totalRatings } : p)
+        );
+      }
+    } catch (e) {
+      console.error('Failed to rate product:', e);
+      alert('Failed to save rating: ' + (e.response?.data?.message || e.message));
+    }
   };
 
   // ── Computed ───────────────────────────────────
@@ -1563,6 +1602,7 @@ const [selectedPaymentMethod, setSelectedPaymentMethod] = useState('COD');
                         onAddToCart={handleAddToCart}
                         onFavorite={handleAddToFavorites}
                         onDetails={(id) => { setSelectedProductId(id); setShowProductDetail(true); }}
+                        onRate={handleRateProductInBrowse}
                         imageFallback={imageFallback}
                         isFavorite={favoriteProductIds.has(product.id)}
                       />
@@ -1836,7 +1876,7 @@ const [selectedPaymentMethod, setSelectedPaymentMethod] = useState('COD');
                           <Typography variant="body2" color="text.secondary" gutterBottom>
                             {item.vendor} • NPR {item.price}
                           </Typography>
-                          <Rating value={item.rating || 0} readOnly size="small" />
+                          <Rating name={`rating-fav-${item.id}`} value={Number(item.rating) || 0} precision={0.5} readOnly size="small" />
                           <Box sx={{ mt: 2, display: 'flex', gap: 1 }}>
                             <Button variant="contained" size="small" fullWidth startIcon={<ShoppingCart />} onClick={() => handleAddToCart(item)}>
                               Add to Cart
@@ -2465,7 +2505,8 @@ const [selectedPaymentMethod, setSelectedPaymentMethod] = useState('COD');
                     <Typography variant="body2" color="text.secondary" gutterBottom>by {product.vendor}</Typography>
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
                       <Rating
-                        value={product.rating || 0}
+                        name={`rating-detail-${product.id}`}
+                        value={Number(product.rating) || 0}
                         onChange={(_, v) => v && handleRateProduct(product.id, v)}
                         precision={0.5}
                       />

@@ -40,6 +40,12 @@ public class Product {
 	@Column(name="stock", nullable=false, columnDefinition="int default 0")
 	private int stock = 0;
 
+	@Column(name="rating", columnDefinition="decimal(3,2) default 0.00")
+	private Double rating = 0.0;
+
+	@Column(name="total_ratings", columnDefinition="int default 0")
+	private Integer totalRatings = 0;
+
 	@Transient
 	private Integer orderCount;
 
@@ -75,6 +81,12 @@ public class Product {
 
 	public Integer getOrderCount() { return orderCount; }
 	public void setOrderCount(Integer orderCount) { this.orderCount = orderCount; }
+
+	public Double getRating() { return rating; }
+	public void setRating(Double rating) { this.rating = rating; }
+
+	public Integer getTotalRatings() { return totalRatings; }
+	public void setTotalRatings(Integer totalRatings) { this.totalRatings = totalRatings; }
 
 	public Vendor getVendor() { return vendor; }
 	public void setVendor(Vendor vendor) { this.vendor = vendor; }

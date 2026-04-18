@@ -2,13 +2,19 @@ package com.example.MealBasketSyatem.controller;
 
 import com.example.MealBasketSyatem.dto.ApiResponse;
 import com.example.MealBasketSyatem.entity.Product;
+import com.example.MealBasketSyatem.entity.User;
+import com.example.MealBasketSyatem.service.ProductRatingService;
 import com.example.MealBasketSyatem.service.ProductService;
+import com.example.MealBasketSyatem.service.UserService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/products")
@@ -17,6 +23,21 @@ public class ProductApiController {
 
     @Autowired
     private ProductService productService;
+
+    @Autowired
+    private ProductRatingService productRatingService;
+
+    @Autowired
+    private UserService userService;
+
+    private User getCurrentUser() {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication != null && authentication.isAuthenticated()) {
+            String email = authentication.getName();
+            return userService.findUserByEmail(email);
+        }
+        return null;
+    }
 
     @GetMapping
     public ResponseEntity<ApiResponse<List<Product>>> getAllProducts() {
@@ -114,6 +135,36 @@ public class ProductApiController {
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(ApiResponse.error("Failed to delete product: " + e.getMessage()));
+        }
+    }
+
+    @PostMapping("/{id}/rate")
+    public ResponseEntity<ApiResponse<Product>> rateProduct(@PathVariable Long id, @RequestBody Map<String, Object> request) {
+        try {
+            User currentUser = getCurrentUser();
+            if (currentUser == null) {
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                        .body(ApiResponse.error("User not authenticated"));
+            }
+
+            Product product = productService.getProductById(id);
+            if (product == null) {
+                return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                        .body(ApiResponse.error("Product not found"));
+            }
+
+            Double rating = ((Number) request.get("rating")).doubleValue();
+
+            // Add or update rating using the new service
+            productRatingService.addOrUpdateRating(currentUser.getId(), id, rating);
+
+            // Get updated product with new average rating
+            Product updatedProduct = productService.getProductById(id);
+
+            return ResponseEntity.ok(ApiResponse.success("Rating submitted successfully", updatedProduct));
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(ApiResponse.error("Failed to rate product: " + e.getMessage()));
         }
     }
 }

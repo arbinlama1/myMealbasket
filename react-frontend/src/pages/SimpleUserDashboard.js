@@ -439,7 +439,10 @@ const [selectedPaymentMethod, setSelectedPaymentMethod] = useState('COD');
       try {
         // Fetch recipes from the actual recipes API
         const response = await fetch(`${API_BASE}/recipes`);
-        const data = await response.json();
+        const apiResponse = await response.json();
+        
+        // Extract data from ApiResponse wrapper
+        const data = apiResponse.data || apiResponse;
         
         if (Array.isArray(data)) {
           // Parse ingredients from JSON string to array for each recipe

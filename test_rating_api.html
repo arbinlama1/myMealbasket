@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test Rating API</title>
+</head>
+<body>
+    <h1>Rating API Test</h1>
+    
+    <div>
+        <h3>Test 1: Get User Ratings</h3>
+        <button onclick="testGetUserRatings()">Get User 1 Ratings</button>
+        <pre id="getUserRatingsResult"></pre>
+    </div>
+    
+    <div>
+        <h3>Test 2: Submit Rating</h3>
+        <input type="number" id="userId" placeholder="User ID" value="1">
+        <input type="number" id="productId" placeholder="Product ID" value="1">
+        <input type="number" id="rating" placeholder="Rating (0-5)" value="5">
+        <button onclick="testSubmitRating()">Submit Rating</button>
+        <pre id="submitRatingResult"></pre>
+    </div>
+    
+    <div>
+        <h3>Test 3: Get Product Rating</h3>
+        <button onclick="testGetProductRating()">Get Product 1 Rating</button>
+        <pre id="getProductRatingResult"></pre>
+    </div>
+
+    <script>
+        const API_BASE = 'http://localhost:8081/api';
+        
+        async function testGetUserRatings() {
+            try {
+                const response = await fetch(`${API_BASE}/recommendations/user/1/ratings`);
+                const data = await response.json();
+                document.getElementById('getUserRatingsResult').textContent = 
+                    `Status: ${response.status}\n${JSON.stringify(data, null, 2)}`;
+            } catch (error) {
+                document.getElementById('getUserRatingsResult').textContent = 
+                    `Error: ${error.message}`;
+            }
+        }
+        
+        async function testSubmitRating() {
+            const userId = document.getElementById('userId').value;
+            const productId = document.getElementById('productId').value;
+            const rating = document.getElementById('rating').value;
+            
+            try {
+                const response = await fetch(`${API_BASE}/recommendations/rate`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        userId: parseInt(userId),
+                        productId: parseInt(productId),
+                        rating: parseInt(rating)
+                    })
+                });
+                const data = await response.json();
+                document.getElementById('submitRatingResult').textContent = 
+                    `Status: ${response.status}\n${JSON.stringify(data, null, 2)}`;
+            } catch (error) {
+                document.getElementById('submitRatingResult').textContent = 
+                    `Error: ${error.message}`;
+            }
+        }
+        
+        async function testGetProductRating() {
+            try {
+                const response = await fetch(`${API_BASE}/recommendations/product/1/rating?userId=1`);
+                const data = await response.json();
+                document.getElementById('getProductRatingResult').textContent = 
+                    `Status: ${response.status}\n${JSON.stringify(data, null, 2)}`;
+            } catch (error) {
+                document.getElementById('getProductRatingResult').textContent = 
+                    `Error: ${error.message}`;
+            }
+        }
+    </script>
+</body>
+</html>

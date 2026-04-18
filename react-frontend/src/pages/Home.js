@@ -3,9 +3,11 @@ import {
   Container, Grid, Card, CardContent, CardMedia, Typography, Button,
   Box, Chip, CircularProgress, Alert, TextField, InputAdornment, useTheme,
 } from '@mui/material';
-import { Search, ShoppingCart, Restaurant, Star } from '@mui/icons-material';
+import { Search, ShoppingCart, Restaurant, Info } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 import { productAPI } from '../services/api';
+import FavoriteHeart from '../components/FavoriteHeart';
+import DebugPanel from '../components/DebugPanel';
 
 const Home = () => {
   const navigate = useNavigate();
@@ -224,20 +226,39 @@ const Home = () => {
                     <Typography variant="h6" color="primary.main">
                       Rs.{product.price?.toFixed(2) || '0.00'}
                     </Typography>
-                    <Box sx={{ display: 'flex', gap: 1 }}>
-                      <Chip icon={<Star sx={{ fontSize: 16 }} />} label="4.5" size="small" color="warning" variant="outlined" />
+                    <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+                      <FavoriteHeart 
+                        productId={product.id}
+                        size="small"
+                        showAnimation={true}
+                        onFavoriteChange={(isFavorited) => {
+                          console.log(`Product ${product.id} favorite status:`, isFavorited);
+                        }}
+                      />
                       <Chip label="Popular" size="small" color="success" variant="outlined" />
                     </Box>
                   </Box>
-                  <Button
-                    variant="contained"
-                    fullWidth
-                    startIcon={<ShoppingCart />}
-                    sx={{ mt: 2 }}
-                    onClick={(e) => handleAddToCart(e, product)}
-                  >
-                    Add to Cart
-                  </Button>
+                  <Box sx={{ display: 'flex', gap: 1, mt: 2 }}>
+                    <Button
+                      variant="contained"
+                      startIcon={<ShoppingCart />}
+                      onClick={(e) => handleAddToCart(e, product)}
+                      sx={{ flex: 1 }}
+                    >
+                      Add
+                    </Button>
+                    <Button
+                      variant="outlined"
+                      startIcon={<Info />}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        navigate(`/products/${product.id}`);
+                      }}
+                      sx={{ flex: 1 }}
+                    >
+                      Info
+                    </Button>
+                  </Box>
                 </CardContent>
               </Card>
             </Grid>

@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Complete Rating System Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .test-section { margin: 20px 0; padding: 15px; border: 1px solid #ccc; }
+        .result { background: #f5f5f5; padding: 10px; margin: 10px 0; }
+        .success { color: green; }
+        .error { color: red; }
+        button { margin: 5px; padding: 10px; }
+        input { margin: 5px; padding: 5px; }
+    </style>
+</head>
+<body>
+    <h1>🧪 Complete Rating System Test</h1>
+    
+    <div class="test-section">
+        <h2>✅ Requirement 1: Persistent Data Storage</h2>
+        <p>Test: Store ratings securely in database, not reset after logout</p>
+        <button onclick="testPersistence()">Test Persistence</button>
+        <div id="persistenceResult" class="result"></div>
+    </div>
+    
+    <div class="test-section">
+        <h2>✅ Requirement 2: User-Specific Ratings</h2>
+        <p>Test: Each user can rate a product only once</p>
+        <input type="number" id="userId1" placeholder="User ID" value="1">
+        <input type="number" id="productId1" placeholder="Product ID" value="1">
+        <button onclick="testUserSpecific()">Test User Specific</button>
+        <div id="userSpecificResult" class="result"></div>
+    </div>
+    
+    <div class="test-section">
+        <h2>✅ Requirement 3: Editable Ratings</h2>
+        <p>Test: Users can update ratings (update existing record)</p>
+        <input type="number" id="userId2" placeholder="User ID" value="1">
+        <input type="number" id="productId2" placeholder="Product ID" value="1">
+        <input type="number" id="newRating" placeholder="New Rating (0-5)" value="3">
+        <button onclick="testEditable()">Test Editable</button>
+        <div id="editableResult" class="result"></div>
+    </div>
+    
+    <div class="test-section">
+        <h2>✅ Requirement 4: Session Independence</h2>
+        <p>Test: Ratings from database, not session/cache</p>
+        <button onclick="testSessionIndependence()">Test Session Independence</button>
+        <div id="sessionResult" class="result"></div>
+    </div>
+    
+    <div class="test-section">
+        <h2>✅ Requirement 5: Duplicate Prevention</h2>
+        <p>Test: Unique constraint on user_id and product_id</p>
+        <button onclick="testDuplicatePrevention()">Test Duplicate Prevention</button>
+        <div id="duplicateResult" class="result"></div>
+    </div>
+    
+    <div class="test-section">
+        <h2>✅ Requirement 6: Automatic Rating Display</h2>
+        <p>Test: Show user's previous rating + average rating</p>
+        <input type="number" id="userId3" placeholder="User ID" value="1">
+        <input type="number" id="productId3" placeholder="Product ID" value="1">
+        <button onclick="testAutomaticDisplay()">Test Automatic Display</button>
+        <div id="automaticResult" class="result"></div>
+    </div>
+
+    <script>
+        const API_BASE = 'http://localhost:8081/api';
+        
+        // Test 1: Persistent Data Storage
+        async function testPersistence() {
+            const result = document.getElementById('persistenceResult');
+            try {
+                // Submit rating
+                await submitRating(1, 1, 5);
+                result.innerHTML = '<span class="success">✅ Rating submitted to database</span>';
+                
+                // Simulate logout/login by checking if rating persists
+                setTimeout(async () => {
+                    const ratings = await getUserRatings(1);
+                    const hasRating = ratings.some(r => r.productId === 1 && r.rating === 5);
+                    if (hasRating) {
+                        result.innerHTML += '<br><span class="success">✅ Rating persists in database</span>';
+                    } else {
+                        result.innerHTML += '<br><span class="error">❌ Rating not found in database</span>';
+                    }
+                }, 1000);
+            } catch (error) {
+                result.innerHTML = `<span class="error">❌ Error: ${error.message}</span>`;
+            }
+        }
+        
+        // Test 2: User-Specific Ratings
+        async function testUserSpecific() {
+            const result = document.getElementById('userSpecificResult');
+            const userId = document.getElementById('userId1').value;
+            const productId = document.getElementById('productId1').value;
+            
+            try {
+                // Submit rating for user 1
+                await submitRating(userId, productId, 5);
+                
+                // Try to submit same rating again
+                const response2 = await submitRating(userId, productId, 4);
+                const ratings = await getUserRatings(userId);
+                const finalRating = ratings.find(r => r.productId === parseInt(productId));
+                
+                if (finalRating && finalRating.rating === 4) {
+                    result.innerHTML = '<span class="success">✅ Rating updated (not duplicated)</span>';
+                } else if (finalRating && finalRating.rating === 5) {
+                    result.innerHTML = '<span class="success">✅ Single rating per user-product enforced</span>';
+                } else {
+                    result.innerHTML = '<span class="error">❌ Duplicate prevention failed</span>';
+                }
+            } catch (error) {
+                result.innerHTML = `<span class="error">❌ Error: ${error.message}</span>`;
+            }
+        }
+        
+        // Test 3: Editable Ratings
+        async function testEditable() {
+            const result = document.getElementById('editableResult');
+            const userId = document.getElementById('userId2').value;
+            const productId = document.getElementById('productId2').value;
+            const newRating = document.getElementById('newRating').value;
+            
+            try {
+                // Submit initial rating
+                await submitRating(userId, productId, 5);
+                
+                // Update rating
+                await submitRating(userId, productId, newRating);
+                
+                const ratings = await getUserRatings(userId);
+                const finalRating = ratings.find(r => r.productId === parseInt(productId));
+                
+                if (finalRating && finalRating.rating === parseInt(newRating)) {
+                    result.innerHTML = '<span class="success">✅ Rating updated successfully</span>';
+                } else {
+                    result.innerHTML = '<span class="error">❌ Rating update failed</span>';
+                }
+            } catch (error) {
+                result.innerHTML = `<span class="error">❌ Error: ${error.message}</span>`;
+            }
+        }
+        
+        // Test 4: Session Independence
+        async function testSessionIndependence() {
+            const result = document.getElementById('sessionResult');
+            try {
+                // Submit rating
+                await submitRating(1, 1, 5);
+                
+                // Clear any local storage/session storage
+                localStorage.clear();
+                sessionStorage.clear();
+                
+                // Fetch ratings again (should come from database)
+                const ratings = await getUserRatings(1);
+                const hasRating = ratings.some(r => r.productId === 1);
+                
+                if (hasRating) {
+                    result.innerHTML = '<span class="success">✅ Ratings loaded from database (session independent)</span>';
+                } else {
+                    result.innerHTML = '<span class="error">❌ Ratings depend on session</span>';
+                }
+            } catch (error) {
+                result.innerHTML = `<span class="error">❌ Error: ${error.message}</span>`;
+            }
+        }
+        
+        // Test 5: Duplicate Prevention
+        async function testDuplicatePrevention() {
+            const result = document.getElementById('duplicateResult');
+            try {
+                // Submit same rating multiple times rapidly
+                const promises = [];
+                for (let i = 0; i < 5; i++) {
+                    promises.push(submitRating(1, 2, i + 1));
+                }
+                
+                await Promise.all(promises);
+                
+                const ratings = await getUserRatings(1);
+                const product2Ratings = ratings.filter(r => r.productId === 2);
+                
+                if (product2Ratings.length === 1) {
+                    result.innerHTML = '<span class="success">✅ Duplicate prevention working</span>';
+                } else {
+                    result.innerHTML = `<span class="error">❌ Found ${product2Ratings.length} ratings (should be 1)</span>`;
+                }
+            } catch (error) {
+                result.innerHTML = `<span class="error">❌ Error: ${error.message}</span>`;
+            }
+        }
+        
+        // Test 6: Automatic Rating Display
+        async function testAutomaticDisplay() {
+            const result = document.getElementById('automaticResult');
+            const userId = document.getElementById('userId3').value;
+            const productId = document.getElementById('productId3').value;
+            
+            try {
+                // Submit rating
+                await submitRating(userId, productId, 4);
+                
+                // Get comprehensive product rating
+                const productRating = await getProductRating(productId, userId);
+                
+                if (productRating.userRating === 4 && productRating.averageRating !== undefined) {
+                    result.innerHTML = `
+                        <span class="success">✅ User rating displayed: ${productRating.userRating}</span><br>
+                        <span class="success">✅ Average rating displayed: ${productRating.averageRating}</span><br>
+                        <span class="success">✅ Rating count displayed: ${productRating.ratingCount}</span>
+                    `;
+                } else {
+                    result.innerHTML = '<span class="error">❌ Automatic display failed</span>';
+                }
+            } catch (error) {
+                result.innerHTML = `<span class="error">❌ Error: ${error.message}</span>`;
+            }
+        }
+        
+        // Helper functions
+        async function submitRating(userId, productId, rating) {
+            const response = await fetch(`${API_BASE}/recommendations/rate`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ 
+                    userId: parseInt(userId), 
+                    productId: parseInt(productId), 
+                    rating: parseInt(rating) 
+                })
+            });
+            return await response.json();
+        }
+        
+        async function getUserRatings(userId) {
+            const response = await fetch(`${API_BASE}/recommendations/user/${userId}/ratings`);
+            const data = await response.json();
+            return data.map(r => ({
+                productId: r.product.id,
+                rating: r.rating,
+                createdAt: r.createdAt
+            }));
+        }
+        
+        async function getProductRating(productId, userId) {
+            const url = userId 
+                ? `${API_BASE}/recommendations/product/${productId}/rating?userId=${userId}`
+                : `${API_BASE}/recommendations/product/${productId}/rating`;
+            const response = await fetch(url);
+            return await response.json();
+        }
+    </script>
+</body>
+</html>

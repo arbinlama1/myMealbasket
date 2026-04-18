@@ -20,11 +20,11 @@ import {
   ArrowBack,
   Favorite,
   Share,
-  Star,
   LocalFireDepartment,
   AccessTime,
 } from '@mui/icons-material';
 import { productAPI } from '../services/api';
+import StarRating from '../components/StarRating';
 
 const ProductDetail = () => {
   const { id } = useParams();
@@ -163,17 +163,19 @@ const ProductDetail = () => {
             </Box>
 
             {/* Category and Rating */}
-            <Box sx={{ display: 'flex', gap: 1, mb: 2 }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2, flexWrap: 'wrap' }}>
               <Chip
                 label={product.category || 'General'}
                 color="primary"
                 variant="outlined"
               />
-              <Chip
-                icon={<Star />}
-                label={`${product.rating?.toFixed(1) || '4.5'} (${product.reviews || 128} reviews)`}
-                color="warning"
-                variant="outlined"
+              <StarRating 
+                productId={product.id}
+                initialRating={product.rating || 0}
+                size="medium"
+                onRatingChange={(newRating) => {
+                  setProduct(prev => ({ ...prev, rating: newRating }));
+                }}
               />
               {product.isVegetarian && (
                 <Chip label="Vegetarian" color="success" variant="outlined" />

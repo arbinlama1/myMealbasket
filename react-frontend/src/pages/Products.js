@@ -26,11 +26,12 @@ import {
   Add,
   FilterList,
   Sort,
-  Star,
   ArrowBack,
   Home,
+  Info,
 } from '@mui/icons-material';
 import { productAPI } from '../services/api';
+import FavoriteButton from '../components/FavoriteButton';
 
 const Products = () => {
   const navigate = useNavigate();
@@ -293,16 +294,17 @@ const Products = () => {
                     color="primary"
                     variant="outlined"
                   />
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                    <Star sx={{ fontSize: 16, color: 'warning.main' }} />
-                    <Typography variant="body2">
-                      {product.rating?.toFixed(1) || '4.5'}
-                    </Typography>
-                  </Box>
+                  <FavoriteButton 
+                    productId={product.id}
+                    size="small"
+                    onFavoriteChange={(isFavorited) => {
+                      console.log(`Product ${product.id} favorite status:`, isFavorited);
+                    }}
+                  />
                 </Box>
 
                 {/* Price and Actions */}
-                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
                   <Typography variant="h6" color="primary.main">
                     ${product.price?.toFixed(2) || '0.00'}
                   </Typography>
@@ -317,6 +319,22 @@ const Products = () => {
                     }}
                   >
                     Add
+                  </Button>
+                </Box>
+
+                {/* Info Button */}
+                <Box sx={{ display: 'flex', justifyContent: 'center' }}>
+                  <Button
+                    variant="outlined"
+                    size="small"
+                    startIcon={<Info />}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      navigate(`/products/${product.id}`);
+                    }}
+                    sx={{ width: '100%' }}
+                  >
+                    Info
                   </Button>
                 </Box>
               </CardContent>

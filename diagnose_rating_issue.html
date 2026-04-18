@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Diagnose Rating Issue</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .step { margin: 20px 0; padding: 15px; border: 1px solid #ccc; }
+        .result { background: #f5f5f5; padding: 10px; margin: 10px 0; }
+        .success { color: green; font-weight: bold; }
+        .error { color: red; font-weight: bold; }
+        .warning { color: orange; font-weight: bold; }
+        button { margin: 5px; padding: 10px; background: #007bff; color: white; border: none; cursor: pointer; }
+        button:hover { background: #0056b3; }
+        .code { background: #f8f9fa; padding: 10px; border-radius: 5px; font-family: monospace; }
+    </style>
+</head>
+<body>
+    <h1>🔍 RATING SYSTEM DIAGNOSTIC</h1>
+    <p>This will help identify exactly why the rating system is not working.</p>
+    
+    <div class="step">
+        <h2>Step 1: Backend Connection Test</h2>
+        <button onclick="testBackendConnection()">Test Backend Connection</button>
+        <div id="backendResult" class="result"></div>
+    </div>
+    
+    <div class="step">
+        <h2>Step 2: Database Schema Test</h2>
+        <button onclick="testDatabaseSchema()">Test Database Schema</button>
+        <div id="schemaResult" class="result"></div>
+    </div>
+    
+    <div class="step">
+        <h2>Step 3: Rating Submission Test</h2>
+        <input type="number" id="testUserId" placeholder="User ID" value="1" style="margin: 5px; padding: 5px;">
+        <input type="number" id="testProductId" placeholder="Product ID" value="1" style="margin: 5px; padding: 5px;">
+        <input type="number" id="testRating" placeholder="Rating (0-5)" value="5" style="margin: 5px; padding: 5px;">
+        <button onclick="testRatingSubmission()">Submit Test Rating</button>
+        <div id="submissionResult" class="result"></div>
+    </div>
+    
+    <div class="step">
+        <h2>Step 4: Rating Retrieval Test</h2>
+        <button onclick="testRatingRetrieval()">Test Rating Retrieval</button>
+        <div id="retrievalResult" class="result"></div>
+    </div>
+    
+    <div class="step">
+        <h2>Step 5: Frontend Integration Test</h2>
+        <button onclick="testFrontendIntegration()">Test Frontend Integration</button>
+        <div id="frontendResult" class="result"></div>
+    </div>
+    
+    <div class="step">
+        <h2>Step 6: Complete Workflow Test</h2>
+        <button onclick="testCompleteWorkflow()">Test Complete Workflow</button>
+        <div id="workflowResult" class="result"></div>
+    </div>
+
+    <script>
+        const API_BASE = 'http://localhost:8081/api';
+        
+        function log(elementId, message, type = 'info') {
+            const element = document.getElementById(elementId);
+            const className = type === 'success' ? 'success' : type === 'error' ? 'error' : 'warning';
+            element.innerHTML = `<span class="${className}">${message}</span>`;
+        }
+        
+        async function testBackendConnection() {
+            log('backendResult', 'Testing backend connection...', 'info');
+            try {
+                const response = await fetch(`${API_BASE}/recommendations/user/1/ratings`, {
+                    method: 'GET',
+                    headers: { 'Content-Type': 'application/json' }
+                });
+                
+                if (response.ok) {
+                    log('backendResult', '✅ Backend is RUNNING and responding', 'success');
+                    log('backendResult', `Status: ${response.status}`, 'info');
+                } else {
+                    log('backendResult', `❌ Backend responded with status: ${response.status}`, 'error');
+                }
+            } catch (error) {
+                log('backendResult', `❌ Backend connection failed: ${error.message}`, 'error');
+                log('backendResult', 'Possible causes: Backend not running, wrong port, or network issue', 'warning');
+            }
+        }
+        
+        async function testDatabaseSchema() {
+            log('schemaResult', 'Testing database schema...', 'info');
+            try {
+                // Try to submit a rating to test schema
+                const testResponse = await fetch(`${API_BASE}/recommendations/rate`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        userId: 999999, // Non-existent user
+                        productId: 999999, // Non-existent product
+                        rating: 5
+                    })
+                });
+                
+                const result = await testResponse.json();
+                
+                if (testResponse.status === 400 && result.message?.includes('not found')) {
+                    log('schemaResult', '✅ Database schema is working (proper validation)', 'success');
+                } else if (testResponse.status === 500) {
+                    log('schemaResult', '❌ Database schema issue - Internal server error', 'error');
+                    log('schemaResult', 'Check: Database connection, table existence, constraints', 'warning');
+                } else {
+                    log('schemaResult', `⚠️ Unexpected response: ${testResponse.status}`, 'warning');
+                }
+            } catch (error) {
+                log('schemaResult', `❌ Schema test failed: ${error.message}`, 'error');
+            }
+        }
+        
+        async function testRatingSubmission() {
+            const userId = document.getElementById('testUserId').value;
+            const productId = document.getElementById('testProductId').value;
+            const rating = document.getElementById('testRating').value;
+            
+            log('submissionResult', `Submitting rating: User ${userId}, Product ${productId}, Rating ${rating}`, 'info');
+            
+            try {
+                const response = await fetch(`${API_BASE}/recommendations/rate`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        userId: parseInt(userId),
+                        productId: parseInt(productId),
+                        rating: parseInt(rating)
+                    })
+                });
+                
+                const result = await response.json();
+                
+                if (response.ok && result.success) {
+                    log('submissionResult', `✅ Rating submitted successfully!`, 'success');
+                    log('submissionResult', `Action: ${result.action}, Message: ${result.message}`, 'info');
+                } else {
+                    log('submissionResult', `❌ Rating submission failed`, 'error');
+                    log('submissionResult', `Error: ${result.message || 'Unknown error'}`, 'warning');
+                }
+            } catch (error) {
+                log('submissionResult', `❌ Network error: ${error.message}`, 'error');
+            }
+        }
+        
+        async function testRatingRetrieval() {
+            const userId = document.getElementById('testUserId').value;
+            const productId = document.getElementById('testProductId').value;
+            
+            log('retrievalResult', `Retrieving ratings for User ${userId}`, 'info');
+            
+            try {
+                // Test user ratings
+                const userResponse = await fetch(`${API_BASE}/recommendations/user/${userId}/ratings`);
+                const userRatings = await userResponse.json();
+                
+                log('retrievalResult', `✅ User ratings retrieved: ${userRatings.length} found`, 'success');
+                
+                // Test product rating
+                const productResponse = await fetch(`${API_BASE}/recommendations/product/${productId}/rating?userId=${userId}`);
+                const productRating = await productResponse.json();
+                
+                log('retrievalResult', `✅ Product rating retrieved`, 'success');
+                log('retrievalResult', `User Rating: ${productRating.userRating || 'None'}`, 'info');
+                log('retrievalResult', `Average Rating: ${productRating.averageRating || 0}`, 'info');
+                log('retrievalResult', `Rating Count: ${productRating.ratingCount || 0}`, 'info');
+                
+            } catch (error) {
+                log('retrievalResult', `❌ Retrieval failed: ${error.message}`, 'error');
+            }
+        }
+        
+        async function testFrontendIntegration() {
+            log('frontendResult', 'Testing frontend integration...', 'info');
+            
+            // Check if localStorage is working
+            try {
+                localStorage.setItem('testKey', 'testValue');
+                const testValue = localStorage.getItem('testKey');
+                localStorage.removeItem('testKey');
+                
+                if (testValue === 'testValue') {
+                    log('frontendResult', '✅ LocalStorage is working', 'success');
+                } else {
+                    log('frontendResult', '❌ LocalStorage is not working', 'error');
+                }
+                
+                // Check if userId is stored
+                const userId = localStorage.getItem('userId');
+                if (userId) {
+                    log('frontendResult', `✅ UserId found in localStorage: ${userId}`, 'success');
+                } else {
+                    log('frontendResult', '❌ No userId found in localStorage - User not logged in', 'error');
+                    log('frontendResult', 'Solution: Login first, then test ratings', 'warning');
+                }
+                
+            } catch (error) {
+                log('frontendResult', `❌ Frontend integration test failed: ${error.message}`, 'error');
+            }
+        }
+        
+        async function testCompleteWorkflow() {
+            log('workflowResult', 'Testing complete rating workflow...', 'info');
+            
+            try {
+                const userId = 1;
+                const productId = 1;
+                
+                // Step 1: Submit rating
+                log('workflowResult', 'Step 1: Submitting rating...', 'info');
+                const submitResponse = await fetch(`${API_BASE}/recommendations/rate`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        userId: userId,
+                        productId: productId,
+                        rating: 5
+                    })
+                });
+                
+                if (!submitResponse.ok) {
+                    log('workflowResult', '❌ Rating submission failed', 'error');
+                    return;
+                }
+                
+                log('workflowResult', '✅ Rating submitted successfully', 'success');
+                
+                // Step 2: Clear storage (simulate logout/login)
+                log('workflowResult', 'Step 2: Clearing storage (simulate logout)...', 'info');
+                localStorage.clear();
+                sessionStorage.clear();
+                
+                // Step 3: Retrieve rating (simulate login)
+                log('workflowResult', 'Step 3: Retrieving rating (simulate login)...', 'info');
+                const retrieveResponse = await fetch(`${API_BASE}/recommendations/user/${userId}/ratings`);
+                const ratings = await retrieveResponse.json();
+                
+                const hasRating = ratings.some(r => r.product && r.product.id === productId && r.rating === 5);
+                
+                if (hasRating) {
+                    log('workflowResult', '✅ COMPLETE WORKFLOW SUCCESSFUL!', 'success');
+                    log('workflowResult', 'Rating persists after logout/login simulation', 'info');
+                } else {
+                    log('workflowResult', '❌ WORKFLOW FAILED - Rating not persistent', 'error');
+                    log('workflowResult', 'Check database connection and constraints', 'warning');
+                }
+                
+            } catch (error) {
+                log('workflowResult', `❌ Workflow test failed: ${error.message}`, 'error');
+            }
+        }
+        
+        // Auto-run backend test on page load
+        window.onload = () => {
+            console.log('🔍 Rating System Diagnostic Loaded');
+            console.log('Run tests to identify issues with the rating system');
+        };
+    </script>
+</body>
+</html>

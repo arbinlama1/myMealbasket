@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test Star Rating UI</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .test-section { margin: 20px 0; padding: 15px; border: 1px solid #ccc; }
+        .result { background: #f5f5f5; padding: 10px; margin: 10px 0; }
+        .success { color: green; }
+        .error { color: red; }
+        button { margin: 5px; padding: 10px; }
+        input { margin: 5px; padding: 5px; }
+        .star { font-size: 24px; color: #ccc; cursor: pointer; }
+        .star.filled { color: #ffc107; }
+        .star:hover { color: #ffb300; }
+    </style>
+</head>
+<body>
+    <h1>Test Star Rating System</h1>
+    
+    <div class="test-section">
+        <h2>Test 1: Direct API Test</h2>
+        <p>Test star rating API directly</p>
+        <input type="number" id="userId" placeholder="User ID" value="1">
+        <input type="number" id="productId" placeholder="Product ID" value="125">
+        <input type="number" id="starRating" placeholder="Star Rating (1-5)" value="4">
+        <button onclick="testStarRating()">Submit Star Rating</button>
+        <div id="starRatingResult" class="result"></div>
+    </div>
+    
+    <div class="test-section">
+        <h2>Test 2: Interactive Star Rating</h2>
+        <p>Click stars to rate product 126</p>
+        <div id="starContainer">
+            <span class="star" data-rating="1">1</span>
+            <span class="star" data-rating="2">2</span>
+            <span class="star" data-rating="3">3</span>
+            <span class="star" data-rating="4">4</span>
+            <span class="star" data-rating="5">5</span>
+        </div>
+        <div id="currentRating">Current Rating: None</div>
+        <div id="starResult" class="result"></div>
+    </div>
+    
+    <div class="test-section">
+        <h2>Test 3: Verify Stored Ratings</h2>
+        <p>Check if star ratings are stored in database</p>
+        <button onclick="verifyStarRatings()">Verify Star Ratings</button>
+        <div id="verifyResult" class="result"></div>
+    </div>
+    
+    <div class="test-section">
+        <h2>Test 4: Compare with Favorite System</h2>
+        <p>Test if favorite (heart) system works differently</p>
+        <button onclick="testFavoriteSystem()">Test Favorite System</button>
+        <div id="favoriteResult" class="result"></div>
+    </div>
+
+    <script>
+        const API_BASE = 'http://localhost:8081/api';
+        let currentStarRating = 0;
+        
+        // Initialize star rating interaction
+        document.querySelectorAll('.star').forEach(star => {
+            star.addEventListener('click', function() {
+                const rating = parseInt(this.dataset.rating);
+                currentStarRating = rating;
+                updateStarDisplay(rating);
+                submitStarRating(126, rating);
+            });
+            
+            star.addEventListener('mouseenter', function() {
+                const rating = parseInt(this.dataset.rating);
+                updateStarDisplay(rating);
+            });
+        });
+        
+        document.getElementById('starContainer').addEventListener('mouseleave', function() {
+            updateStarDisplay(currentStarRating);
+        });
+        
+        function updateStarDisplay(rating) {
+            document.querySelectorAll('.star').forEach((star, index) => {
+                if (index < rating) {
+                    star.classList.add('filled');
+                    star.textContent = '1';
+                } else {
+                    star.classList.remove('filled');
+                    star.textContent = '2';
+                }
+            });
+            document.getElementById('currentRating').textContent = `Current Rating: ${rating} stars`;
+        }
+        
+        async function testStarRating() {
+            const userId = document.getElementById('userId').value;
+            const productId = document.getElementById('productId').value;
+            const rating = document.getElementById('starRating').value;
+            
+            const result = document.getElementById('starRatingResult');
+            
+            try {
+                console.log(`Submitting star rating: User ${userId}, Product ${productId}, Rating ${rating}`);
+                
+                const response = await fetch(`${API_BASE}/recommendations/rate`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        userId: parseInt(userId),
+                        productId: parseInt(productId),
+                        rating: parseInt(rating)
+                    })
+                });
+                
+                const data = await response.json();
+                console.log('Star rating response:', data);
+                
+                result.innerHTML = `
+                    <div>Status: ${response.status}</div>
+                    <div>Success: ${data.success}</div>
+                    <div>Message: ${data.message}</div>
+                    <div>Action: ${data.action}</div>
+                    <div>User Rating: ${data.userRating}</div>
+                    <div>Average Rating: ${data.averageRating}</div>
+                    <div>Rating Count: ${data.ratingCount}</div>
+                `;
+                
+                if (data.success) {
+                    result.className = 'result success';
+                } else {
+                    result.className = 'result error';
+                }
+                
+            } catch (error) {
+                console.error('Star rating error:', error);
+                result.innerHTML = `<div class="error">Error: ${error.message}</div>`;
+                result.className = 'result error';
+            }
+        }
+        
+        async function submitStarRating(productId, rating) {
+            const result = document.getElementById('starResult');
+            
+            try {
+                console.log(`Interactive star rating: Product ${productId}, Rating ${rating}`);
+                
+                const response = await fetch(`${API_BASE}/recommendations/rate`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        userId: 1,
+                        productId: productId,
+                        rating: rating
+                    })
+                });
+                
+                const data = await response.json();
+                console.log('Interactive star rating response:', data);
+                
+                result.innerHTML = `
+                    <div>Status: ${response.status}</div>
+                    <div>Success: ${data.success}</div>
+                    <div>Message: ${data.message}</div>
+                    <div>Action: ${data.action}</div>
+                    <div>User Rating: ${data.userRating}</div>
+                `;
+                
+                if (data.success) {
+                    result.className = 'result success';
+                } else {
+                    result.className = 'result error';
+                }
+                
+            } catch (error) {
+                console.error('Interactive star rating error:', error);
+                result.innerHTML = `<div class="error">Error: ${error.message}</div>`;
+                result.className = 'result error';
+            }
+        }
+        
+        async function verifyStarRatings() {
+            const result = document.getElementById('verifyResult');
+            
+            try {
+                console.log('Verifying stored star ratings...');
+                
+                const response = await fetch(`${API_BASE}/recommendations/user/1/ratings`);
+                const data = await response.json();
+                
+                console.log('Stored ratings:', data);
+                
+                let html = `<div>Total Ratings: ${data.length}</div>`;
+                data.forEach((rating, index) => {
+                    const ratingValue = rating.rating;
+                    const productId = rating.product?.id || 'N/A';
+                    const createdAt = rating.createdAt;
+                    const ratingType = ratingValue === 5 ? 'Favorite (5 stars)' : `${ratingValue} stars`;
+                    
+                    html += `
+                        <div style="margin: 5px 0; padding: 5px; border: 1px solid #ddd;">
+                            <strong>Rating ${index + 1}:</strong> ${ratingType}<br>
+                            Product: ${productId}<br>
+                            Created: ${createdAt}<br>
+                            Rating Value: ${ratingValue}
+                        </div>
+                    `;
+                });
+                
+                result.innerHTML = html;
+                result.className = 'result success';
+                
+            } catch (error) {
+                console.error('Verify ratings error:', error);
+                result.innerHTML = `<div class="error">Error: ${error.message}</div>`;
+                result.className = 'result error';
+            }
+        }
+        
+        async function testFavoriteSystem() {
+            const result = document.getElementById('favoriteResult');
+            
+            try {
+                console.log('Testing favorite system (heart rating)...');
+                
+                // Test favorite (5-star rating)
+                const response = await fetch(`${API_BASE}/recommendations/rate`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        userId: 1,
+                        productId: 127,
+                        rating: 5  // Favorite = 5 stars
+                    })
+                });
+                
+                const data = await response.json();
+                console.log('Favorite system response:', data);
+                
+                result.innerHTML = `
+                    <div>Status: ${response.status}</div>
+                    <div>Success: ${data.success}</div>
+                    <div>Message: ${data.message}</div>
+                    <div>Action: ${data.action}</div>
+                    <div>User Rating: ${data.userRating}</div>
+                    <div>System: Favorite (Heart) - Rating Value: 5</div>
+                `;
+                
+                if (data.success) {
+                    result.className = 'result success';
+                } else {
+                    result.className = 'result error';
+                }
+                
+            } catch (error) {
+                console.error('Favorite system error:', error);
+                result.innerHTML = `<div class="error">Error: ${error.message}</div>`;
+                result.className = 'result error';
+            }
+        }
+        
+        // Initialize
+        updateStarDisplay(0);
+    </script>
+</body>
+</html>

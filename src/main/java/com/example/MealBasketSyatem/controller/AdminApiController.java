@@ -2,6 +2,8 @@ package com.example.MealBasketSyatem.controller;
 
 import com.example.MealBasketSyatem.dto.AccountDTO;
 import com.example.MealBasketSyatem.dto.ApiResponse;
+import com.example.MealBasketSyatem.dto.OrderDTO;
+import com.example.MealBasketSyatem.dto.RatingDTO;
 import com.example.MealBasketSyatem.service.AdminApiService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
@@ -40,5 +42,21 @@ public class AdminApiController {
     public ResponseEntity<ApiResponse<List<AccountDTO>>> getAllVendors() {
         List<AccountDTO> vendors = adminApiService.getAllVendors();
         return ResponseEntity.ok(ApiResponse.success("Vendors retrieved successfully", vendors));
+    }
+
+    // Get all orders from database
+    @GetMapping("/orders")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<ApiResponse<List<OrderDTO>>> getAllOrders() {
+        List<OrderDTO> orders = adminApiService.getAllOrders();
+        return ResponseEntity.ok(ApiResponse.success("Orders retrieved successfully", orders));
+    }
+
+    // Get all ratings from database
+    @GetMapping("/ratings")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<ApiResponse<List<RatingDTO>>> getAllRatings() {
+        List<RatingDTO> ratings = adminApiService.getAllRatings();
+        return ResponseEntity.ok(ApiResponse.success("Ratings retrieved successfully", ratings));
     }
 }

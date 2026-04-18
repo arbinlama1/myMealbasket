@@ -25,7 +25,11 @@ import {
   AppBar,
   Toolbar,
   Menu,
-  MenuItem
+  MenuItem,
+  TextField,
+  FormControl,
+  InputLabel,
+  Select
 } from '@mui/material';
 import {
   People,
@@ -48,9 +52,27 @@ import {
   MonetizationOn,
   ShowChart,
   AdminPanelSettings,
+  Star,
+  StarRate,
+  Order,
+  Payment,
+  Notifications,
+  Search,
+  FilterList,
+  Download,
+  Upload,
+  Visibility,
+  Edit,
+  Block,
+  CheckCircle,
+  TaskAlt,
+  Cancel,
+  Pending,
+  Warning,
   Logout,
   ArrowBack,
-  AccountCircle
+  AccountCircle,
+  Restaurant
 } from '@mui/icons-material';
 import adminService from '../services/adminService';
 
@@ -58,14 +80,30 @@ const SimpleAdminDashboard = () => {
   const [adminData, setAdminData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [currentView, setCurrentView] = useState('dashboard'); // dashboard, users, vendors, analytics, settings
-  const [anchorEl, setAnchorEl] = useState(null);
-  
-  // Admin data states
   const [users, setUsers] = useState([]);
   const [vendors, setVendors] = useState([]);
   const [products, setProducts] = useState([]);
   const [orders, setOrders] = useState([]);
+  const [currentView, setCurrentView] = useState('dashboard'); // dashboard, users, vendors, products, ratings, orders, analytics, settings
+  const [anchorEl, setAnchorEl] = useState(null);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [roleFilter, setRoleFilter] = useState('all');
+  const [orderStats, setOrderStats] = useState({
+    totalOrders: 0,
+    pendingOrders: 0,
+    readyOrders: 0,
+    completedOrders: 0,
+    cancelledOrders: 0
+  });
+  const [ratingStats, setRatingStats] = useState({
+    totalRatings: 0,
+    fiveStarRatings: 0,
+    fourStarRatings: 0,
+    threeStarRatings: 0,
+    twoStarRatings: 0,
+    oneStarRatings: 0
+  });
+  const [ratings, setRatings] = useState([]);
   const [stats, setStats] = useState({
     totalUsers: 0,
     totalVendors: 0,
@@ -135,6 +173,28 @@ const SimpleAdminDashboard = () => {
       const productsData = await adminService.getAllProducts();
       allProducts = productsData.data || productsData || [];
       console.log('AdminDashboard: Successfully fetched products from backend:', allProducts);
+      
+      // Fetch orders from backend
+      let allOrders = [];
+      try {
+        const ordersData = await adminService.getAllOrders();
+        allOrders = ordersData.data || ordersData || [];
+        console.log('AdminDashboard: Successfully fetched orders from backend:', allOrders);
+      } catch (orderError) {
+        console.log('AdminDashboard: Orders API not available yet, using empty array:', orderError.message);
+        allOrders = []; // Fallback to empty if API not ready
+      }
+      
+      // Fetch ratings from backend
+      let allRatings = [];
+      try {
+        const ratingsData = await adminService.getAllRatings();
+        allRatings = ratingsData.data || ratingsData || [];
+        console.log('AdminDashboard: Successfully fetched ratings from backend:', allRatings);
+      } catch (ratingError) {
+        console.log('AdminDashboard: Ratings API not available yet, using empty array:', ratingError.message);
+        allRatings = []; // Fallback to empty if API not ready
+      }
       
       // Debug: Check what users we have
       console.log('AdminDashboard: Processing users:', allUsers);
@@ -307,8 +367,16 @@ const SimpleAdminDashboard = () => {
       setUsers(allUsers);
       setVendors(allVendorsList);
       setProducts(allProducts);
-      setOrders([]); // Will be implemented
+      setOrders(allOrders); // Use real orders data
+      setRatings(allRatings); // Use real ratings data
       setStats(calculatedStats);
+      
+      // Calculate order statistics after setting orders
+      calculateOrderStats();
+      
+      // Calculate rating statistics after setting ratings
+      calculateRatingStats();
+      
       setLoading(false);
       
     } catch (error) {
@@ -531,6 +599,9 @@ const SimpleAdminDashboard = () => {
       case 'dashboard': return 'Admin Dashboard';
       case 'users': return 'User Management';
       case 'vendors': return 'Vendor Management';
+      case 'products': return 'Product Management';
+      case 'ratings': return 'Rating Management';
+      case 'orders': return 'Order Management';
       case 'analytics': return 'Platform Analytics';
       case 'settings': return 'System Settings';
       default: return 'Admin Dashboard';
@@ -538,6 +609,7 @@ const SimpleAdminDashboard = () => {
   };
 
   const handleViewUsers = () => {
+    console.log('handleViewUsers called - switching to users view');
     setCurrentView('users');
   };
 
@@ -545,8 +617,71 @@ const SimpleAdminDashboard = () => {
     setCurrentView('vendors');
   };
 
+  const handleViewRatings = () => {
+    setCurrentView('ratings');
+  };
+
+  const handleViewOrders = () => {
+    setCurrentView('orders');
+  };
+
   const handleViewAnalytics = () => {
     setCurrentView('analytics');
+  };
+
+  // Calculate order statistics from real orders data
+  const calculateOrderStats = () => {
+    if (!orders || orders.length === 0) {
+      setOrderStats({
+        totalOrders: 0,
+        pendingOrders: 0,
+        readyOrders: 0,
+        completedOrders: 0,
+        cancelledOrders: 0
+      });
+      return;
+    }
+
+    // Debug: Log all order statuses to see what we actually have
+    console.log('All orders with statuses:', orders.map(o => ({ id: o.id, status: o.status })));
+
+    const stats = {
+      totalOrders: orders.length,
+      pendingOrders: orders.filter(order => order.status === 'PENDING').length,
+      readyOrders: orders.filter(order => order.status === 'READY').length,
+      completedOrders: orders.filter(order => order.status === 'DELIVERED').length,
+      cancelledOrders: orders.filter(order => order.status === 'CANCELLED').length
+    };
+
+    console.log('OrderStats calculated:', stats);
+    setOrderStats(stats);
+  };
+
+  // Calculate rating statistics from real ratings data
+  const calculateRatingStats = () => {
+    if (!ratings || ratings.length === 0) {
+      setRatingStats({
+        totalRatings: 0,
+        fiveStarRatings: 0,
+        fourStarRatings: 0,
+        threeStarRatings: 0,
+        twoStarRatings: 0,
+        oneStarRatings: 0
+      });
+      return;
+    }
+
+    const stats = {
+      totalRatings: ratings.length,
+      fiveStarRatings: ratings.filter(rating => rating.rating === 5).length,
+      fourStarRatings: ratings.filter(rating => rating.rating === 4).length,
+      threeStarRatings: ratings.filter(rating => rating.rating === 3).length,
+      twoStarRatings: ratings.filter(rating => rating.rating === 2).length,
+      oneStarRatings: ratings.filter(rating => rating.rating === 1).length
+    };
+
+    console.log('RatingStats calculated:', stats);
+    setRatingStats(stats);
   };
 
   // Manual refresh function
@@ -692,9 +827,80 @@ const SimpleAdminDashboard = () => {
             </IconButton>
           )}
           
-          <Typography variant="h6" sx={{ flexGrow: 1 }}>
-            {getViewTitle()}
-          </Typography>
+          <Box sx={{ flexGrow: 1, display: 'flex', alignItems: 'center', gap: 1 }}>
+            <Typography variant="h6">
+              {getViewTitle()}
+            </Typography>
+            <Box sx={{ ml: 2, display: { xs: 'none', md: 'flex' }, gap: 1 }}>
+              <Button
+                variant={currentView === 'dashboard' ? 'contained' : 'text'}
+                color="inherit"
+                size="small"
+                onClick={() => setCurrentView('dashboard')}
+              >
+                Dashboard
+              </Button>
+              <Button
+                variant={currentView === 'users' ? 'contained' : 'text'}
+                color="inherit"
+                size="small"
+                onClick={() => {
+                  console.log('AppBar Users button clicked - switching to users view');
+                  setCurrentView('users');
+                }}
+              >
+                Users
+              </Button>
+              <Button
+                variant={currentView === 'vendors' ? 'contained' : 'text'}
+                color="inherit"
+                size="small"
+                onClick={() => setCurrentView('vendors')}
+              >
+                Vendors
+              </Button>
+              <Button
+                variant={currentView === 'products' ? 'contained' : 'text'}
+                color="inherit"
+                size="small"
+                onClick={() => setCurrentView('products')}
+              >
+                Products
+              </Button>
+              <Button
+                variant={currentView === 'ratings' ? 'contained' : 'text'}
+                color="inherit"
+                size="small"
+                onClick={() => setCurrentView('ratings')}
+              >
+                Ratings
+              </Button>
+              <Button
+                variant={currentView === 'orders' ? 'contained' : 'text'}
+                color="inherit"
+                size="small"
+                onClick={() => setCurrentView('orders')}
+              >
+                Orders
+              </Button>
+              <Button
+                variant={currentView === 'analytics' ? 'contained' : 'text'}
+                color="inherit"
+                size="small"
+                onClick={() => setCurrentView('analytics')}
+              >
+                Analytics
+              </Button>
+              <Button
+                variant={currentView === 'settings' ? 'contained' : 'text'}
+                color="inherit"
+                size="small"
+                onClick={() => setCurrentView('settings')}
+              >
+                Settings
+              </Button>
+            </Box>
+          </Box>
           
           <IconButton
             edge="end"
@@ -825,105 +1031,8 @@ const SimpleAdminDashboard = () => {
               </Grid>
             </Grid>
 
-            {/* Header */}
-            <Box sx={{ mb: 4, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                <Avatar sx={{ bgcolor: 'secondary.main', mr: 2 }}>
-                  <AdminPanelSettings />
-                </Avatar>
-                <Box>
-                  <Typography variant="h6" color="text.secondary">
-                    Welcome, {adminData?.name || 'Administrator'}!
-                  </Typography>
-                  <Typography variant="body2" color="text.secondary">
-                    Manage the entire platform efficiently
-                  </Typography>
-                </Box>
-              </Box>
-            </Box>
-
-            {/* Stats Cards */}
+            {/* Admin Controls */}
             <Grid container spacing={3} sx={{ mb: 4 }}>
-              <Grid item xs={12} sm={6} md={3}>
-                <Card>
-                  <CardContent>
-                    <Box display="flex" alignItems="center">
-                      <Avatar sx={{ bgcolor: 'success.main', mr: 2 }}>
-                        <AttachMoney />
-                      </Avatar>
-                      <Box>
-                        <Typography variant="h4" fontWeight="bold">
-                          Rs. {(stats.totalRevenue || 0).toLocaleString()}
-                        </Typography>
-                        <Typography color="text.secondary">
-                          Total Revenue
-                        </Typography>
-                      </Box>
-                    </Box>
-                  </CardContent>
-                </Card>
-              </Grid>
-
-              <Grid item xs={12} sm={6} md={3}>
-                <Card>
-                  <CardContent>
-                    <Box display="flex" alignItems="center">
-                      <Avatar sx={{ bgcolor: 'info.main', mr: 2 }}>
-                        <People />
-                      </Avatar>
-                      <Box>
-                        <Typography variant="h4" fontWeight="bold">
-                          {(stats.totalUsers || 0).toLocaleString()}
-                        </Typography>
-                        <Typography color="text.secondary">
-                          Total Users
-                        </Typography>
-                      </Box>
-                    </Box>
-                  </CardContent>
-                </Card>
-              </Grid>
-
-              <Grid item xs={12} sm={6} md={3}>
-                <Card>
-                  <CardContent>
-                    <Box display="flex" alignItems="center">
-                      <Avatar sx={{ bgcolor: 'warning.main', mr: 2 }}>
-                        <Store />
-                      </Avatar>
-                      <Box>
-                        <Typography variant="h4" fontWeight="bold">
-                          {(stats.activeVendors || 0).toLocaleString()}
-                        </Typography>
-                        <Typography color="text.secondary">
-                          Active Vendors
-                        </Typography>
-                      </Box>
-                    </Box>
-                  </CardContent>
-                </Card>
-              </Grid>
-
-              <Grid item xs={12} sm={6} md={3}>
-                <Card>
-                  <CardContent>
-                    <Box display="flex" alignItems="center">
-                      <Avatar sx={{ bgcolor: 'primary.main', mr: 2 }}>
-                        <ShoppingCart />
-                      </Avatar>
-                      <Box>
-                        <Typography variant="h4" fontWeight="bold">
-                          {(stats.totalOrders || 0).toLocaleString()}
-                        </Typography>
-                        <Typography color="text.secondary">
-                          Total Orders
-                        </Typography>
-                      </Box>
-                    </Box>
-                  </CardContent>
-                </Card>
-              </Grid>
-            </Grid>
               <Grid item xs={12} md={6}>
                 <Paper sx={{ p: 3 }}>
                   <Typography variant="h6" fontWeight="bold" sx={{ mb: 3 }}>
@@ -1010,6 +1119,7 @@ const SimpleAdminDashboard = () => {
                   </List>
                 </Paper>
               </Grid>
+            </Grid>
 
             {/* System Status */}
             <Paper sx={{ p: 3 }}>
@@ -1021,58 +1131,43 @@ const SimpleAdminDashboard = () => {
               <Grid container spacing={3} sx={{ mb: 3 }}>
                 <Grid item xs={12} md={4}>
                   <Box sx={{ textAlign: 'center', p: 2, border: 1, borderColor: 'grey.200', borderRadius: 1 }}>
-                    <Typography variant="h4" color="success.main" fontWeight="bold">
-                      {systemStatus.onlineUsers}
+                    <Typography variant="h6" color="text.secondary">
+                      Active Users Now
                     </Typography>
-                    <Typography variant="body2" color="text.secondary">
-                      Users Online
-                    </Typography>
-                    <Box sx={{ 
-                      width: 12, 
-                      height: 12, 
-                      borderRadius: '50%', 
-                      bgcolor: 'success.main', 
-                      mx: 'auto', 
-                      mt: 1 
-                    }} />
-                  </Box>
-                </Grid>
-                
-                <Grid item xs={12} md={4}>
-                  <Box sx={{ textAlign: 'center', p: 2, border: 1, borderColor: 'grey.200', borderRadius: 1 }}>
-                    <Typography variant="h4" color="info.main" fontWeight="bold">
+                    <Typography variant="h4" color="success.main">
                       {systemStatus.activeUsers}
                     </Typography>
                     <Typography variant="body2" color="text.secondary">
-                      Active Now
+                      Online and active
                     </Typography>
-                    <Box sx={{ 
-                      width: 12, 
-                      height: 12, 
-                      borderRadius: '50%', 
-                      bgcolor: 'info.main', 
-                      mx: 'auto', 
-                      mt: 1 
-                    }} />
                   </Box>
                 </Grid>
                 
                 <Grid item xs={12} md={4}>
                   <Box sx={{ textAlign: 'center', p: 2, border: 1, borderColor: 'grey.200', borderRadius: 1 }}>
-                    <Typography variant="h4" color="warning.main" fontWeight="bold">
+                    <Typography variant="h6" color="text.secondary">
+                      Online Users
+                    </Typography>
+                    <Typography variant="h4" color="info.main">
+                      {systemStatus.onlineUsers}
+                    </Typography>
+                    <Typography variant="body2" color="text.secondary">
+                      Currently logged in
+                    </Typography>
+                  </Box>
+                </Grid>
+                
+                <Grid item xs={12} md={4}>
+                  <Box sx={{ textAlign: 'center', p: 2, border: 1, borderColor: 'grey.200', borderRadius: 1 }}>
+                    <Typography variant="h6" color="text.secondary">
+                      Total Sessions
+                    </Typography>
+                    <Typography variant="h4" color="warning.main">
                       {systemStatus.totalSessions}
                     </Typography>
                     <Typography variant="body2" color="text.secondary">
-                      Total Sessions
+                      Today's sessions
                     </Typography>
-                    <Box sx={{ 
-                      width: 12, 
-                      height: 12, 
-                      borderRadius: '50%', 
-                      bgcolor: 'warning.main', 
-                      mx: 'auto', 
-                      mt: 1 
-                    }} />
                   </Box>
                 </Grid>
               </Grid>
@@ -1201,53 +1296,131 @@ const SimpleAdminDashboard = () => {
               </Button>
             </Box>
             
-            {/* Debug Information */}
-            <Paper sx={{ p: 2, mb: 3, bgcolor: 'grey.50' }}>
-              <Typography variant="subtitle2" color="text.secondary">
-                Debug Info: Found {users.length} total users in localStorage.allUsers
-              </Typography>
-              <Typography variant="subtitle2" color="text.secondary">
-                Regular Users: {users.filter(u => u.role === 'USER').length} | 
-                Vendors: {users.filter(u => u.role === 'VENDOR').length} | 
-                Admins: {users.filter(u => u.role === 'ADMIN').length}
-              </Typography>
-              <Typography variant="subtitle2" color="text.secondary">
-                Connected Users: {users.filter(u => u.isConnected).length} | 
-                Active Vendors: {users.filter(u => u.role === 'VENDOR' && u.isConnected).length}
-              </Typography>
-              <Typography variant="subtitle2" color="text.secondary">
-                Total Vendors: {vendors.length} | All vendors from database
-              </Typography>
-              <Typography variant="subtitle2" color="text.secondary">
-                Vendor Management shows all vendors from database.
-              </Typography>
-              <Typography variant="caption" color="text.secondary">
-                User Management shows only regular users (USER role). Vendors and Admins are shown in separate sections.
-              </Typography>
-            </Paper>
-            
+            {/* User Statistics */}
+            <Grid container spacing={2} sx={{ mb: 3 }}>
+              <Grid item xs={12} md={3}>
+                <Card>
+                  <CardContent>
+                    <Typography variant="h6" color="primary">Total Users</Typography>
+                    <Typography variant="h4">{users.length}</Typography>
+                  </CardContent>
+                </Card>
+              </Grid>
+              <Grid item xs={12} md={3}>
+                <Card>
+                  <CardContent>
+                    <Typography variant="h6" color="success.main">Regular Users</Typography>
+                    <Typography variant="h4">{users.filter(u => u.role === 'USER').length}</Typography>
+                  </CardContent>
+                </Card>
+              </Grid>
+              <Grid item xs={12} md={3}>
+                <Card>
+                  <CardContent>
+                    <Typography variant="h6" color="warning.main">Vendors</Typography>
+                    <Typography variant="h4">{users.filter(u => u.role === 'VENDOR').length}</Typography>
+                  </CardContent>
+                </Card>
+              </Grid>
+              <Grid item xs={12} md={3}>
+                <Card>
+                  <CardContent>
+                    <Typography variant="h6" color="error.main">Admins</Typography>
+                    <Typography variant="h4">{users.filter(u => u.role === 'ADMIN').length}</Typography>
+                  </CardContent>
+                </Card>
+              </Grid>
+            </Grid>
+
+            {/* Search and Filter */}
+            <Box sx={{ mb: 3, display: 'flex', gap: 2 }}>
+              <TextField
+                placeholder="Search users by name, email, or role..."
+                variant="outlined"
+                size="small"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                InputProps={{ startAdornment: <Search /> }}
+                sx={{ flexGrow: 1 }}
+              />
+              <FormControl size="small" sx={{ minWidth: 120 }}>
+                <InputLabel>Filter by Role</InputLabel>
+                <Select
+                  label="Filter by Role"
+                  value={roleFilter}
+                  onChange={(e) => setRoleFilter(e.target.value)}
+                >
+                  <MenuItem value="all">All Users</MenuItem>
+                  <MenuItem value="USER">Regular Users</MenuItem>
+                  <MenuItem value="VENDOR">Vendors</MenuItem>
+                  <MenuItem value="ADMIN">Admins</MenuItem>
+                </Select>
+              </FormControl>
+              <Button variant="outlined" startIcon={<Download />}>
+                Export
+              </Button>
+            </Box>
+
+            {/* All Users List */}
             <Paper sx={{ p: 3 }}>
               <Typography variant="h6" sx={{ mb: 2 }}>
-                Regular Users: {users.filter(u => u.role === 'USER').length}
+                All Users ({users.length})
+              </Typography>
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                Manage all registered users in the system
               </Typography>
               
-              {users.filter(u => u.role === 'USER').length === 0 ? (
+              {/* Filter users based on search and role */}
+              {(() => {
+                let filteredUsers = users;
+                
+                // Filter by role
+                if (roleFilter !== 'all') {
+                  filteredUsers = filteredUsers.filter(user => user.role === roleFilter);
+                }
+                
+                // Filter by search term
+                if (searchTerm) {
+                  filteredUsers = filteredUsers.filter(user => 
+                    (user.name && user.name.toLowerCase().includes(searchTerm.toLowerCase())) ||
+                    (user.email && user.email.toLowerCase().includes(searchTerm.toLowerCase())) ||
+                    (user.role && user.role.toLowerCase().includes(searchTerm.toLowerCase())) ||
+                    (user.phone && user.phone.toLowerCase().includes(searchTerm.toLowerCase())) ||
+                    (user.address && user.address.toLowerCase().includes(searchTerm.toLowerCase()))
+                  );
+                }
+                
+                return filteredUsers;
+              })().length === 0 && users.length > 0 ? (
                 <Box sx={{ textAlign: 'center', py: 4 }}>
                   <Typography color="text.secondary" sx={{ mb: 2 }}>
-                    No regular users found in the system.
+                    No users found matching your search criteria.
+                  </Typography>
+                  <Button 
+                    variant="outlined" 
+                    onClick={() => { setSearchTerm(''); setRoleFilter('all'); }}
+                    sx={{ mt: 2 }}
+                  >
+                    Clear Filters
+                  </Button>
+                </Box>
+              ) : users.length === 0 ? (
+                <Box sx={{ textAlign: 'center', py: 4 }}>
+                  <Typography color="text.secondary" sx={{ mb: 2 }}>
+                    No users found in the system.
                   </Typography>
                   <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
                     This could be because:
                   </Typography>
                   <Box component="ul" sx={{ textAlign: 'left', maxWidth: 400, mx: 'auto' }}>
                     <Typography component="li" variant="body2">
-                      No regular users have registered yet
+                      No users have registered yet
                     </Typography>
                     <Typography component="li" variant="body2">
-                      Users are logged in but not saved to allUsers
+                      Backend API is not connected
                     </Typography>
                     <Typography component="li" variant="body2">
-                      localStorage data was cleared
+                      Data loading failed
                     </Typography>
                   </Box>
                   <Button 
@@ -1255,17 +1428,37 @@ const SimpleAdminDashboard = () => {
                     onClick={handleRefreshData}
                     sx={{ mt: 2 }}
                   >
-                    Refresh & Load Default Users
+                    Refresh Users Data
                   </Button>
                 </Box>
               ) : (
                 <List>
-                  {users.filter(u => u.role === 'USER').map((user, index) => (
+                  {(() => {
+                    let filteredUsers = users;
+                    
+                    // Filter by role
+                    if (roleFilter !== 'all') {
+                      filteredUsers = filteredUsers.filter(user => user.role === roleFilter);
+                    }
+                    
+                    // Filter by search term
+                    if (searchTerm) {
+                      filteredUsers = filteredUsers.filter(user => 
+                        (user.name && user.name.toLowerCase().includes(searchTerm.toLowerCase())) ||
+                        (user.email && user.email.toLowerCase().includes(searchTerm.toLowerCase())) ||
+                        (user.role && user.role.toLowerCase().includes(searchTerm.toLowerCase())) ||
+                        (user.phone && user.phone.toLowerCase().includes(searchTerm.toLowerCase())) ||
+                        (user.address && user.address.toLowerCase().includes(searchTerm.toLowerCase()))
+                      );
+                    }
+                    
+                    return filteredUsers;
+                  })().map((user, index) => (
                     <ListItem key={user.id ?? index} sx={{ mb: 2, border: 1, borderColor: 'grey.200', borderRadius: 1 }}>
                       <ListItemIcon>
                         <Avatar sx={{ 
-                          width: 40, 
-                          height: 40, 
+                          width: 48, 
+                          height: 48, 
                           bgcolor: user.role === 'ADMIN' ? 'error.main' : 
                                   user.role === 'VENDOR' ? 'warning.main' : 'primary.main' 
                         }}>
@@ -1274,7 +1467,7 @@ const SimpleAdminDashboard = () => {
                       </ListItemIcon>
                       <ListItemText
                         primary={
-                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
                             <Typography variant="subtitle1" fontWeight="bold">
                               {user.name || 'Unknown User'}
                             </Typography>
@@ -1285,7 +1478,7 @@ const SimpleAdminDashboard = () => {
                                      user.role === 'VENDOR' ? 'warning' : 'primary'}
                             />
                             <Chip 
-                              label={user.isConnected ? 'Connected' : 'Disconnected'} 
+                              label={user.isConnected ? 'Active' : 'Inactive'} 
                               size="small" 
                               color={user.isConnected ? 'success' : 'default'}
                               variant="outlined"
@@ -1298,52 +1491,78 @@ const SimpleAdminDashboard = () => {
                                 variant="outlined"
                               />
                             )}
+                            {user.email && (
+                              <Chip 
+                                label="Verified" 
+                                size="small" 
+                                color="info" 
+                                variant="outlined"
+                              />
+                            )}
                           </Box>
                         }
                         secondary={
                           <Box sx={{ mt: 1 }}>
-                            <Typography variant="body2" color="text.secondary">
+                            <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
                               📧 {user.email || 'No email'}
                             </Typography>
-                            <Typography variant="body2" color="text.secondary">
+                            <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
                               📱 {user.phone || 'No phone'}
                             </Typography>
-                            <Typography variant="body2" color="text.secondary">
+                            <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
                               📍 {user.address || 'No address'}
                             </Typography>
                             {user.businessName && (
-                              <Typography variant="body2" color="text.secondary">
+                              <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
                                 🏢 {user.businessName} ({user.businessType || 'Business'})
                               </Typography>
                             )}
-                            <Typography variant="body2" color="text.secondary">
+                            <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
                               🔄 Status: {user.lastActivity || 'Unknown'}
                             </Typography>
                             {user.role === 'VENDOR' && (
-                              <Typography variant="body2" color="text.secondary">
+                              <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
                                 📦 Products: {user.productCount || 0} items
                               </Typography>
                             )}
                             <Typography variant="caption" color="text.secondary">
-                              Created: {user.createdAt ? new Date(user.createdAt).toLocaleString() : 'Unknown'}
+                              Created: {user.createdAt ? new Date(user.createdAt).toLocaleDateString() : 'Unknown'}
                             </Typography>
                             {user.lastLogin && (
                               <Typography variant="caption" color="text.secondary" display="block">
-                                Last Login: {new Date(user.lastLogin).toLocaleString()}
+                                Last Login: {new Date(user.lastLogin).toLocaleDateString()}
                               </Typography>
                             )}
                           </Box>
                         }
                       />
                       <ListItemSecondaryAction>
-                        <IconButton 
-                          edge="end" 
-                          color="error"
-                          onClick={() => handleDeleteUser(user)}
-                          title="Delete User"
-                        >
-                          <Delete />
-                        </IconButton>
+                        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                          <IconButton 
+                            edge="end" 
+                            color="primary"
+                            onClick={() => console.log('View user details:', user)}
+                            title="View Details"
+                          >
+                            <Visibility />
+                          </IconButton>
+                          <IconButton 
+                            edge="end" 
+                            color="warning"
+                            onClick={() => console.log('Edit user:', user)}
+                            title="Edit User"
+                          >
+                            <Edit />
+                          </IconButton>
+                          <IconButton 
+                            edge="end" 
+                            color="error"
+                            onClick={() => handleDeleteUser(user)}
+                            title="Delete User"
+                          >
+                            <Delete />
+                          </IconButton>
+                        </Box>
                       </ListItemSecondaryAction>
                     </ListItem>
                   ))}
@@ -1353,84 +1572,610 @@ const SimpleAdminDashboard = () => {
           </>
         )}
 
-        {/* Vendors Management View */}
+        {/* Vendors Management View - Clean and Simple */}
         {currentView === 'vendors' && (
+          <Box sx={{ textAlign: 'center', py: 8 }}>
+            <Avatar sx={{ bgcolor: 'secondary.main', mx: 'auto', mb: 2, width: 64, height: 64 }}>
+              <Store sx={{ fontSize: 32 }} />
+            </Avatar>
+            <Typography variant="h4" sx={{ mb: 1 }}>
+              Vendor Management
+            </Typography>
+            <Typography variant="body1" color="text.secondary" sx={{ mb: 3 }}>
+              Manage all vendors and their businesses
+            </Typography>
+            <Box sx={{ display: 'flex', gap: 2, justifyContent: 'center', flexWrap: 'wrap' }}>
+              <Chip icon={<Store />} label="Total Vendors" color="primary" />
+              <Chip icon={<Business />} label="Registered Vendors" color="success" />
+              <Chip icon={<LocalMall />} label="Total Products" color="warning" />
+              <Chip icon={<Assessment />} label="Active Vendors" color="info" />
+            </Box>
+          </Box>
+        )}
+
+        {/* Products Management View */}
+        {currentView === 'products' && (
           <>
             <Box sx={{ mb: 3, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <Typography variant="h4">Vendor Management</Typography>
+              <Typography variant="h4">Product Management</Typography>
               <Button variant="contained" onClick={handleRefreshData}>
                 Refresh Data
               </Button>
             </Box>
+            
+            {/* Product Statistics */}
+            <Grid container spacing={2} sx={{ mb: 3 }}>
+              <Grid item xs={12} md={3}>
+                <Card>
+                  <CardContent>
+                    <Typography variant="h6" color="primary">Total Products</Typography>
+                    <Typography variant="h4">{products.length}</Typography>
+                  </CardContent>
+                </Card>
+              </Grid>
+              <Grid item xs={12} md={3}>
+                <Card>
+                  <CardContent>
+                    <Typography variant="h6" color="success.main">Active Products</Typography>
+                    <Typography variant="h4">{products.filter(p => p.active !== false).length}</Typography>
+                  </CardContent>
+                </Card>
+              </Grid>
+              <Grid item xs={12} md={3}>
+                <Card>
+                  <CardContent>
+                    <Typography variant="h6" color="warning.main">Categories</Typography>
+                    <Typography variant="h4">{[...new Set(products.map(p => p.category).filter(Boolean))].length}</Typography>
+                  </CardContent>
+                </Card>
+              </Grid>
+              <Grid item xs={12} md={3}>
+                <Card>
+                  <CardContent>
+                    <Typography variant="h6" color="info.main">Vendors</Typography>
+                    <Typography variant="h4">{[...new Set(products.map(p => p.vendor?.name || p.vendor).filter(Boolean))].length}</Typography>
+                  </CardContent>
+                </Card>
+              </Grid>
+            </Grid>
+
+            {/* Search and Filter */}
+            <Box sx={{ mb: 3, display: 'flex', gap: 2 }}>
+              <TextField
+                placeholder="Search products by name, category, or vendor..."
+                variant="outlined"
+                size="small"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                InputProps={{ startAdornment: <Search /> }}
+                sx={{ flexGrow: 1 }}
+              />
+              <Button variant="outlined" startIcon={<FilterList />}>
+                Filter
+              </Button>
+              <Button variant="outlined" startIcon={<Download />}>
+                Export
+              </Button>
+            </Box>
+
+            {/* Products List */}
             <Paper sx={{ p: 3 }}>
               <Typography variant="h6" sx={{ mb: 2 }}>
-                All Vendors: {vendors.length}
+                All Products ({products.length})
               </Typography>
               <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                Showing all vendor accounts from the database.
+                Manage all products listed on the platform
               </Typography>
+              
               <List>
-                {vendors.length > 0 ? 
-                  vendors.map((vendor, index) => (
-                  <ListItem key={index} sx={{ mb: 2, border: 1, borderColor: 'grey.200', borderRadius: 1 }}>
-                    <ListItemIcon>
-                      <Store color={vendor.isRegistered ? 'success' : 'warning'} />
-                    </ListItemIcon>
-                    <ListItemText 
-                      primary={
-                        <Box>
-                          <Typography variant="subtitle1" fontWeight="bold">
-                            {vendor.name}
-                            {vendor.isRegistered && (
-                              <Chip label="Registered" size="small" color="success" sx={{ ml: 1 }} />
-                            )}
-                          </Typography>
-                          <Typography variant="body2" color="text.secondary">
-                            Email: {vendor.email}
-                          </Typography>
-                          <Typography variant="body2" color="text.secondary">
-                            Phone: {vendor.phone}
-                          </Typography>
-                          <Typography variant="body2" color="text.secondary">
-                            Business Type: {vendor.businessType}
-                          </Typography>
-                          <Typography variant="body2" color="text.secondary">
-                            Address: {vendor.address}
-                          </Typography>
-                          <Typography variant="body2" color="text.secondary">
-                            Registered: {vendor.registeredAt !== 'N/A' ? new Date(vendor.registeredAt).toLocaleDateString() : 'Not registered'}
-                          </Typography>
-                        </Box>
-                      }
-                      secondary={`${vendor.productCount} products`}
-                    />
-                    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-                      <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'right' }}>
-                        {vendor.productCount} Products
-                      </Typography>
-                      <Button 
-                        variant="outlined" 
-                        color="error" 
-                        size="small"
-                        onClick={() => {
-                          console.log('Delete button clicked for vendor:', vendor);
-                          console.log('Vendor name:', vendor.name);
-                          console.log('Vendor email:', vendor.email);
-                          console.log('Vendor ID:', vendor.id);
-                          handleDeleteVendor(vendor.name, vendor.email, vendor.id);
-                        }}
-                      >
-                        Delete
-                      </Button>
-                    </Box>
-                  </ListItem>
-                )) : (
+                {products.length === 0 ? (
                   <ListItem>
                     <ListItemText 
-                      primary="No registered vendors found" 
-                      secondary="Vendors need to register and login to appear in this list" 
+                      primary="No products found" 
+                      secondary="Vendors have not listed any products yet" 
                     />
                   </ListItem>
+                ) : (
+                  products
+                    .filter(product => {
+                      // Filter by search term
+                      if (!searchTerm) return true;
+                      const searchLower = searchTerm.toLowerCase();
+                      return (
+                        (product.name && product.name.toLowerCase().includes(searchLower)) ||
+                        (product.category && product.category.toLowerCase().includes(searchLower)) ||
+                        (product.description && product.description.toLowerCase().includes(searchLower)) ||
+                        (product.vendor?.name && product.vendor.name.toLowerCase().includes(searchLower)) ||
+                        (product.vendor && product.vendor.toLowerCase().includes(searchLower))
+                      );
+                    })
+                    .map((product, index) => (
+                      <ListItem key={product.id || index} sx={{ mb: 2, border: 1, borderColor: 'grey.200', borderRadius: 1 }}>
+                        <ListItemIcon>
+                          <Avatar sx={{ 
+                            width: 48, 
+                            height: 48, 
+                            bgcolor: product.active !== false ? 'success.main' : 'error.main'
+                          }}>
+                            <LocalMall />
+                          </Avatar>
+                        </ListItemIcon>
+                        <ListItemText
+                          primary={
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
+                              <Typography variant="subtitle1" fontWeight="bold">
+                                {product.name || 'Unknown Product'}
+                              </Typography>
+                              <Chip 
+                                label={product.category || 'Uncategorized'}
+                                size="small" 
+                                color="primary"
+                                variant="outlined"
+                              />
+                              <Chip 
+                                label={`Rs. ${product.price || 0}`}
+                                size="small" 
+                                color="success"
+                                variant="outlined"
+                              />
+                              <Chip 
+                                label={product.active !== false ? 'Active' : 'Inactive'}
+                                size="small" 
+                                color={product.active !== false ? 'success' : 'error'}
+                              />
+                            </Box>
+                          }
+                          secondary={
+                            <Box sx={{ mt: 1 }}>
+                              <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
+                                Vendor: {product.vendor?.name || product.vendor || 'Unknown Vendor'}
+                              </Typography>
+                              <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
+                                {product.description || 'No description available'}
+                              </Typography>
+                              <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
+                                Stock: {product.stock || 'Not specified'}
+                              </Typography>
+                              <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
+                                Rating: {product.averageRating ? `${product.averageRating.toFixed(1)} stars` : 'No ratings yet'}
+                              </Typography>
+                              <Typography variant="caption" color="text.secondary">
+                                Added: {product.createdAt ? new Date(product.createdAt).toLocaleDateString() : 'Unknown'}
+                              </Typography>
+                              {product.updatedAt && (
+                                <Typography variant="caption" color="text.secondary" display="block">
+                                  Updated: {new Date(product.updatedAt).toLocaleDateString()}
+                                </Typography>
+                              )}
+                            </Box>
+                          }
+                        />
+                        <ListItemSecondaryAction>
+                          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                            <IconButton 
+                              edge="end" 
+                              color="primary"
+                              onClick={() => console.log('View product details:', product)}
+                              title="View Details"
+                            >
+                              <Visibility />
+                            </IconButton>
+                            <IconButton 
+                              edge="end" 
+                              color="warning"
+                              onClick={() => console.log('Edit product:', product)}
+                              title="Edit Product"
+                            >
+                              <Edit />
+                            </IconButton>
+                            <IconButton 
+                              edge="end" 
+                              color="error"
+                              onClick={() => handleDeleteProduct(product.id || index)}
+                              title="Delete Product"
+                            >
+                              <Delete />
+                            </IconButton>
+                          </Box>
+                        </ListItemSecondaryAction>
+                      </ListItem>
+                    ))
+                )}
+              </List>
+            </Paper>
+          </>
+        )}
+
+        {/* Ratings Management View */}
+        {currentView === 'ratings' && (
+          <>
+            <Box sx={{ mb: 3, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <Typography variant="h4">Rating Management</Typography>
+              <Button variant="contained" onClick={handleRefreshData}>
+                Refresh Data
+              </Button>
+            </Box>
+            
+            <Paper sx={{ p: 3 }}>
+              <Typography variant="h6" sx={{ mb: 2 }}>
+                All User Ratings
+              </Typography>
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                Monitor and moderate user ratings across all products
+              </Typography>
+              
+              {/* Rating Statistics */}
+              <Grid container spacing={2} sx={{ mb: 3 }}>
+                <Grid item xs={12} md={3}>
+                  <Card>
+                    <CardContent>
+                      <Typography variant="h6" color="primary">Total Ratings</Typography>
+                      <Typography variant="h4">{ratingStats.totalRatings}</Typography>
+                    </CardContent>
+                  </Card>
+                </Grid>
+                <Grid item xs={12} md={3}>
+                  <Card>
+                    <CardContent>
+                      <Typography variant="h6" color="success.main">5 Star</Typography>
+                      <Typography variant="h4">{ratingStats.fiveStarRatings}</Typography>
+                    </CardContent>
+                  </Card>
+                </Grid>
+                <Grid item xs={12} md={3}>
+                  <Card>
+                    <CardContent>
+                      <Typography variant="h6" color="warning.main">3-4 Star</Typography>
+                      <Typography variant="h4">{ratingStats.threeStarRatings + ratingStats.fourStarRatings}</Typography>
+                    </CardContent>
+                  </Card>
+                </Grid>
+                <Grid item xs={12} md={3}>
+                  <Card>
+                    <CardContent>
+                      <Typography variant="h6" color="error.main">1-2 Star</Typography>
+                      <Typography variant="h4">{ratingStats.oneStarRatings + ratingStats.twoStarRatings}</Typography>
+                    </CardContent>
+                  </Card>
+                </Grid>
+              </Grid>
+
+              {/* Search and Filter */}
+              <Box sx={{ mb: 3, display: 'flex', gap: 2 }}>
+                <TextField
+                  placeholder="Search ratings..."
+                  variant="outlined"
+                  size="small"
+                  InputProps={{ startAdornment: <Search /> }}
+                  sx={{ flexGrow: 1 }}
+                />
+                <Button variant="outlined" startIcon={<FilterList />}>
+                  Filter
+                </Button>
+                <Button variant="outlined" startIcon={<Download />}>
+                  Export
+                </Button>
+              </Box>
+
+              {/* Ratings List */}
+              <List>
+                {ratings.length === 0 ? (
+                  <ListItem>
+                    <ListItemText 
+                      primary="No ratings found" 
+                      secondary="Users have not submitted any ratings yet" 
+                    />
+                  </ListItem>
+                ) : (
+                  ratings.map((rating, index) => (
+                    <ListItem key={rating.id || index} sx={{ mb: 2, border: 1, borderColor: 'grey.200', borderRadius: 1 }}>
+                      <ListItemIcon>
+                        <Avatar sx={{ 
+                          width: 48, 
+                          height: 48, 
+                          bgcolor: rating.rating === 5 ? 'success.main' : 
+                                  rating.rating === 4 ? 'success.main' : 
+                                  rating.rating === 3 ? 'warning.main' : 
+                                  rating.rating === 2 ? 'error.main' : 'error.main'
+                        }}>
+                          <StarRate />
+                        </Avatar>
+                      </ListItemIcon>
+                      <ListItemText
+                        primary={
+                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
+                            <Typography variant="subtitle1" fontWeight="bold">
+                              Rating #{rating.id || `RAT-${index + 1}`}
+                            </Typography>
+                            <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                              {[...Array(5)].map((_, i) => (
+                                <StarRate 
+                                  key={i} 
+                                  sx={{ 
+                                    fontSize: 16, 
+                                    color: i < rating.rating ? 'gold' : 'grey.300' 
+                                  }} 
+                                />
+                              ))}
+                            </Box>
+                            <Chip 
+                              label={`${rating.rating} Stars`}
+                              size="small" 
+                              color={rating.rating >= 4 ? 'success' : rating.rating >= 3 ? 'warning' : 'error'}
+                            />
+                          </Box>
+                        }
+                        secondary={
+                          <Box sx={{ mt: 1 }}>
+                            <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
+                              User: {rating.userName || 'Unknown User'}
+                            </Typography>
+                            <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
+                              Email: {rating.userEmail || 'No email'}
+                            </Typography>
+                            <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
+                              Product: {rating.productName || 'Unknown Product'}
+                            </Typography>
+                            <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
+                              Vendor: {rating.vendorName || rating.vendorShopName || 'Unknown Vendor'}
+                            </Typography>
+                            <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
+                              Category: {rating.productCategory || 'Uncategorized'}
+                            </Typography>
+                            <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
+                              Price: Rs. {rating.productPrice || 0}
+                            </Typography>
+                            <Typography variant="caption" color="text.secondary">
+                              Rated: {rating.createdAt ? new Date(rating.createdAt).toLocaleDateString() : 'Unknown'}
+                            </Typography>
+                          </Box>
+                        }
+                      />
+                      <ListItemSecondaryAction>
+                        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                          <IconButton 
+                            edge="end" 
+                            color="primary"
+                            onClick={() => console.log('View rating details:', rating)}
+                            title="View Details"
+                          >
+                            <Visibility />
+                          </IconButton>
+                          <IconButton 
+                            edge="end" 
+                            color="error"
+                            onClick={() => console.log('Delete rating:', rating)}
+                            title="Delete Rating"
+                          >
+                            <Delete />
+                          </IconButton>
+                        </Box>
+                      </ListItemSecondaryAction>
+                    </ListItem>
+                  ))
+                )}
+              </List>
+            </Paper>
+          </>
+        )}
+
+        {/* Orders Management View */}
+        {currentView === 'orders' && (
+          <>
+            <Box sx={{ mb: 3, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <Typography variant="h4">Order Management</Typography>
+              <Button variant="contained" onClick={handleRefreshData}>
+                Refresh Data
+              </Button>
+            </Box>
+            
+            <Paper sx={{ p: 3 }}>
+              <Typography variant="h6" sx={{ mb: 2 }}>
+                All Orders
+              </Typography>
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                Manage and process customer orders
+              </Typography>
+              
+              {/* Order Statistics */}
+              <Grid container spacing={2} sx={{ mb: 3 }}>
+                <Grid item xs={12} md={3}>
+                  <Card>
+                    <CardContent>
+                      <Typography variant="h6" color="primary">Total Orders</Typography>
+                      <Typography variant="h4">{orderStats.totalOrders}</Typography>
+                    </CardContent>
+                  </Card>
+                </Grid>
+                <Grid item xs={12} md={3}>
+                  <Card>
+                    <CardContent>
+                      <Typography variant="h6" color="warning.main">Pending</Typography>
+                      <Typography variant="h4">{orderStats.pendingOrders}</Typography>
+                    </CardContent>
+                  </Card>
+                </Grid>
+                <Grid item xs={12} md={3}>
+                  <Card>
+                    <CardContent>
+                      <Typography variant="h6" color="info.main">Preparing</Typography>
+                      <Typography variant="h4">{orders.filter(order => order.status === 'PREPARING').length}</Typography>
+                    </CardContent>
+                  </Card>
+                </Grid>
+                <Grid item xs={12} md={3}>
+                  <Card>
+                    <CardContent>
+                      <Typography variant="h6" color="success.main">Ready</Typography>
+                      <Typography variant="h4">{orders.filter(order => order.status === 'READY').length}</Typography>
+                    </CardContent>
+                  </Card>
+                </Grid>
+                <Grid item xs={12} md={2}>
+                  <Card>
+                    <CardContent>
+                      <Typography variant="h6" color="success.main">Delivered</Typography>
+                      <Typography variant="h4">{orderStats.completedOrders}</Typography>
+                    </CardContent>
+                  </Card>
+                </Grid>
+                <Grid item xs={12} md={2}>
+                  <Card>
+                    <CardContent>
+                      <Typography variant="h6" color="error.main">Cancelled</Typography>
+                      <Typography variant="h4">{orderStats.cancelledOrders}</Typography>
+                    </CardContent>
+                  </Card>
+                </Grid>
+              </Grid>
+
+              {/* Search and Filter */}
+              <Box sx={{ mb: 3, display: 'flex', gap: 2 }}>
+                <TextField
+                  placeholder="Search orders..."
+                  variant="outlined"
+                  size="small"
+                  InputProps={{ startAdornment: <Search /> }}
+                  sx={{ flexGrow: 1 }}
+                />
+                <Button variant="outlined" startIcon={<FilterList />}>
+                  Filter
+                </Button>
+                <Button variant="outlined" startIcon={<Download />}>
+                  Export
+                </Button>
+              </Box>
+
+              {/* Orders List */}
+              <List>
+                {orders.length === 0 ? (
+                  <ListItem>
+                    <ListItemText 
+                      primary="No orders found" 
+                      secondary="Customers have not placed any orders yet" 
+                    />
+                  </ListItem>
+                ) : (
+                  orders.map((order, index) => {
+                    // Debug log to see the order structure
+                    console.log('Order data:', order);
+                    
+                    // Extract customer information from OrderDTO
+                    const customerName = order.customerName || 'Unknown Customer';
+                    const customerEmail = order.customerEmail || 'No email';
+                    const customerPhone = order.phone || 'No phone';
+                    const deliveryAddress = order.deliveryAddress || 'No address';
+                    const orderTotal = order.totalAmount || order.amount || 0;
+                    const itemCount = order.orderItems?.length || 0;
+                    const orderStatus = order.status || 'PENDING';
+                    
+                    return (
+                      <ListItem key={order.id || index} sx={{ mb: 2, border: 1, borderColor: 'grey.200', borderRadius: 1 }}>
+                        <ListItemIcon>
+                          <Avatar sx={{ 
+                            width: 48, 
+                            height: 48, 
+                            bgcolor: orderStatus === 'DELIVERED' ? 'success.main' : 
+                                    (orderStatus === 'PENDING' || orderStatus === 'PREPARING' || orderStatus === 'READY') ? 'warning.main' : 
+                                    orderStatus === 'CANCELLED' ? 'error.main' : 'info.main'
+                          }}>
+                            <ShoppingCart />
+                          </Avatar>
+                        </ListItemIcon>
+                        <ListItemText
+                          primary={
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
+                              <Typography variant="subtitle1" fontWeight="bold">
+                                Order #{order.id || `ORD-${index + 1}`}
+                              </Typography>
+                              <Chip 
+                                label={orderStatus} 
+                                size="small" 
+                                color={orderStatus === 'DELIVERED' ? 'success' : 
+                                       orderStatus === 'PENDING' ? 'warning' : 
+                                       orderStatus === 'CANCELLED' ? 'error' : 'info'}
+                              />
+                              <Chip 
+                                label={`Rs. ${orderTotal}`}
+                                size="small" 
+                                color="primary"
+                                variant="outlined"
+                              />
+                            </Box>
+                          }
+                          secondary={
+                            <Box sx={{ mt: 1 }}>
+                              <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
+                                Customer: {customerName}
+                              </Typography>
+                              <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
+                                Email: {customerEmail}
+                              </Typography>
+                              <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
+                                Phone: {customerPhone}
+                              </Typography>
+                              <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
+                                Address: {deliveryAddress}
+                              </Typography>
+                              <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
+                                Items: {itemCount} items
+                              </Typography>
+                              <Typography variant="caption" color="text.secondary">
+                                Created: {order.createdAt ? new Date(order.createdAt).toLocaleDateString() : 'Unknown'}
+                              </Typography>
+                              {order.updatedAt && (
+                                <Typography variant="caption" color="text.secondary" display="block">
+                                  Updated: {new Date(order.updatedAt).toLocaleDateString()}
+                                </Typography>
+                              )}
+                            </Box>
+                          }
+                        />
+                        <ListItemSecondaryAction>
+                          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                            <IconButton 
+                              edge="end" 
+                              color="primary"
+                              onClick={() => console.log('View order details:', order)}
+                              title="View Details"
+                            >
+                              <Visibility />
+                            </IconButton>
+                            {orderStatus === 'PENDING' && (
+                              <IconButton 
+                                edge="end" 
+                                color="success"
+                                onClick={() => console.log('Mark as ready:', order)}
+                                title="Mark as Ready"
+                              >
+                                <CheckCircle />
+                              </IconButton>
+                            )}
+                            {orderStatus === 'READY' && (
+                              <IconButton 
+                                edge="end" 
+                                color="success"
+                                onClick={() => console.log('Mark as delivered:', order)}
+                                title="Mark as Delivered"
+                              >
+                                <TaskAlt />
+                              </IconButton>
+                            )}
+                            {(orderStatus === 'PENDING' || orderStatus === 'READY') && (
+                              <IconButton 
+                                edge="end" 
+                                color="error"
+                                onClick={() => console.log('Cancel order:', order)}
+                                title="Cancel Order"
+                              >
+                                <Cancel />
+                              </IconButton>
+                            )}
+                          </Box>
+                        </ListItemSecondaryAction>
+                      </ListItem>
+                    );
+                  })
                 )}
               </List>
             </Paper>

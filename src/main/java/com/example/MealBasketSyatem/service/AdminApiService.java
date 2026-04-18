@@ -1,10 +1,16 @@
 package com.example.MealBasketSyatem.service;
 
 import com.example.MealBasketSyatem.dto.AccountDTO;
+import com.example.MealBasketSyatem.dto.OrderDTO;
+import com.example.MealBasketSyatem.dto.RatingDTO;
 import com.example.MealBasketSyatem.entity.Admin;
+import com.example.MealBasketSyatem.entity.Order;
+import com.example.MealBasketSyatem.entity.Rating;
 import com.example.MealBasketSyatem.entity.User;
 import com.example.MealBasketSyatem.entity.Vendor;
 import com.example.MealBasketSyatem.repo.AdminRepo;
+import com.example.MealBasketSyatem.repo.OrderRepo;
+import com.example.MealBasketSyatem.repo.RatingRepo;
 import com.example.MealBasketSyatem.repo.UserRepo;
 import com.example.MealBasketSyatem.repo.VendorRepo;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -24,6 +30,12 @@ public class AdminApiService {
 
     @Autowired
     private AdminRepo adminRepo;
+
+    @Autowired
+    private OrderRepo orderRepo;
+
+    @Autowired
+    private RatingRepo ratingRepo;
 
     public List<AccountDTO> getAllAccounts() {
         List<AccountDTO> results = new ArrayList<>();
@@ -74,5 +86,17 @@ public class AdminApiService {
             results.add(new AccountDTO(u.getId(), u.getName(), u.getEmail(), "USER"));
         }
         return results;
+    }
+
+    // Get all orders for admin dashboard
+    public List<OrderDTO> getAllOrders() {
+        List<Order> orders = orderRepo.findAll();
+        return orders.stream().map(OrderDTO::new).toList();
+    }
+
+    // Get all ratings for admin dashboard
+    public List<RatingDTO> getAllRatings() {
+        List<Rating> ratings = ratingRepo.findAll();
+        return ratings.stream().map(RatingDTO::new).toList();
     }
 }

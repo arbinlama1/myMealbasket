@@ -1,11 +1,7 @@
 package com.example.MealBasketSyatem.dto;
 
 import com.example.MealBasketSyatem.entity.Order;
-import com.example.MealBasketSyatem.entity.User;
-import com.example.MealBasketSyatem.entity.Vendor;
-import com.example.MealBasketSyatem.entity.Product;
 import com.example.MealBasketSyatem.entity.OrderItem;
-
 import java.time.LocalDateTime;
 import java.util.List;
 

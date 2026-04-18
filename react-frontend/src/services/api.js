@@ -248,6 +248,8 @@ export const performanceAPI = {
 export const contactAPI = {
   sendMessage: (message) => api.post('/contact/message', message),
   getAllMessages: () => api.get('/contact/messages'),
+  markAsRead: (messageId) => api.put(`/contact/messages/${messageId}/read`),
+  deleteMessage: (messageId) => api.delete(`/contact/messages/${messageId}`),
 };
 
 // Database Test APIs

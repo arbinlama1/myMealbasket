@@ -105,10 +105,26 @@ export default function ShoppingListGeneratorPanel({
     if (!requestMessage.trim()) return;
     setRequestLoading(true);
     try {
+      // Get user info from localStorage
+      const token = localStorage.getItem('token');
+      let userEmail = '';
+      let userName = '';
+      if (token) {
+        try {
+          const payload = JSON.parse(atob(token.split('.')[1]));
+          userEmail = payload.sub || payload.email || '';
+          userName = payload.name || payload.username || userEmail;
+        } catch (e) {
+          console.error('Failed to decode token:', e);
+        }
+      }
+      
       await contactAPI.sendMessage({
         subject: 'Product Request - Missing Ingredients',
         message: requestMessage,
-        type: 'product_request'
+        type: 'product_request',
+        email: userEmail,
+        name: userName
       });
       setRequestSent(true);
       setTimeout(() => {

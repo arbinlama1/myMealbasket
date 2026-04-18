@@ -720,6 +720,13 @@ const [selectedPaymentMethod, setSelectedPaymentMethod] = useState('COD');
     setAppliedCouponCode(null);
     setCouponDiscountAmount(0);
     setCouponFinalTotal(null);
+
+    // Clear backend cart
+    try {
+      await cartAPI.clearCart();
+    } catch (e) {
+      console.error('Failed to clear backend cart:', e);
+    }
     
     // Refresh user stats
     try {

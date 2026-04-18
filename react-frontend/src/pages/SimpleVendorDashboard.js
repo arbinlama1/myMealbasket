@@ -16,7 +16,7 @@ import {
   Logout, Add, Edit, Delete, CheckCircle,
   Store, Menu as MenuIcon, Close as CloseIcon,
   Inventory, LocalOffer, BarChart, Dashboard, Warning, Refresh,
-  MenuBook, Save, Message as MessageIcon,
+  MenuBook, Save, Message as MessageIcon, Delete as DeleteIcon,
 } from '@mui/icons-material';
 
 // ── Stat Card ─────────────────────────────────────────────────────────────────
@@ -120,6 +120,14 @@ const SimpleVendorDashboard = () => {
       refreshOrders();
     }
   }, [currentView, vendorData?.id]);
+
+  // Fetch messages on dashboard load to show count in sidebar
+  useEffect(() => {
+    refreshMessages();
+    // Refresh messages every 30 seconds to keep count updated
+    const interval = setInterval(refreshMessages, 30000);
+    return () => clearInterval(interval);
+  }, []);
 
   // Auto-refresh messages when Messages view is selected
   useEffect(() => {
@@ -1566,8 +1574,39 @@ const SimpleVendorDashboard = () => {
                     <List>
                       {messages.map((msg, idx) => (
                         <React.Fragment key={msg.id || idx}>
-                          <ListItem sx={{ py: 2, px: 3 }}>
-                            <Box sx={{ flexGrow: 1 }}>
+                          <ListItem 
+                            sx={{ 
+                              py: 2, 
+                              px: 3,
+                              '&:hover .delete-btn': {
+                                opacity: 1,
+                              }
+                            }}
+                            secondaryAction={
+                              <IconButton 
+                                edge="end" 
+                                aria-label="delete"
+                                className="delete-btn"
+                                sx={{ opacity: 0.3, transition: 'opacity 0.2s' }}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  if (window.confirm('Delete this message?')) {
+                                    contactAPI.deleteMessage(msg.id)
+                                      .then(() => {
+                                        setMessages(prev => prev.filter(m => m.id !== msg.id));
+                                      })
+                                      .catch(err => {
+                                        console.error('Failed to delete:', err);
+                                        alert('Failed to delete message');
+                                      });
+                                  }
+                                }}
+                              >
+                                <DeleteIcon color="error" />
+                              </IconButton>
+                            }
+                          >
+                            <Box sx={{ flexGrow: 1, pr: 4 }}>
                               <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
                                 <Typography variant="subtitle1" fontWeight={600}>
                                   {msg.subject || 'Product Request'}
@@ -1580,7 +1619,7 @@ const SimpleVendorDashboard = () => {
                                 From: {msg.name || msg.email || 'Anonymous Customer'}
                               </Typography>
                               <Typography variant="body1" sx={{ whiteSpace: 'pre-wrap' }}>
-                                {msg.message}
+                                {msg.content || msg.message}
                               </Typography>
                             </Box>
                           </ListItem>

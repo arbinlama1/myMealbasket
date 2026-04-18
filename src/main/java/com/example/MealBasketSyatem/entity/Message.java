@@ -16,6 +16,7 @@ public class Message {
     private String name;
     private String email;
     private String content;
+    private boolean read = false;
 
     public long getId() {
         return id;
@@ -47,5 +48,13 @@ public class Message {
 
     public void setContent(String content) {
         this.content = content;
+    }
+
+    public boolean isRead() {
+        return read;
+    }
+
+    public void setRead(boolean read) {
+        this.read = read;
     }
 }

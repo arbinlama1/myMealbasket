@@ -150,6 +150,7 @@ export const userAPI = {
 // Vendor APIs
 export const vendorAPI = {
   getProfile: (vendorId) => api.get(`/vendor/${vendorId}`),
+  updateVendor: (vendorId, vendorData) => api.put(`/vendor/${vendorId}`, vendorData),
   getProducts: (vendorId) => api.get(`/vendor/${vendorId}/products`),
   createProduct: (vendorId, product) => api.post(`/vendor/${vendorId}/products`, product),
   updateProduct: (vendorId, productId, product) => api.put(`/vendor/${vendorId}/products/${productId}`, product),

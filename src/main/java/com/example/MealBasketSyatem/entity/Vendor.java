@@ -46,6 +46,9 @@ public class Vendor {
     @Column(name="created_at")
     private LocalDateTime createdAt;
 
+    @Column(name="monthly_revenue_goal")
+    private Double monthlyRevenueGoal = 15000.0;
+
     @OneToMany(mappedBy = "vendor", cascade = CascadeType.ALL)
     @JsonIgnore
     private List<Product> products;
@@ -96,6 +99,9 @@ public class Vendor {
 
     public List<Product> getProducts() { return products; }
     public void setProducts(List<Product> products) { this.products = products; }
+
+    public Double getMonthlyRevenueGoal() { return monthlyRevenueGoal; }
+    public void setMonthlyRevenueGoal(Double monthlyRevenueGoal) { this.monthlyRevenueGoal = monthlyRevenueGoal; }
 
     @Override
     public String toString() {

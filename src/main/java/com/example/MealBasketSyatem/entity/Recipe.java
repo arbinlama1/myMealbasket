@@ -26,16 +26,17 @@ public class Recipe {
     @Column(nullable = false)
     private Integer cookingTime; // in minutes
 
-    @Column(columnDefinition = "JSON")
+    @Column(columnDefinition = "TEXT")
     private String nutritionalValue; // JSON string for nutritional info
 
-    @Column(nullable = false)
+    @Column(nullable = true)
     private Boolean isActive = true;
 
     @Column(nullable = false)
     private LocalDateTime createdAt;
 
-    @Column(nullable = false)
+    @Column(nullable = true)
+    @org.hibernate.annotations.ColumnDefault("CURRENT_TIMESTAMP")
     private LocalDateTime updatedAt;
 
     @ManyToOne(fetch = FetchType.LAZY)
@@ -125,7 +126,7 @@ public class Recipe {
     }
 
     public Boolean getIsActive() {
-        return isActive;
+        return isActive != null ? isActive : true;
     }
 
     public void setIsActive(Boolean isActive) {
@@ -142,7 +143,7 @@ public class Recipe {
     }
 
     public LocalDateTime getUpdatedAt() {
-        return updatedAt;
+        return updatedAt != null ? updatedAt : createdAt;
     }
 
     public void setUpdatedAt(LocalDateTime updatedAt) {

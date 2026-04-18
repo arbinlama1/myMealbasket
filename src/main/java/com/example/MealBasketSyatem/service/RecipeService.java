@@ -5,6 +5,7 @@ import com.example.MealBasketSyatem.entity.RecipeCategory;
 import com.example.MealBasketSyatem.entity.Vendor;
 import com.example.MealBasketSyatem.repository.RecipeRepository;
 import com.example.MealBasketSyatem.repo.VendorRepo;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -23,6 +24,8 @@ public class RecipeService {
 
     @Autowired
     private VendorRepo vendorRepository;
+    
+    private final ObjectMapper objectMapper = new ObjectMapper();
 
     // Get all recipes for a vendor
     public List<Recipe> getVendorRecipes(Long vendorId) {
@@ -66,24 +69,17 @@ public class RecipeService {
                 }
             }
 
-            // Set ingredients (convert list to string)
+            // Set ingredients (store as proper JSON array for frontend compatibility)
             Object ingredientsObj = recipeData.get("ingredients");
             if (ingredientsObj instanceof List) {
-                @SuppressWarnings("unchecked")
-                List<Map<String, Object>> ingredientsList = (List<Map<String, Object>>) ingredientsObj;
-                StringBuilder ingredientsStr = new StringBuilder();
-                for (Map<String, Object> ingredient : ingredientsList) {
-                    if (ingredientsStr.length() > 0) {
-                        ingredientsStr.append(", ");
-                    }
-                    ingredientsStr.append(ingredient.get("name"))
-                                  .append(" (")
-                                  .append(ingredient.get("quantity"))
-                                  .append(" ")
-                                  .append(ingredient.get("unit"))
-                                  .append(")");
+                try {
+                    // Store as proper JSON string so frontend can parse it back to array
+                    String ingredientsJson = objectMapper.writeValueAsString(ingredientsObj);
+                    recipe.setIngredients(ingredientsJson);
+                } catch (Exception e) {
+                    // Fallback to string representation if JSON serialization fails
+                    recipe.setIngredients(ingredientsObj.toString());
                 }
-                recipe.setIngredients(ingredientsStr.toString());
             } else if (ingredientsObj instanceof String) {
                 recipe.setIngredients((String) ingredientsObj);
             }
@@ -151,21 +147,14 @@ public class RecipeService {
             if (recipeData.containsKey("ingredients")) {
                 Object ingredientsObj = recipeData.get("ingredients");
                 if (ingredientsObj instanceof List) {
-                    @SuppressWarnings("unchecked")
-                    List<Map<String, Object>> ingredientsList = (List<Map<String, Object>>) ingredientsObj;
-                    StringBuilder ingredientsStr = new StringBuilder();
-                    for (Map<String, Object> ingredient : ingredientsList) {
-                        if (ingredientsStr.length() > 0) {
-                            ingredientsStr.append(", ");
-                        }
-                        ingredientsStr.append(ingredient.get("name"))
-                                      .append(" (")
-                                      .append(ingredient.get("quantity"))
-                                      .append(" ")
-                                      .append(ingredient.get("unit"))
-                                      .append(")");
+                    try {
+                        // Store as proper JSON string so frontend can parse it back to array
+                        String ingredientsJson = objectMapper.writeValueAsString(ingredientsObj);
+                        recipe.setIngredients(ingredientsJson);
+                    } catch (Exception e) {
+                        // Fallback to string representation if JSON serialization fails
+                        recipe.setIngredients(ingredientsObj.toString());
                     }
-                    recipe.setIngredients(ingredientsStr.toString());
                 } else if (ingredientsObj instanceof String) {
                     recipe.setIngredients((String) ingredientsObj);
                 }

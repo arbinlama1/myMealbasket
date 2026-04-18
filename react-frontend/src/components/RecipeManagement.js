@@ -1,17 +1,16 @@
 import React, { useState, useEffect } from 'react';
 import {
   Box, Grid, Typography, Paper, Button, Card, CardContent,
-  TextField, FormControl, InputLabel, Select, MenuItem, Avatar,
-  Chip, IconButton, Dialog, DialogTitle, DialogContent, DialogActions,
-  Alert, Snackbar
+  TextField, FormControl, InputLabel, Select, MenuItem,
+  Chip, Alert, Snackbar
 } from '@mui/material';
 import {
-  MenuBook, Add, Edit, Delete, Search, Timer, LocalFireDepartment, Restaurant
+  MenuBook, Add, Edit, Delete, Search, Timer, Restaurant
 } from '@mui/icons-material';
 import RecipeDialog from './RecipeDialog';
 import { recipeAPI } from '../services/api';
 
-const RecipeManagement = ({ recipes, setRecipes, onRecipesUpdate }) => {
+const RecipeManagement = ({ recipes, setRecipes, onRecipesUpdate, vendorData }) => {
   // Enable API calls now that backend endpoints are implemented
   const USE_API = true; // Set to false to use mock data for testing
   const [openRecipeDialog, setOpenRecipeDialog] = useState(false);
@@ -59,13 +58,31 @@ const RecipeManagement = ({ recipes, setRecipes, onRecipesUpdate }) => {
       if (USE_API) {
         console.log('Fetching recipes from API');
         try {
-          const response = await recipeAPI.getVendorRecipes(8); // Using vendor ID 8 for demo
+          const vendorId = vendorData?.id || 8;
+          const response = await recipeAPI.getVendorRecipes(vendorId);
           
           if (response.data) {
             const raw = response.data;
             const list = Array.isArray(raw) ? raw : (Array.isArray(raw?.data) ? raw.data : []);
-            setRecipes(list);
-            console.log('Recipes loaded successfully from API:', list);
+            
+            // Parse ingredients from JSON string to array for each recipe
+            const parsedList = list.map(recipe => {
+              if (recipe.ingredients && typeof recipe.ingredients === 'string') {
+                try {
+                  // Try to parse as JSON
+                  const parsed = JSON.parse(recipe.ingredients);
+                  return { ...recipe, ingredients: Array.isArray(parsed) ? parsed : [] };
+                } catch (e) {
+                  // If not valid JSON, return empty array
+                  console.warn('Failed to parse ingredients for recipe:', recipe.name, e);
+                  return { ...recipe, ingredients: [] };
+                }
+              }
+              return recipe;
+            });
+            
+            setRecipes(parsedList);
+            console.log('Recipes loaded successfully from API:', parsedList);
             return;
           } else {
             throw new Error('Failed to fetch recipes');
@@ -175,6 +192,13 @@ const RecipeManagement = ({ recipes, setRecipes, onRecipesUpdate }) => {
     }
   };
 
+  // Fetch recipes when component mounts or vendorData changes
+  useEffect(() => {
+    if (vendorData?.id) {
+      fetchRecipes();
+    }
+  }, [vendorData?.id]);
+
   const saveRecipe = async () => {
     setLoading(true);
     setError('');
@@ -204,7 +228,7 @@ const RecipeManagement = ({ recipes, setRecipes, onRecipesUpdate }) => {
         category: recipeFormData.category || 'MAIN_COURSE',
         cookingInstructions: recipeFormData.cookingInstructions?.trim(),
         cookingTime: parseInt(recipeFormData.cookingTime) || 30,
-        vendorId: 8, // Using vendor ID 8 for demo
+        vendorId: vendorData?.id || 8, // Use actual vendor ID from props
         ingredients: validIngredients.map(ing => ({
           name: ing.name?.trim(),
           quantity: ing.quantity?.trim(),
@@ -250,10 +274,11 @@ const RecipeManagement = ({ recipes, setRecipes, onRecipesUpdate }) => {
           }
 
           let response;
+          const vendorId = vendorData?.id || 8;
           if (editingRecipe) {
             response = await recipeAPI.update(editingRecipe.id, recipeData);
           } else {
-            response = await recipeAPI.create(recipeData);
+            response = await recipeAPI.create(vendorId, recipeData);
           }
 
           const ok =

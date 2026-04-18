@@ -78,7 +78,7 @@ const StatusChip = ({ status }) => {
 };
 
 // Backend endpoints for recipes/promotions are now implemented.
-const RECIPES_API_AVAILABLE = false;
+const RECIPES_API_AVAILABLE = true;
 const PROMOTIONS_API_AVAILABLE = true;
 
 // ── Main Component ────────────────────────────────────────────────────────────
@@ -87,7 +87,7 @@ const SimpleVendorDashboard = () => {
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
 
   const [vendorData, setVendorData] = useState({
-    id: 1, name: 'Vendor One', email: 'vendor1@test.com',
+    id: null, name: '', email: '',
     rating: 0.0, totalRatings: 0, totalOrders: 0, revenue: 0.0,
   });
   const [loading, setLoading] = useState(true);
@@ -104,6 +104,11 @@ const SimpleVendorDashboard = () => {
   const [orders, setOrders] = useState([]);
   const [ordersLoading, setOrdersLoading] = useState(false);
   const [ordersError, setOrdersError] = useState('');
+
+  // Monthly Revenue Goal State
+  const [monthlyRevenueGoal, setMonthlyRevenueGoal] = useState(15000);
+  const [editGoalDialogOpen, setEditGoalDialogOpen] = useState(false);
+  const [tempRevenueGoal, setTempRevenueGoal] = useState(15000);
 
   // Auto-refresh orders when Orders view is selected
   useEffect(() => {
@@ -152,16 +157,48 @@ const SimpleVendorDashboard = () => {
     }
   };
 
+  // Revenue Goal Management Functions
+  const handleOpenEditGoal = () => {
+    setTempRevenueGoal(monthlyRevenueGoal);
+    setEditGoalDialogOpen(true);
+  };
+
+  const handleCloseEditGoal = () => {
+    setEditGoalDialogOpen(false);
+  };
+
+  const handleSaveRevenueGoal = async () => {
+    if (tempRevenueGoal > 0 && vendorData?.id) {
+      try {
+        // Save to backend
+        const response = await vendorAPI.updateVendor(vendorData.id, {
+          monthlyRevenueGoal: tempRevenueGoal
+        });
+        
+        if (response.data?.success) {
+          setMonthlyRevenueGoal(tempRevenueGoal);
+          setEditGoalDialogOpen(false);
+          console.log('Revenue goal saved to backend:', tempRevenueGoal);
+        } else {
+          alert('Failed to save revenue goal: ' + (response.data?.message || 'Unknown error'));
+        }
+      } catch (error) {
+        console.error('Error saving revenue goal:', error);
+        alert('Failed to save revenue goal. Please try again.');
+      }
+    }
+  };
+
   // Recipe Management Functions
-  const fetchRecipes = async () => {
+  const fetchRecipes = async (vendorId) => {
     if (!RECIPES_API_AVAILABLE) {
       setRecipes([]);
       return;
     }
 
     try {
-      console.log('Fetching recipes from API...');
-      const response = await fetch(`http://localhost:8081/api/recipes/vendor/8`);
+      console.log('Fetching recipes from API for vendor:', vendorId);
+      const response = await fetch(`http://localhost:8081/api/recipes/vendor/${vendorId}`);
       const data = await response.json();
       console.log('Recipes fetched:', data);
       const list = Array.isArray(data) ? data : (Array.isArray(data?.data) ? data.data : []);
@@ -238,6 +275,16 @@ const SimpleVendorDashboard = () => {
           
           setVendorData(userProfile);
           
+          // Load full vendor profile to get monthlyRevenueGoal
+          try {
+            const vendorProfileResponse = await vendorAPI.getProfile(userProfile.id);
+            if (vendorProfileResponse.data?.success && vendorProfileResponse.data?.data?.monthlyRevenueGoal) {
+              setMonthlyRevenueGoal(vendorProfileResponse.data.data.monthlyRevenueGoal);
+            }
+          } catch (goalErr) {
+            console.log('Could not load revenue goal from backend, using default:', goalErr);
+          }
+          
           // Load vendor products
           try {
             const productsResponse = await vendorAPI.getProducts(userProfile.id);
@@ -250,9 +297,9 @@ const SimpleVendorDashboard = () => {
 
           // Load vendor orders (fetch all orders for this vendor)
          try {
-  console.log('Fetching orders for vendor ID:', vendorData.id);
+  console.log('Fetching orders for vendor ID:', userProfile.id);
 
-  const ordersResponse = await vendorAPI.getOrders(vendorData.id);
+  const ordersResponse = await vendorAPI.getOrders(userProfile.id);
 
   console.log('Orders response:', ordersResponse);
 
@@ -287,7 +334,7 @@ const SimpleVendorDashboard = () => {
 
           if (RECIPES_API_AVAILABLE) {
             try {
-              await fetchRecipes();
+              await fetchRecipes(userProfile.id);
             } catch (recipeErr) {
               console.error('Failed to load vendor recipes:', recipeErr);
             }
@@ -727,9 +774,13 @@ const SimpleVendorDashboard = () => {
             <Typography variant="h6" fontWeight={700} sx={{ flexGrow: 1 }}>
               {navItems.find(n => n.view === currentView)?.label || 'Dashboard'}
             </Typography>
-            <Badge badgeContent={pendingOrders} color="error">
+            {pendingOrders > 0 ? (
+              <Badge badgeContent={pendingOrders} color="error">
+                <IconButton onClick={() => switchView('orders')}><ShoppingCart /></IconButton>
+              </Badge>
+            ) : (
               <IconButton onClick={() => switchView('orders')}><ShoppingCart /></IconButton>
-            </Badge>
+            )}
           </Paper>
         )}
 
@@ -815,12 +866,22 @@ const SimpleVendorDashboard = () => {
 
               {/* Revenue Progress */}
               <Paper sx={{ p: 3, mb: 3 }}>
-                <Typography variant="h6" fontWeight={700} gutterBottom>Monthly Revenue Goal</Typography>
-                <Box sx={{ mb: 1, display: 'flex', justifyContent: 'space-between' }}>
-                  <Typography variant="body2" color="text.secondary">NPR {totalRevenue.toFixed(0)} / NPR 15,000</Typography>
-                  <Typography variant="body2" color="primary.main" fontWeight={600}>{Math.min(100, Math.round(totalRevenue / 150))}%</Typography>
+                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
+                  <Typography variant="h6" fontWeight={700}>Monthly Revenue Goal</Typography>
+                  <Button
+                    size="small"
+                    startIcon={<Edit />}
+                    onClick={handleOpenEditGoal}
+                    sx={{ minWidth: 'auto' }}
+                  >
+                    Edit
+                  </Button>
                 </Box>
-                <LinearProgress variant="determinate" value={Math.min(100, totalRevenue / 150)} sx={{ height: 8, borderRadius: 4 }} />
+                <Box sx={{ mb: 1, display: 'flex', justifyContent: 'space-between' }}>
+                  <Typography variant="body2" color="text.secondary">NPR {totalRevenue.toFixed(0)} / NPR {monthlyRevenueGoal.toLocaleString()}</Typography>
+                  <Typography variant="body2" color="primary.main" fontWeight={600}>{Math.min(100, Math.round((totalRevenue / monthlyRevenueGoal) * 100))}%</Typography>
+                </Box>
+                <LinearProgress variant="determinate" value={Math.min(100, (totalRevenue / monthlyRevenueGoal) * 100)} sx={{ height: 8, borderRadius: 4 }} />
               </Paper>
 
               {/* Vendor Profile Summary */}
@@ -1069,7 +1130,7 @@ const SimpleVendorDashboard = () => {
           )}
 
           {/* Recipe VIEW */}
-          {currentView === 'recipes' && <RecipeManagement recipes={recipes} setRecipes={setRecipes} />}
+          {currentView === 'recipes' && <RecipeManagement recipes={recipes} setRecipes={setRecipes} vendorData={vendorData} />}
 
           {/* ════════════════ ANALYTICS VIEW ════════════════ */}
           {currentView === 'analytics' && (
@@ -1583,6 +1644,35 @@ const SimpleVendorDashboard = () => {
         <DialogActions sx={{ p: 2 }}>
           <Button onClick={() => setPromotionDialogOpen(false)}>Cancel</Button>
           <Button variant="contained" onClick={handleCreatePromotion}>Create Promotion</Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* ════════════════ EDIT REVENUE GOAL DIALOG ════════════════ */}
+      <Dialog open={editGoalDialogOpen} onClose={handleCloseEditGoal} maxWidth="sm" fullWidth>
+        <DialogTitle sx={{ fontWeight: 700 }}>Edit Monthly Revenue Goal</DialogTitle>
+        <DialogContent sx={{ pt: 2 }}>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+            Set your monthly revenue target. This helps track your progress and motivation.
+          </Typography>
+          <TextField
+            fullWidth
+            label="Revenue Goal (NPR)"
+            type="number"
+            value={tempRevenueGoal}
+            onChange={e => setTempRevenueGoal(parseInt(e.target.value) || 0)}
+            inputProps={{ min: 1000, step: 1000 }}
+            helperText="Minimum: NPR 1,000"
+          />
+        </DialogContent>
+        <DialogActions sx={{ p: 2 }}>
+          <Button onClick={handleCloseEditGoal}>Cancel</Button>
+          <Button 
+            variant="contained" 
+            onClick={handleSaveRevenueGoal}
+            disabled={tempRevenueGoal < 1000}
+          >
+            Save Goal
+          </Button>
         </DialogActions>
       </Dialog>
 

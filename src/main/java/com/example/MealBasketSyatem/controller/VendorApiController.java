@@ -77,6 +77,9 @@ public class VendorApiController {
             if (vendorData.getAddress() != null) {
                 vendor.setAddress(vendorData.getAddress());
             }
+            if (vendorData.getMonthlyRevenueGoal() != null) {
+                vendor.setMonthlyRevenueGoal(vendorData.getMonthlyRevenueGoal());
+            }
             
             Vendor updatedVendor = vendorService.registerVendor(vendor);
             return ResponseEntity.ok(ApiResponse.success("Vendor updated successfully", updatedVendor));

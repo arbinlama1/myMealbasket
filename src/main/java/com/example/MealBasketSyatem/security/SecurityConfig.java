@@ -80,6 +80,7 @@ public class SecurityConfig {
                 .requestMatchers("/api/stock-alerts/**").permitAll() // Temporarily public for testing
                 .requestMatchers("/api/system-performance/**").permitAll() // Temporarily public for testing
                 .requestMatchers("/api/vendor/**").permitAll() // Vendor endpoints - temporarily public for testing
+                .requestMatchers("/api/recipes/**").permitAll() // Recipe endpoints - temporarily public for testing
                 .requestMatchers("/api/promotions/active").permitAll()
                 .requestMatchers("/api/promotions/apply").permitAll()
                 .requestMatchers("/api/promotions/expiring-soon").permitAll()

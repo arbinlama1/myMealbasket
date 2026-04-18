@@ -26,9 +26,13 @@ public class RecipeApiController {
     @GetMapping("/vendor/{vendorId}")
     public ResponseEntity<ApiResponse<List<Recipe>>> getVendorRecipes(@PathVariable Long vendorId) {
         try {
+            System.out.println("Fetching recipes for vendor ID: " + vendorId);
             List<Recipe> recipes = recipeService.getVendorRecipes(vendorId);
+            System.out.println("Found " + recipes.size() + " recipes for vendor " + vendorId);
             return ResponseEntity.ok(ApiResponse.success("Recipes retrieved successfully", recipes));
         } catch (Exception e) {
+            System.err.println("Error fetching recipes for vendor " + vendorId + ": " + e.getMessage());
+            e.printStackTrace();
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(ApiResponse.error("Failed to retrieve recipes: " + e.getMessage()));
         }

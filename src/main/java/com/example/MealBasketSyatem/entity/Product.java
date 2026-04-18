@@ -12,6 +12,7 @@ import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.OneToMany;
 import jakarta.persistence.Table;
+import jakarta.persistence.Transient;
 
 @Entity
 @Table(name="products")
@@ -35,6 +36,12 @@ public class Product {
 
 	@Column(name="category", length=100)
 	private String category;
+
+	@Column(name="stock", nullable=false, columnDefinition="int default 0")
+	private int stock = 0;
+
+	@Transient
+	private Integer orderCount;
 
 	@ManyToOne
 	@JoinColumn(name = "vendor_id", nullable=false)
@@ -62,6 +69,12 @@ public class Product {
 
 	public String getCategory() { return category; }
 	public void setCategory(String category) { this.category = category; }
+
+	public int getStock() { return stock; }
+	public void setStock(int stock) { this.stock = stock; }
+
+	public Integer getOrderCount() { return orderCount; }
+	public void setOrderCount(Integer orderCount) { this.orderCount = orderCount; }
 
 	public Vendor getVendor() { return vendor; }
 	public void setVendor(Vendor vendor) { this.vendor = vendor; }

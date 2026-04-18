@@ -402,13 +402,17 @@ const SimpleVendorDashboard = () => {
     const product = products.find(p => p.id === productId);
     if (!product) return;
     try {
+      const currentStock = product.stock || 0;
+      const newStock = currentStock === 0 ? 10 : 0; // Toggle between 0 (out of stock) and 10 (in stock)
+      
       const updatedProduct = await vendorAPI.updateProduct(vendorData.id, productId, { 
         ...product, 
-        inStock: !product.inStock 
+        stock: newStock 
       });
       setProducts(prev => prev.map(p => p.id === productId ? updatedProduct.data.data : p));
+      alert(`Stock updated: ${product.name} is now ${newStock === 0 ? 'Out of Stock' : 'In Stock (10 units)'}`);
     } catch (err) {
-      alert(`Failed to update: ${err.message}`);
+      alert(`Failed to update stock: ${err.message}`);
     }
   };
 

@@ -5,6 +5,7 @@ import com.example.MealBasketSyatem.dto.ProductDTO;
 import com.example.MealBasketSyatem.entity.Order;
 import com.example.MealBasketSyatem.entity.Product;
 import com.example.MealBasketSyatem.entity.Vendor;
+import com.example.MealBasketSyatem.repo.OrderItemRepo;
 import com.example.MealBasketSyatem.service.OrderService;
 import com.example.MealBasketSyatem.service.VendorService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -31,6 +32,9 @@ public class VendorApiController {
 
     @Autowired
     private OrderService orderService;
+
+    @Autowired
+    private OrderItemRepo orderItemRepo;
 
     // Get vendor by ID
     @GetMapping("/{id}")
@@ -87,6 +91,13 @@ public class VendorApiController {
     public ResponseEntity<ApiResponse<List<Product>>> getVendorProducts(@PathVariable Long vendorId) {
         try {
             List<Product> products = vendorService.getProducts(vendorId);
+            
+            // Calculate order count for each product
+            for (Product product : products) {
+                Long orderCount = orderItemRepo.countOrdersByProductId(product.getId());
+                product.setOrderCount(orderCount != null ? orderCount.intValue() : 0);
+            }
+            
             return ResponseEntity.ok(ApiResponse.success("Vendor products retrieved successfully", products));
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
@@ -141,6 +152,7 @@ public class VendorApiController {
             product.setDescription(productDTO.getDescription());
             product.setImage(productDTO.getImage());
             product.setCategory(productDTO.getCategory());
+            product.setStock(productDTO.getStock());
             product.setVendor(vendor);
             
             Product savedProduct = vendorService.addProduct(product);
@@ -168,8 +180,13 @@ public class VendorApiController {
                     .orElseThrow(() -> new RuntimeException("Vendor not found"));
             product.setVendor(vendor);
             product.setId(productId);
-            vendorService.addProduct(product); // This will update the product
-            return ResponseEntity.ok(ApiResponse.success("Product updated successfully", product));
+            Product updatedProduct = vendorService.addProduct(product); // This will update the product
+            
+            // Calculate and set order count
+            Long orderCount = orderItemRepo.countOrdersByProductId(updatedProduct.getId());
+            updatedProduct.setOrderCount(orderCount != null ? orderCount.intValue() : 0);
+            
+            return ResponseEntity.ok(ApiResponse.success("Product updated successfully", updatedProduct));
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(ApiResponse.error("Failed to update product: " + e.getMessage()));

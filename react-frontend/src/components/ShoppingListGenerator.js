@@ -47,7 +47,9 @@ export default function ShoppingListGeneratorPanel({
     try {
       const response = await shoppingListAPI.generate(ids);
       const body = response.data;
-      const list = Array.isArray(body?.data) ? body.data : [];
+      // Backend returns { items: [...], totalItems: N, recipeCount: M }
+      const data = body?.data || {};
+      const list = Array.isArray(data.items) ? data.items : [];
       if (body && body.success === false) {
         setError(body.message || 'Could not generate list');
         setItems([]);

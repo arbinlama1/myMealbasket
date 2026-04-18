@@ -85,6 +85,7 @@ public class SecurityConfig {
                 .requestMatchers("/api/promotions/apply").permitAll()
                 .requestMatchers("/api/promotions/expiring-soon").permitAll()
                 .requestMatchers("/api/promotions/**").permitAll() // Allow all promotion endpoints for CORS preflight
+                .requestMatchers("/api/shopping-list/**").permitAll() // Allow shopping list endpoints for CORS preflight
                 .requestMatchers("/api/db-test/**").permitAll() // Database test endpoints
                 .requestMatchers("/api/test/**").permitAll() // Test endpoints
                 .requestMatchers("/api/setup/**").permitAll() // Setup endpoints

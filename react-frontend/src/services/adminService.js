@@ -122,6 +122,68 @@ class AdminService {
     }
   }
 
+  // Get all orders from backend
+  async getAllOrders() {
+    try {
+      console.log('AdminService: Fetching all orders from backend...');
+      const response = await fetch(`${this.baseURL}/orders`, {
+        method: 'GET',
+        headers: this.getAuthHeaders()
+      });
+
+      if (!response.ok) {
+        let bodyText = '';
+        try {
+          bodyText = await response.text();
+        } catch (e) {
+          bodyText = '';
+        }
+        const msg = `HTTP ${response.status} ${response.statusText}${bodyText ? ` - ${bodyText}` : ''}`;
+        const err = new Error(msg);
+        err.status = response.status;
+        throw err;
+      }
+
+      const data = await response.json();
+      console.log('AdminService: Successfully fetched orders:', data);
+      return data;
+    } catch (error) {
+      console.error('AdminService: Error fetching orders:', error);
+      throw error;
+    }
+  }
+
+  // Get all ratings from backend
+  async getAllRatings() {
+    try {
+      console.log('AdminService: Fetching all ratings from backend...');
+      const response = await fetch(`${this.baseURL}/ratings`, {
+        method: 'GET',
+        headers: this.getAuthHeaders()
+      });
+
+      if (!response.ok) {
+        let bodyText = '';
+        try {
+          bodyText = await response.text();
+        } catch (e) {
+          bodyText = '';
+        }
+        const msg = `HTTP ${response.status} ${response.statusText}${bodyText ? ` - ${bodyText}` : ''}`;
+        const err = new Error(msg);
+        err.status = response.status;
+        throw err;
+      }
+
+      const data = await response.json();
+      console.log('AdminService: Successfully fetched ratings:', data);
+      return data;
+    } catch (error) {
+      console.error('AdminService: Error fetching ratings:', error);
+      throw error;
+    }
+  }
+
   // Delete a user
   async deleteUser(userId) {
     try {

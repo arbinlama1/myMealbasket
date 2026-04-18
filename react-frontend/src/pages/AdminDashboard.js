@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Container,
   Paper,
@@ -6,63 +6,86 @@ import {
   Box,
   Grid,
   Card,
+  CardContent,
   Button,
+  List,
+  ListItem,
   ListItemText,
   ListItemIcon,
   Alert,
   CircularProgress,
+  LinearProgress,
+  Chip,
+  AppBar,
+  Toolbar,
   IconButton,
   Menu,
   MenuItem,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  TextField,
   Table,
   TableBody,
   TableCell,
   TableContainer,
   TableHead,
   TableRow,
-  Chip,
-  Snackbar,
-  AppBar,
-  Toolbar,
+  Tabs,
+  Tab,
 } from '@mui/material';
 import {
   Person,
+  ShoppingCart,
+  Restaurant,
   Assessment,
   Store,
   Add,
   Edit,
   Delete,
+  Visibility,
   CheckCircle,
+  Pending,
   Cancel,
+  ArrowBack,
   Home,
   AccountCircle,
   AdminPanelSettings,
-  Logout,
   People,
-  Business
+  Business,
+  Logout,
 } from '@mui/icons-material';
 
 const AdminDashboard = () => {
-  const [loading] = useState(true);
+  const [loading, setLoading] = useState(true);
   const [currentView, setCurrentView] = useState('dashboard');
+  const [activeTab, setActiveTab] = useState(0);
   const [anchorEl, setAnchorEl] = useState(null);
-
+  
   // Users management
   const [users, setUsers] = useState([
     { id: 1, name: 'John Doe', email: 'user@test.com', role: 'user', status: 'active', joinDate: '2024-01-15', lastLogin: '2024-02-14' },
     { id: 2, name: 'Jane Smith', email: 'user2@test.com', role: 'user', status: 'active', joinDate: '2024-01-20', lastLogin: '2024-02-13' },
   ]);
-
+  
   // Vendors management
   const [vendors, setVendors] = useState([
     { id: 1, name: 'Vendor One', email: 'vendor1@test.com', status: 'active', joinDate: '2024-01-10', products: 3, revenue: 1250.50 },
     { id: 2, name: 'Vendor Two', email: 'vendor2@test.com', status: 'active', joinDate: '2024-01-12', products: 2, revenue: 890.25 },
     { id: 3, name: 'Vendor Three', email: 'vendor3@test.com', status: 'pending', joinDate: '2024-02-01', products: 0, revenue: 0 },
   ]);
+  
+  // Dialog states
+  const [userDialogOpen, setUserDialogOpen] = useState(false);
+  const [vendorDialogOpen, setVendorDialogOpen] = useState(false);
+  const [selectedUser, setSelectedUser] = useState(null);
+  const [selectedVendor, setSelectedVendor] = useState(null);
 
-  const [toastOpen, setToastOpen] = useState(false);
-  const [toastMessage, setToastMessage] = useState('');
-  const [toastSeverity, setToastSeverity] = useState('success');
+  // Tab change handler
+  const handleTabChange = (event, newValue) => {
+    setActiveTab(newValue);
+  };
 
   // User management functions
   const handleAddUser = () => {
@@ -80,7 +103,7 @@ const AdminDashboard = () => {
         lastLogin: new Date().toISOString().split('T')[0]
       };
       setUsers([...users, newUser]);
-      setToastMessage(`User "${name}" added successfully!`); setToastSeverity('success'); setToastOpen(true);
+      alert(`User "${name}" added successfully!`);
     }
   };
 
@@ -97,7 +120,7 @@ const AdminDashboard = () => {
           ? { ...u, name: newName, email: newEmail }
           : u
       ));
-      setToastMessage(`User "${newName}" updated successfully!`); setToastSeverity('success'); setToastOpen(true);
+      alert(`User "${newName}" updated successfully!`);
     }
   };
 
@@ -105,10 +128,9 @@ const AdminDashboard = () => {
     const user = users.find(u => u.id === userId);
     if (!user) return;
     
-    // eslint-disable-next-line no-restricted-globals
     if (confirm(`Are you sure you want to delete user "${user.name}"?`)) {
       setUsers(users.filter(u => u.id !== userId));
-      setToastMessage(`User "${user.name}" deleted successfully!`); setToastSeverity('success'); setToastOpen(true);
+      alert(`User "${user.name}" deleted successfully!`);
     }
   };
 
@@ -122,7 +144,7 @@ const AdminDashboard = () => {
         ? { ...u, status: newStatus }
         : u
     ));
-    setToastMessage(`User "${user.name}" is now ${newStatus}!`); setToastSeverity('success'); setToastOpen(true);
+    alert(`User "${user.name}" is now ${newStatus}!`);
   };
 
   // Vendor management functions
@@ -141,7 +163,7 @@ const AdminDashboard = () => {
         revenue: 0
       };
       setVendors([...vendors, newVendor]);
-      setToastMessage(`Vendor "${name}" added successfully! Status: Pending Approval`); setToastSeverity('success'); setToastOpen(true);
+      alert(`Vendor "${name}" added successfully! Status: Pending Approval`);
     }
   };
 
@@ -158,7 +180,7 @@ const AdminDashboard = () => {
           ? { ...v, name: newName, email: newEmail }
           : v
       ));
-      setToastMessage(`Vendor "${newName}" updated successfully!`); setToastSeverity('success'); setToastOpen(true);
+      alert(`Vendor "${newName}" updated successfully!`);
     }
   };
 
@@ -166,7 +188,6 @@ const AdminDashboard = () => {
     const vendor = vendors.find(v => v.id === vendorId);
     if (!vendor) return;
     
-    // eslint-disable-next-line no-restricted-globals
     if (confirm(`Are you sure you want to delete vendor "${vendor.name}"? This will also delete all their products!`)) {
       // Delete vendor and their products
       setVendors(vendors.filter(v => v.id !== vendorId));
@@ -182,7 +203,7 @@ const AdminDashboard = () => {
         vendorId: vendorId
       }, '*');
       
-      setToastMessage(`Vendor "${vendor.name}" and all their products deleted successfully!`); setToastSeverity('success'); setToastOpen(true);
+      alert(`Vendor "${vendor.name}" and all their products deleted successfully!`);
     }
   };
 
@@ -198,7 +219,7 @@ const AdminDashboard = () => {
         ? { ...v, status: newStatus }
         : v
     ));
-    setToastMessage(`Vendor "${vendor.name}" is now ${newStatus}!`); setToastSeverity('success'); setToastOpen(true);
+    alert(`Vendor "${vendor.name}" is now ${newStatus}!`);
   };
 
   const handleMenuClose = () => {
@@ -206,7 +227,7 @@ const AdminDashboard = () => {
   };
 
   const handleLogout = () => {
-    setToastMessage('Admin logged out successfully!'); setToastSeverity('success'); setToastOpen(true);
+    alert('Admin logged out successfully!');
     // In real app, navigate to login
   };
 
@@ -445,17 +466,6 @@ const AdminDashboard = () => {
           </Paper>
         )}
       </Container>
-
-      <Snackbar
-        open={toastOpen}
-        autoHideDuration={2000}
-        onClose={() => setToastOpen(false)}
-        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
-      >
-        <Alert severity={toastSeverity} onClose={() => setToastOpen(false)}>
-          {toastMessage}
-        </Alert>
-      </Snackbar>
     </Box>
   );
 };

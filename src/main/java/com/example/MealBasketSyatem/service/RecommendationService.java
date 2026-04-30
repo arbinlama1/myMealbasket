@@ -32,6 +32,21 @@ public class RecommendationService {
     
     // Minimum rating threshold for recommendations
     private static final double MIN_RATING_THRESHOLD = 3.0;
+    
+    // Top N similar users to consider for prediction
+    private static final int TOP_SIMILAR_USERS = 5;
+    
+    // Minimum contributors required for reliable similarity score
+    private static final int MIN_CONTRIBUTORS = 2;
+    
+    // Minimum common items required to calculate similarity between users
+    private static final int MIN_COMMON_ITEMS = 3;
+    
+    // Enable user confidence weighting
+    private static final boolean ENABLE_USER_CONFIDENCE = true;
+    
+    // Cache for global average rating (performance optimization)
+    private Double cachedGlobalAverageRating = null;
 
     /**
      * Get top N recommended products for a given user
@@ -60,6 +75,11 @@ public class RecommendationService {
         // Get current user's ratings
         Map<Long, Double> currentUserRatings = userItemRatings.getOrDefault(userId, new HashMap<>());
         
+        // Edge case: User has no ratings - return popular items
+        if (currentUserRatings.isEmpty()) {
+            return getPopularItems(allProducts, improvedRatings, currentUserRatings, topN);
+        }
+        
         // Calculate similarity between current user and all other users
         Map<Long, Double> userSimilarities = calculateUserSimilarities(
             userId, 
@@ -68,8 +88,14 @@ public class RecommendationService {
             improvedRatings
         );
         
+        // Edge case: No similar users found - return popular items
+        boolean hasSimilarUsers = userSimilarities.values().stream().anyMatch(sim -> sim > 0);
+        if (!hasSimilarUsers) {
+            return getPopularItems(allProducts, improvedRatings, currentUserRatings, topN);
+        }
+        
         // Predict ratings for products not rated by current user
-        Map<Long, Double> predictedRatings = predictRatings(
+        Map<Long, Object[]> predictedData = predictRatings(
             userId,
             currentUserRatings,
             allProducts,
@@ -78,16 +104,94 @@ public class RecommendationService {
             improvedRatings
         );
         
+        // Edge case: No predictions generated - return popular items
+        if (predictedData.isEmpty()) {
+            return getPopularItems(allProducts, improvedRatings, currentUserRatings, topN);
+        }
+        
         // Apply business rules and filter
         List<RecommendationResult> recommendations = applyBusinessRules(
-            predictedRatings,
+            predictedData,
             allProducts,
             improvedRatings,
             currentUserRatings
         );
         
-        // Sort by predicted rating and return top N
+        // Edge case: No recommendations after filtering - return popular items
+        if (recommendations.isEmpty()) {
+            return getPopularItems(allProducts, improvedRatings, currentUserRatings, topN);
+        }
+        
+        // Sort by similarity score (highest first), then by predicted rating
         return recommendations.stream()
+            .sorted((r1, r2) -> {
+                // First sort by similarity score (nulls last)
+                if (r1.getSimilarityScore() == null && r2.getSimilarityScore() == null) {
+                    return Double.compare(r2.getPredictedRating(), r1.getPredictedRating());
+                }
+                if (r1.getSimilarityScore() == null) return 1; // r1 goes last
+                if (r2.getSimilarityScore() == null) return -1; // r2 goes last
+                int similarityCompare = Double.compare(r2.getSimilarityScore(), r1.getSimilarityScore());
+                if (similarityCompare != 0) return similarityCompare;
+                // If similarity is equal, sort by predicted rating
+                return Double.compare(r2.getPredictedRating(), r1.getPredictedRating());
+            })
+            .limit(topN)
+            .collect(Collectors.toList());
+    }
+    
+    /**
+     * Get popular items as fallback when collaborative filtering fails
+     * Returns top rated products with sufficient reviews
+     * 
+     * @param allProducts List of all products
+     * @param improvedRatings Map of improved ratings
+     * @param currentUserRatings Current user's ratings (to exclude already rated)
+     * @param topN Number of items to return
+     * @return List of popular recommendation results
+     */
+    private List<RecommendationResult> getPopularItems(
+            List<Product> allProducts,
+            Map<Long, Double> improvedRatings,
+            Map<Long, Double> currentUserRatings,
+            int topN) {
+        
+        List<RecommendationResult> results = new ArrayList<>();
+        
+        for (Product product : allProducts) {
+            Long productId = product.getId();
+            
+            // Skip products already rated by current user
+            if (currentUserRatings.containsKey(productId)) {
+                continue;
+            }
+            
+            Double improvedRating = improvedRatings.get(productId);
+            Integer reviewCount = product.getReviewCount();
+            
+            // Only recommend items with sufficient reviews and good ratings
+            if (improvedRating != null && 
+                improvedRating >= MIN_RATING_THRESHOLD && 
+                reviewCount != null && 
+                reviewCount >= MIN_RELIABLE_REVIEWS) {
+                
+                RecommendationResult result = new RecommendationResult();
+                result.setProductId(productId);
+                result.setProductName(product.getName());
+                result.setPredictedRating(improvedRating); // Use improved rating as predicted
+                result.setOriginalRating(improvedRating);
+                result.setReviewCount(reviewCount);
+                result.setCategory(product.getCategory());
+                result.setPrice(product.getPrice());
+                result.setImage(product.getImage());
+                result.setSimilarityScore(0.0); // No similarity for popular items
+                
+                results.add(result);
+            }
+        }
+        
+        // Sort by rating and return top N
+        return results.stream()
             .sorted((r1, r2) -> Double.compare(r2.getPredictedRating(), r1.getPredictedRating()))
             .limit(topN)
             .collect(Collectors.toList());
@@ -116,12 +220,17 @@ public class RecommendationService {
     }
 
     /**
-     * Calculate global average rating across all products
+     * Calculate global average rating across all products (with caching)
      * 
      * @param products List of all products
      * @return Global average rating
      */
     private double calculateGlobalAverageRating(List<Product> products) {
+        // Return cached value if available
+        if (cachedGlobalAverageRating != null) {
+            return cachedGlobalAverageRating;
+        }
+        
         double totalRating = 0;
         int totalProducts = 0;
         
@@ -132,7 +241,12 @@ public class RecommendationService {
             }
         }
         
-        return totalProducts > 0 ? totalRating / totalProducts : 0.0;
+        double average = totalProducts > 0 ? totalRating / totalProducts : 0.0;
+        
+        // Cache the result
+        cachedGlobalAverageRating = average;
+        
+        return average;
     }
 
     /**
@@ -200,7 +314,8 @@ public class RecommendationService {
             Set<Long> commonItems = new HashSet<>(targetUserRatings.keySet());
             commonItems.retainAll(otherUserRatings.keySet());
             
-            if (commonItems.isEmpty()) {
+            // Require minimum common items for reliable similarity
+            if (commonItems.size() < MIN_COMMON_ITEMS) {
                 similarities.put(otherUserId, 0.0);
                 continue;
             }
@@ -232,7 +347,7 @@ public class RecommendationService {
 
     /**
      * Predict ratings for products not rated by current user
-     * Ŕ(u,i) = Σ(Sim(u,v) * R'(v,i)) / Σ|Sim(u,v)|
+     * Ŕ(u,i) = Σ(Sim(u,v) * Confidence(v) * R'(v,i)) / Σ(|Sim(u,v)| * Confidence(v))
      * 
      * @param targetUserId Target user ID
      * @param currentUserRatings Current user's ratings
@@ -240,9 +355,9 @@ public class RecommendationService {
      * @param userSimilarities User similarity scores
      * @param userItemRatings User-item rating matrix
      * @param improvedRatings Map of improved ratings
-     * @return Map of productId -> predicted rating
+     * @return Map of productId -> [predicted rating, similarity score, contributing users]
      */
-    private Map<Long, Double> predictRatings(
+    private Map<Long, Object[]> predictRatings(
             Long targetUserId,
             Map<Long, Double> currentUserRatings,
             List<Product> allProducts,
@@ -250,7 +365,17 @@ public class RecommendationService {
             Map<Long, Map<Long, Double>> userItemRatings,
             Map<Long, Double> improvedRatings) {
         
-        Map<Long, Double> predictedRatings = new HashMap<>();
+        Map<Long, Object[]> predictedData = new HashMap<>();
+        
+        // Calculate user confidence (total ratings given by each user)
+        Map<Long, Integer> userConfidence = calculateUserConfidence(userItemRatings);
+        
+        // Filter to top N similar users
+        List<Map.Entry<Long, Double>> topSimilarUsers = userSimilarities.entrySet().stream()
+            .filter(entry -> entry.getValue() > 0) // Only positive similarity
+            .sorted((e1, e2) -> Double.compare(e2.getValue(), e1.getValue())) // Sort descending
+            .limit(TOP_SIMILAR_USERS)
+            .collect(Collectors.toList());
         
         for (Product product : allProducts) {
             Long productId = product.getId();
@@ -260,35 +385,85 @@ public class RecommendationService {
                 continue;
             }
             
-            // Calculate predicted rating
+            // Calculate predicted rating and track contributing similarities
             double numerator = 0.0;
             double denominator = 0.0;
+            double totalSimilarity = 0.0;
+            int contributorCount = 0;
+            List<SimilarUser> contributingUsers = new ArrayList<>();
             
-            for (Map.Entry<Long, Double> entry : userSimilarities.entrySet()) {
+            for (Map.Entry<Long, Double> entry : topSimilarUsers) {
                 Long otherUserId = entry.getKey();
                 Double similarity = entry.getValue();
                 
-                // Only consider similar users (similarity > 0)
-                if (similarity > 0) {
-                    Map<Long, Double> otherUserRatings = userItemRatings.getOrDefault(otherUserId, new HashMap<>());
+                Map<Long, Double> otherUserRatings = userItemRatings.getOrDefault(otherUserId, new HashMap<>());
+                
+                // Use improved rating if available
+                Double rating = otherUserRatings.get(productId);
+                if (rating != null) {
+                    Double improvedRating = improvedRatings.getOrDefault(productId, rating);
                     
-                    // Use improved rating if available
-                    Double rating = otherUserRatings.get(productId);
-                    if (rating != null) {
-                        Double improvedRating = improvedRatings.getOrDefault(productId, rating);
-                        numerator += similarity * improvedRating;
-                        denominator += Math.abs(similarity);
-                    }
+                    // Apply user confidence weighting if enabled
+                    double confidenceWeight = ENABLE_USER_CONFIDENCE 
+                        ? (userConfidence.getOrDefault(otherUserId, 1) / 10.0) // Normalize confidence
+                        : 1.0;
+                    
+                    numerator += similarity * confidenceWeight * improvedRating;
+                    denominator += Math.abs(similarity) * confidenceWeight;
+                    totalSimilarity += similarity;
+                    contributorCount++;
+                    
+                    // Track contributing user
+                    contributingUsers.add(new SimilarUser(
+                        otherUserId, 
+                        similarity, 
+                        userConfidence.getOrDefault(otherUserId, 1)
+                    ));
                 }
             }
             
             if (denominator > 0) {
                 double predictedRating = numerator / denominator;
-                predictedRatings.put(productId, predictedRating);
+                // Calculate average similarity score (0 to 1 scale)
+                // Only set similarity if we have enough contributors, otherwise set to null
+                Double avgSimilarity = (contributorCount >= MIN_CONTRIBUTORS) 
+                    ? (totalSimilarity / contributorCount) 
+                    : null;
+                
+                // Debug logging
+                if (contributorCount > 0 && (avgSimilarity == null || avgSimilarity > 0.9)) {
+                    System.out.println("DEBUG - Product " + productId + ": avgSimilarity=" + avgSimilarity + 
+                        ", contributorCount=" + contributorCount + ", totalSimilarity=" + totalSimilarity);
+                    for (SimilarUser su : contributingUsers) {
+                        System.out.println("  - User " + su.getUserId() + ": similarity=" + su.getSimilarity() + 
+                            ", confidence=" + su.getConfidence());
+                    }
+                }
+                
+                predictedData.put(productId, new Object[]{predictedRating, avgSimilarity, contributingUsers});
             }
         }
         
-        return predictedRatings;
+        return predictedData;
+    }
+    
+    /**
+     * Calculate user confidence based on total ratings given
+     * Confidence(u) = total ratings given by user
+     * 
+     * @param userItemRatings User-item rating matrix
+     * @return Map of userId -> confidence score
+     */
+    private Map<Long, Integer> calculateUserConfidence(Map<Long, Map<Long, Double>> userItemRatings) {
+        Map<Long, Integer> confidence = new HashMap<>();
+        
+        for (Map.Entry<Long, Map<Long, Double>> entry : userItemRatings.entrySet()) {
+            Long userId = entry.getKey();
+            int ratingCount = entry.getValue().size();
+            confidence.put(userId, ratingCount);
+        }
+        
+        return confidence;
     }
 
     /**
@@ -296,14 +471,14 @@ public class RecommendationService {
      * - Do not recommend items with rating < 3
      * - Reduce weight for items with very few reviews (<5)
      * 
-     * @param predictedRatings Map of predicted ratings
+     * @param predictedData Map of productId -> [predicted rating, similarity score, contributing users]
      * @param allProducts List of all products
      * @param improvedRatings Map of improved ratings
      * @param currentUserRatings Current user's ratings
      * @return List of recommendation results
      */
     private List<RecommendationResult> applyBusinessRules(
-            Map<Long, Double> predictedRatings,
+            Map<Long, Object[]> predictedData,
             List<Product> allProducts,
             Map<Long, Double> improvedRatings,
             Map<Long, Double> currentUserRatings) {
@@ -313,8 +488,8 @@ public class RecommendationService {
         for (Product product : allProducts) {
             Long productId = product.getId();
             
-            // Skip if no predicted rating
-            if (!predictedRatings.containsKey(productId)) {
+            // Skip if no predicted data
+            if (!predictedData.containsKey(productId)) {
                 continue;
             }
             
@@ -326,7 +501,11 @@ public class RecommendationService {
                 continue;
             }
             
-            Double predictedRating = predictedRatings.get(productId);
+            Object[] data = predictedData.get(productId);
+            Double predictedRating = (Double) data[0];
+            Double similarityScore = (Double) data[1];
+            @SuppressWarnings("unchecked")
+            List<SimilarUser> contributingUsers = (List<SimilarUser>) data[2];
             
             // Business rule: Reduce weight for items with very few reviews (<5)
             if (reviewCount != null && reviewCount < MIN_RELIABLE_REVIEWS) {
@@ -345,6 +524,8 @@ public class RecommendationService {
             result.setCategory(product.getCategory());
             result.setPrice(product.getPrice());
             result.setImage(product.getImage());
+            result.setSimilarityScore(similarityScore);
+            result.setContributingSimilarUsers(contributingUsers);
             
             results.add(result);
         }
@@ -364,6 +545,8 @@ public class RecommendationService {
         private String category;
         private Double price;
         private String image;
+        private Double similarityScore;
+        private List<SimilarUser> contributingSimilarUsers;
 
         // Getters and Setters
         public Long getProductId() {
@@ -428,6 +611,61 @@ public class RecommendationService {
 
         public void setImage(String image) {
             this.image = image;
+        }
+
+        public Double getSimilarityScore() {
+            return similarityScore;
+        }
+
+        public void setSimilarityScore(Double similarityScore) {
+            this.similarityScore = similarityScore;
+        }
+
+        public List<SimilarUser> getContributingSimilarUsers() {
+            return contributingSimilarUsers;
+        }
+
+        public void setContributingSimilarUsers(List<SimilarUser> contributingSimilarUsers) {
+            this.contributingSimilarUsers = contributingSimilarUsers;
+        }
+    }
+
+    /**
+     * Inner class to hold similar user information
+     */
+    public static class SimilarUser {
+        private Long userId;
+        private Double similarity;
+        private Integer confidence;
+
+        public SimilarUser(Long userId, Double similarity, Integer confidence) {
+            this.userId = userId;
+            this.similarity = similarity;
+            this.confidence = confidence;
+        }
+
+        public Long getUserId() {
+            return userId;
+        }
+
+        public void setUserId(Long userId) {
+            this.userId = userId;
+        }
+
+        public Double getSimilarity() {
+            return similarity;
+        }
+
+        public void setSimilarity(Double similarity) {
+            this.similarity = similarity;
+        }
+
+        public Integer getConfidence() {
+            return confidence;
+        }
+
+        public void setConfidence(Integer confidence) {
+            this.confidence = confidence;
         }
     }
 }

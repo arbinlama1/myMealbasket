@@ -1715,16 +1715,48 @@ const [selectedPaymentMethod, setSelectedPaymentMethod] = useState('COD');
                                 position: 'absolute',
                                 top: 8,
                                 right: 8,
-                                bgcolor: 'primary.main',
-                                color: 'white',
-                                px: 1.5,
-                                py: 0.5,
-                                borderRadius: 1,
-                                fontSize: '0.75rem',
-                                fontWeight: 700,
+                                display: 'flex',
+                                flexDirection: 'column',
+                                gap: 0.5,
+                                alignItems: 'flex-end',
                               }}
                             >
-                              {item.predictedRating?.toFixed(1)} ⭐
+                              <Box
+                                sx={{
+                                  bgcolor: 'primary.main',
+                                  color: 'white',
+                                  px: 1.5,
+                                  py: 0.5,
+                                  borderRadius: 1,
+                                  fontSize: '0.75rem',
+                                  fontWeight: 700,
+                                }}
+                              >
+                                {item.predictedRating?.toFixed(1)} ⭐
+                              </Box>
+                              {item.similarityScore != null && (
+                                <Box
+                                  sx={{
+                                    bgcolor: item.similarityScore >= 0.9 ? 'warning.main' : 'secondary.main',
+                                    color: 'white',
+                                    px: 1,
+                                    py: 0.3,
+                                    borderRadius: 1,
+                                    fontSize: '0.7rem',
+                                    fontWeight: 600,
+                                    cursor: 'help',
+                                  }}
+                                  title={
+                                    item.contributingSimilarUsers && item.contributingSimilarUsers.length > 0
+                                      ? `Similar users: ${item.contributingSimilarUsers.map(u => `User ${u.userId} (${Math.round(u.similarity * 100)}%)`).join(', ')}`
+                                      : `${Math.round(item.similarityScore * 100)}% match`
+                                  }
+                                >
+                                  {item.similarityScore >= 0.9 
+                                    ? 'High match' 
+                                    : `${Math.round(item.similarityScore * 100)}% match`}
+                                </Box>
+                              )}
                             </Box>
                           </Box>
                           <CardContent sx={{ flexGrow: 1 }}>
@@ -2662,6 +2694,7 @@ const [selectedPaymentMethod, setSelectedPaymentMethod] = useState('COD');
       <Dialog open={showProductDetail} onClose={() => setShowProductDetail(false)} maxWidth="md" fullWidth PaperProps={{ sx: { height: '80vh', maxHeight: '80vh' } }}>
         {selectedProductId && (() => {
           const product = vendorProducts.find(p => p.id === selectedProductId);
+          const recommendation = recommendations.find(r => r.productId === selectedProductId);
           if (!product) return null;
           return (
             <>
@@ -2688,6 +2721,14 @@ const [selectedPaymentMethod, setSelectedPaymentMethod] = useState('COD');
                           size="small"
                         />
                         <Typography variant="caption">({product.totalRatings || 0} ratings)</Typography>
+                        {recommendation?.similarityScore != null && (
+                          <Chip
+                            label={`${Math.round(recommendation.similarityScore * 100)}% match`}
+                            color={recommendation.similarityScore >= 0.9 ? 'warning' : 'secondary'}
+                            size="small"
+                            sx={{ ml: 1 }}
+                          />
+                        )}
                       </Box>
                       <Chip label={`NPR ${product.price}`} color="success" size="medium" sx={{ mb: 2, fontWeight: 700, fontSize: 16 }} />
                       {product.category && <Chip label={product.category} variant="outlined" size="small" sx={{ ml: 1, mb: 2 }} />}
@@ -2743,7 +2784,9 @@ const [selectedPaymentMethod, setSelectedPaymentMethod] = useState('COD');
 
                   {/* Reviews List */}
                   {reviews.length > 0 ? (
-                    reviews.map((review) => (
+                    reviews
+                      .filter(review => !myReview || review.id !== myReview.id) // Filter out current user's review
+                      .map((review) => (
                       <Paper key={review.id} sx={{ p: 2, mb: 1 }}>
                         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
                           <Typography variant="subtitle2" fontWeight={600}>
@@ -2753,11 +2796,6 @@ const [selectedPaymentMethod, setSelectedPaymentMethod] = useState('COD');
                             <Typography variant="caption" color="text.secondary">
                               {review.createdAt ? new Date(review.createdAt).toLocaleDateString() : ''}
                             </Typography>
-                            {myReview && review.id === myReview.id && (
-                              <Button size="small" color="error" onClick={handleDeleteReview}>
-                                Delete
-                              </Button>
-                            )}
                           </Box>
                         </Box>
                         <Rating value={review.rating || 0} readOnly size="small" />

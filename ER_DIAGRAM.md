@@ -204,21 +204,6 @@ erDiagram
         double predictionConfidence
     }
 
-    %% SystemPerformance Entity
-    SystemPerformance {
-        long id PK
-        string metricType
-        double metricValue
-        string metricUnit
-        datetime recordedTime
-        text description
-        double thresholdValue
-        string status
-        string entityType
-        long entityId
-    }
-
-
     %% Relationships
     User ||--o{ Order : "places"
     User ||--o{ Cart : "has"

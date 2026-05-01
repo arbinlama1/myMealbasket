@@ -119,7 +119,6 @@ erDiagram
         text review_text
         datetime created_at
         datetime updated_at
-        UNIQUE "user_id, product_id"
     }
 
     product_ratings {
@@ -129,7 +128,6 @@ erDiagram
         double rating "NOT NULL"
         datetime created_at
         datetime updated_at
-        UNIQUE "user_id, product_id"
     }
 
     payments {

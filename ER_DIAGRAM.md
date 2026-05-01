@@ -218,14 +218,6 @@ erDiagram
         long entityId
     }
 
-    %% Message Entity
-    Message {
-        long id PK
-        string name
-        string email
-        text content
-        boolean read
-    }
 
     %% Relationships
     User ||--o{ Order : "places"

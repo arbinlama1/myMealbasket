@@ -228,62 +228,62 @@ erDiagram
     }
 
     %% Relationships
-    User ||--o{ Order : places
-    User ||--o{ Cart : has
-    User ||--o{ Favorite : saves
-    User ||--o{ MealPlan : creates
-    User ||--o{ ProductReview : writes
-    User ||--o{ ProductRating : rates
-    User ||--o{ Payment : makes
+    User ||--o{ Order : "places"
+    User ||--o{ Cart : "has"
+    User ||--o{ Favorite : "saves"
+    User ||--o{ MealPlan : "creates"
+    User ||--o{ ProductReview : "writes"
+    User ||--o{ ProductRating : "rates"
+    User ||--o{ Payment : "makes"
 
-    Vendor ||--o{ Product : sells
-    Vendor ||--o{ Promotion : offers
-    Vendor ||--o{ Recipe : provides
-    Vendor ||--o{ StockAlert : receives
+    Vendor ||--o{ Product : "sells"
+    Vendor ||--o{ Promotion : "offers"
+    Vendor ||--o{ Recipe : "provides"
+    Vendor ||--o{ StockAlert : "receives"
 
-    Product }o--|| Vendor : belongs to
-    Product ||--o{ OrderItem : included in
-    Product ||--o{ Cart : added to
-    Product ||--o{ Favorite : favorited by
-    Product ||--o{ ProductReview : reviewed by
-    Product ||--o{ ProductRating : rated by
-    Product ||--o{ StockAlert : tracked for
-    Product ||--o{ Order : ordered (legacy)
-    Product }o--o{ MealPlan : part of
+    Product }o--|| Vendor : "belongs to"
+    Product ||--o{ OrderItem : "included in"
+    Product ||--o{ Cart : "added to"
+    Product ||--o{ Favorite : "favorited by"
+    Product ||--o{ ProductReview : "reviewed by"
+    Product ||--o{ ProductRating : "rated by"
+    Product ||--o{ StockAlert : "tracked for"
+    Product ||--o{ Order : "ordered"
+    Product }o--o{ MealPlan : "part of"
 
-    Order }o--|| User : placed by
-    Order }o--|| Vendor : fulfilled by
-    Order }o--|| Product : contains (legacy)
-    Order ||--o{ OrderItem : has
-    Order ||--o| Payment : has
+    Order }o--|| User : "placed by"
+    Order }o--|| Vendor : "fulfilled by"
+    Order }o--|| Product : "contains"
+    Order ||--o{ OrderItem : "has"
+    Order ||--o{ Payment : "has"
 
-    OrderItem }o--|| Order : belongs to
-    OrderItem }o--|| Product : references
+    OrderItem }o--|| Order : "belongs to"
+    OrderItem }o--|| Product : "references"
 
-    Cart }o--|| User : belongs to
-    Cart }o--|| Product : references
+    Cart }o--|| User : "belongs to"
+    Cart }o--|| Product : "references"
 
-    Favorite }o--|| User : belongs to
-    Favorite }o--|| Product : references
+    Favorite }o--|| User : "belongs to"
+    Favorite }o--|| Product : "references"
 
-    MealPlan }o--|| User : belongs to
-    MealPlan }o--o{ Product : includes
+    MealPlan }o--|| User : "belongs to"
+    MealPlan }o--o{ Product : "includes"
 
-    ProductReview }o--|| User : written by
-    ProductReview }o--|| Product : for
+    ProductReview }o--|| User : "written by"
+    ProductReview }o--|| Product : "for"
 
-    ProductRating }o--|| User : rated by
-    ProductRating }o--|| Product : for
+    ProductRating }o--|| User : "rated by"
+    ProductRating }o--|| Product : "for"
 
-    Payment }o--|| User : made by
-    Payment }o--|| Order : for
+    Payment }o--|| User : "made by"
+    Payment }o--|| Order : "for"
 
-    Promotion }o--|| Vendor : created by
+    Promotion }o--|| Vendor : "created by"
 
-    Recipe }o--|| Vendor : created by
+    Recipe }o--|| Vendor : "created by"
 
-    StockAlert }o--|| Vendor : for
-    StockAlert }o--|| Product : for
+    StockAlert }o--|| Vendor : "for"
+    StockAlert }o--|| Product : "for"
 ```
 
 ## Relationship Summary

@@ -194,14 +194,6 @@ erDiagram
         double prediction_confidence
     }
 
-    messages {
-        bigint id PK "AUTO_INCREMENT"
-        varchar name
-        varchar email
-        text content
-        boolean read "DEFAULT false"
-    }
-
     %% Relationships
     users ||--o{ orders : "places"
     users ||--o{ carts : "has"
